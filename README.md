@@ -2,59 +2,94 @@
 
 A Phase 0/1 scaffold for a wheat breeding data management platform.
 
-## Quick Start
+## Local development (recommended)
 
 1. Copy `.env.example` to `.env` and fill in secrets.
-   - For local development without Docker, keep `USE_SQLITE=True`.
-   - To use Postgres with Docker, set `USE_SQLITE=False` and keep `DATABASE_URL` pointed at `db`.
+   - For local development, keep `USE_SQLITE=True`.
+   - If you later want Docker/Postgres, set `USE_SQLITE=False`.
 
-2. Install Python dependencies in the backend virtual environment:
+2. Create and activate a Python virtual environment in `backend`:
 
-```bash
+```powershell
 cd backend
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-3. Run migrations locally:
+3. Install Python dependencies:
 
-```bash
-cd backend
-.\.venv\Scripts\python.exe manage.py makemigrations
-.\.venv\Scripts\python.exe manage.py migrate
+```powershell
+pip install -r requirements.txt
 ```
 
-4. Start the Django development server:
+4. Create database migrations and apply them:
 
-```bash
-cd backend
-.\.venv\Scripts\python.exe manage.py runserver
+```powershell
+python manage.py makemigrations
+python manage.py migrate
 ```
 
-5. Access the site at `http://localhost:8000`.
+5. Run the development server:
 
-## Docker/Postgres
+```powershell
+python manage.py runserver
+```
 
-To run the project with Docker and Postgres instead of SQLite:
+6. Open the app in your browser:
 
-```bash
+```text
+http://localhost:8000
+```
+
+## Docker / Postgres (optional)
+
+If you want to run the app with Postgres, install Docker Desktop and use the compose stack.
+
+1. Set `USE_SQLITE=False` in `.env`.
+2. Start the services:
+
+```powershell
 docker compose build
-docker compose up
+docker compose up -d
 ```
 
-Then set `USE_SQLITE=False` in `.env`.
+3. Apply migrations inside the `web` service:
+
+```powershell
+docker compose exec web python manage.py makemigrations
+docker compose exec web python manage.py migrate
+```
+
+4. Check that Django is using the Postgres database:
+
+```powershell
+docker compose exec web python manage.py check --database default
+```
+
+5. Visit the app at:
+
+```text
+http://localhost:8000
+```
 
 ## Testing
 
-Run tests locally:
+Run the test suite locally with the activated virtual environment:
 
-```bash
+```powershell
 cd backend
-.\.venv\Scripts\python.exe -m pytest -q
+python -m pytest -q
 ```
+
+## Notes
+
+- `USE_SQLITE=True` is fine for local development and quick iteration.
+- Use `USE_SQLITE=False` only when you want to test against Postgres.
+- `.venv/` is ignored by git so your local virtual environment does not get committed.
 
 ## Project structure
 
-- `backend/` — Django application
-- `docker-compose.yml` — development services
-- `.env.example` — environment variables template
-- `docs/architecture.md` — project architecture
+- `backend/` — Django application and project code
+- `docker-compose.yml` — local development services for Django and Postgres
+- `.env.example` — example environment variables template
+- `docs/architecture.md` — project architecture notes

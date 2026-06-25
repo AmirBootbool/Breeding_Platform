@@ -25,7 +25,15 @@ class Trial(models.Model):
     notes = models.TextField(blank=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.trial_code} - {self.name}"
+
+    class Meta:
+        ordering = ['trial_code']
+
+    def create_plots(self, entries, seed: int | None = None):
+        from .utils import create_plots_for_trial
+
+        return create_plots_for_trial(self, entries, seed=seed)
 
 
 class Plot(models.Model):

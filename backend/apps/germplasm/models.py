@@ -1,5 +1,5 @@
 from django.db import models
-from apps.core.models import Program
+from apps.core.models import Location, Program
 
 
 class Germplasm(models.Model):
@@ -72,7 +72,7 @@ class Cross(models.Model):
     )
     cross_date = models.DateField()
     location = models.ForeignKey(
-        'apps.core.models.Location',
+        Location,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

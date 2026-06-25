@@ -28,7 +28,7 @@ def test_germplasm_pedigree_link(program):
 
     assert progeny.parent_female == parent_female
     assert progeny.parent_male == parent_male
-    assert parent_female.as_female_parent.count() == 1
+    assert parent_female.female_progeny.count() == 1
 
 
 @pytest.mark.django_db

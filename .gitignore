@@ -4,6 +4,7 @@ __pycache__/
 db.sqlite3
 *.sqlite3
 venv/
+.venv/
 .envrc
 .DS_Store
 *.egg-info/

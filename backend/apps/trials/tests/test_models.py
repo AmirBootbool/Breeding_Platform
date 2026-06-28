@@ -1,7 +1,9 @@
 import pytest
+from django.core.exceptions import ValidationError
+
 from apps.core.models import Program, Location, Season
 from apps.germplasm.models import Germplasm
-from apps.trials.models import Trial, Plot
+from apps.trials.models import Observation, ObservationVariable, Plot, Trial
 from apps.trials.utils import generate_rcbd_layout, create_plots_for_trial
 
 
@@ -60,3 +62,71 @@ def test_plot_unique_number_within_trial():
     Plot.objects.create(trial=trial, germplasm=entry, rep=1, plot_number=1)
     with pytest.raises(Exception):
         Plot.objects.create(trial=trial, germplasm=entry, rep=1, plot_number=1)
+
+
+@pytest.mark.django_db
+def test_observation_variable_and_observation_creation():
+    program = Program.objects.create(name='Trial Program')
+    location = Location.objects.create(name='Field')
+    season = Season.objects.create(name='2026 Season', year=2026, program=program)
+    entry = Germplasm.objects.create(name='LineA', germplasm_db_id='G001', program=program)
+    trial = Trial.objects.create(
+        name='Observation Trial',
+        trial_code='TR3',
+        program=program,
+        location=location,
+        season=season,
+        design_type='RCBD',
+        num_reps=1,
+    )
+    plot = Plot.objects.create(trial=trial, germplasm=entry, rep=1, plot_number=1)
+
+    variable = ObservationVariable.objects.create(
+        name='Plant Height',
+        variable_code='PH',
+        data_type='numeric',
+        unit='cm',
+        min_value=0,
+        max_value=500,
+        is_required=True,
+    )
+
+    observation = Observation.objects.create(
+        plot=plot,
+        variable=variable,
+        value_numeric=85.5,
+        observation_time='2026-05-01T10:00:00Z',
+    )
+
+    assert Observation.objects.count() == 1
+    assert observation.value_numeric == 85.5
+    assert observation.plot == plot
+    assert observation.variable == variable
+
+
+@pytest.mark.django_db
+def test_observation_validation_for_numeric_variable():
+    program = Program.objects.create(name='Trial Program')
+    location = Location.objects.create(name='Field')
+    season = Season.objects.create(name='2026 Season', year=2026, program=program)
+    entry = Germplasm.objects.create(name='LineA', germplasm_db_id='G001', program=program)
+    trial = Trial.objects.create(
+        name='Validation Trial',
+        trial_code='TR4',
+        program=program,
+        location=location,
+        season=season,
+        design_type='RCBD',
+        num_reps=1,
+    )
+    plot = Plot.objects.create(trial=trial, germplasm=entry, rep=1, plot_number=1)
+    variable = ObservationVariable.objects.create(
+        name='Plant Height',
+        variable_code='PH',
+        data_type='numeric',
+        unit='cm',
+        is_required=True,
+    )
+
+    with pytest.raises(ValidationError):
+        Observation.objects.create(plot=plot, variable=variable)

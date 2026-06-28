@@ -150,3 +150,45 @@ Hard constraint: Everything must run locally on a laptop with no GPU and 16GB RA
 11. How to Use This Document With an AI Coding Assistant
 
 Paste this file at the start of a session and reference phases/modules when requesting work.
+
+---
+
+12. Coding Model Pointers
+
+Use these rules when implementing or reviewing code in this repo:
+
+12.1 Core Practices
+
+- Read the existing app and file structure before adding new code.
+- Match the local Django style and conventions already in the repo.
+- Keep changes small, focused, and easy to review.
+- Prefer explicit, readable code over clever abstractions.
+- Add tests for every behavior change, including failure paths.
+
+12.2 Structure Rules
+
+- Put shared domain state in `apps/core`.
+- Put germplasm and pedigree logic in `apps/germplasm`.
+- Put trial, plot, and observation logic in `apps/trials`.
+- Put cross-cutting workflow logic in service modules instead of view methods.
+- Keep serializers responsible for API shape, viewsets responsible for HTTP flow, and models responsible for persistence and invariants.
+- Use management commands for bulk imports, exports, and one-off maintenance tasks.
+
+12.3 Best Practices
+
+- Use `select_related()` and `prefetch_related()` for related data access in list and detail views.
+- Use database transactions for multi-row writes.
+- Validate at the right layer: serializer for request payloads, model for invariants, service for workflow rules.
+- Avoid hardcoded secrets, hosts, and environment-specific values.
+- Prefer reusable helpers over repeated code, but only extract abstractions when they genuinely reduce duplication or complexity.
+- Keep naming domain-specific and consistent with breeder workflows.
+- Preserve backward compatibility where practical, especially for APIs and exports.
+
+12.4 Review Checklist
+
+- Does the change fit the existing app boundary?
+- Is the business rule in the right layer?
+- Are error cases handled cleanly?
+- Are tests covering the new behavior?
+- Is the code readable without extra explanation?
+- Would this still be obvious six months from now?

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Trial, Plot
+from .models import Observation, ObservationVariable, Plot, Trial
 
 
 @admin.register(Trial)
@@ -16,3 +16,18 @@ class PlotAdmin(admin.ModelAdmin):
     list_filter = ['trial', 'rep', 'status']
     search_fields = ['germplasm__name']
     raw_id_fields = ['trial', 'germplasm']
+
+
+@admin.register(ObservationVariable)
+class ObservationVariableAdmin(admin.ModelAdmin):
+    list_display = ['name', 'variable_code', 'data_type', 'unit', 'is_required']
+    search_fields = ['name', 'variable_code']
+    list_filter = ['data_type', 'is_required']
+
+
+@admin.register(Observation)
+class ObservationAdmin(admin.ModelAdmin):
+    list_display = ['plot', 'variable', 'observation_time', 'value_numeric', 'value_text']
+    list_filter = ['variable', 'observation_time']
+    search_fields = ['plot__trial__trial_code', 'plot__germplasm__name', 'variable__name']
+    raw_id_fields = ['plot', 'variable']

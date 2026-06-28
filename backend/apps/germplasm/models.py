@@ -1,4 +1,5 @@
 from django.db import models
+
 from apps.core.models import Location, Program
 
 
@@ -80,7 +81,17 @@ class Cross(models.Model):
     notes = models.TextField(blank=True)
 
     def __str__(self):
-        return f"{self.cross_code}: {self.female_parent.name} × {self.male_parent.name}"
+        return f"{self.cross_code}: {self.female_parent.name} x {self.male_parent.name}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.female_parent_id and self.male_parent_id and self.female_parent_id == self.male_parent_id:
+            raise ValidationError({'male_parent': 'Female and male parent must be different germplasm records.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-cross_date']

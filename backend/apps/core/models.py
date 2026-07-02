@@ -16,7 +16,7 @@ class Program(models.Model):
 
 
 class Location(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     country = models.CharField(max_length=255, blank=True)
@@ -31,7 +31,7 @@ class Location(models.Model):
 
 class Season(models.Model):
     name = models.CharField(max_length=200)
-    year = models.IntegerField()
+    year = models.IntegerField(db_index=True)
     program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='seasons')
 
     def __str__(self):
@@ -50,8 +50,10 @@ class UserProfile(models.Model):
         ('viewer', 'Viewer'),
     ]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=32, choices=ROLE_CHOICES, default='viewer')
+    role = models.CharField(max_length=32, choices=ROLE_CHOICES, default='viewer', db_index=True)
     program = models.ForeignKey(Program, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"

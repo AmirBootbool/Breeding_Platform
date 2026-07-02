@@ -19,6 +19,8 @@ def test_germplasm_parents_and_cross():
     assert cross.male_parent == male
     assert progeny.parent_female == female
     assert progeny.parent_male == male
+    assert cross.created_at is not None
+    assert cross.updated_at is not None
 
     # unique constraint on germplasm_db_id
     with pytest.raises(Exception):

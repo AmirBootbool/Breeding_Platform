@@ -13,7 +13,7 @@ class Germplasm(models.Model):
         ('unknown', 'Unknown'),
     ]
 
-    name = models.CharField(max_length=300)
+    name = models.CharField(max_length=300, db_index=True)
     germplasm_db_id = models.CharField(max_length=100, unique=True, blank=True)
     species = models.CharField(max_length=100, default='Triticum aestivum')
     program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='germplasm')
@@ -42,6 +42,7 @@ class Germplasm(models.Model):
     year_developed = models.IntegerField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         if not self.germplasm_db_id:
@@ -71,7 +72,7 @@ class Cross(models.Model):
         on_delete=models.PROTECT,
         related_name='crosses_as_male',
     )
-    cross_date = models.DateField()
+    cross_date = models.DateField(db_index=True)
     location = models.ForeignKey(
         Location,
         on_delete=models.SET_NULL,
@@ -79,6 +80,8 @@ class Cross(models.Model):
         blank=True,
     )
     notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.cross_code}: {self.female_parent.name} x {self.male_parent.name}"

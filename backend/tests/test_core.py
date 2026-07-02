@@ -19,3 +19,11 @@ def test_core_models_and_userprofile():
     assert profile.user.username == 'alice'
     assert profile.role == 'breeder'
     assert profile.program == program
+    assert profile.created_at is not None
+    assert profile.updated_at is not None
+
+    original_updated_at = profile.updated_at
+    profile.role = 'technician'
+    profile.save()
+    profile.refresh_from_db()
+    assert profile.updated_at != original_updated_at

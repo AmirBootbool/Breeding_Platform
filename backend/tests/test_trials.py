@@ -32,3 +32,11 @@ def test_generate_rcbd_layout_and_create(db):
     # check ordering consistency with same seed
     layouts2 = generate_rcbd_layout(entries, num_reps=2, seed=42)
     assert layouts == layouts2
+    assert trial.created_at is not None
+    assert trial.updated_at is not None
+
+    original_updated_at = trial.updated_at
+    trial.notes = 'Updated notes'
+    trial.save()
+    trial.refresh_from_db()
+    assert trial.updated_at != original_updated_at

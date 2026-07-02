@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db.models import Count
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,10 +15,16 @@ from .services import create_plots_for_trial
 
 
 class TrialViewSet(viewsets.ModelViewSet):
-    queryset = Trial.objects.select_related('program', 'location', 'season').all()
     serializer_class = TrialSerializer
     search_fields = ['name', 'trial_code', 'program__name']
     ordering_fields = ['trial_code', 'name', 'created_at']
+
+    def get_queryset(self):
+        return (
+            Trial.objects.select_related('program', 'location', 'season')
+            .annotate(plot_count=Count('plots'))
+            .all()
+        )
 
     @action(detail=True, methods=['post'])
     def create_plots(self, request, pk=None):
@@ -54,21 +61,27 @@ class TrialViewSet(viewsets.ModelViewSet):
 
 
 class PlotViewSet(viewsets.ModelViewSet):
-    queryset = Plot.objects.select_related('trial', 'germplasm').all()
     serializer_class = PlotSerializer
     search_fields = ['trial__trial_code', 'germplasm__name']
     ordering_fields = ['plot_number', 'rep', 'status']
 
+    def get_queryset(self):
+        return Plot.objects.select_related('trial', 'germplasm').all()
+
 
 class ObservationVariableViewSet(viewsets.ModelViewSet):
-    queryset = ObservationVariable.objects.all().order_by('name')
     serializer_class = ObservationVariableSerializer
     search_fields = ['name', 'variable_code', 'description']
     ordering_fields = ['name', 'data_type', 'created_at']
 
+    def get_queryset(self):
+        return ObservationVariable.objects.all().order_by('name')
+
 
 class ObservationViewSet(viewsets.ModelViewSet):
-    queryset = Observation.objects.select_related('plot__trial', 'plot__germplasm', 'variable').all()
     serializer_class = ObservationSerializer
     search_fields = ['plot__trial__trial_code', 'plot__germplasm__name', 'variable__name']
     ordering_fields = ['created_at', 'observation_time']
+
+    def get_queryset(self):
+        return Observation.objects.select_related('plot__trial', 'plot__germplasm', 'variable').all()

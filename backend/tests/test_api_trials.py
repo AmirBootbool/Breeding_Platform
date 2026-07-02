@@ -31,3 +31,8 @@ def test_trial_create_plots(auth_client):
     assert response.status_code == 201
     assert response.data['created_count'] == 4
     assert Plot.objects.filter(trial=trial).count() == 4
+
+    list_response = auth_client.get('/api/trials/')
+    assert list_response.status_code == 200
+    assert list_response.data['count'] == 1
+    assert list_response.data['results'][0]['plot_count'] == 4

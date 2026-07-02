@@ -26,8 +26,9 @@ class GermplasmSerializer(serializers.ModelSerializer):
             'year_developed',
             'notes',
             'created_at',
+            'updated_at',
         ]
-        read_only_fields = ['id', 'program_name', 'parent_female_name', 'parent_male_name', 'created_at']
+        read_only_fields = ['id', 'program_name', 'parent_female_name', 'parent_male_name', 'created_at', 'updated_at']
 
 
 class CrossSerializer(serializers.ModelSerializer):
@@ -48,5 +49,7 @@ class CrossSerializer(serializers.ModelSerializer):
             'location',
             'location_name',
             'notes',
+            'created_at',
+            'updated_at',
         ]
-        read_only_fields = ['id', 'female_parent_name', 'male_parent_name', 'location_name']
+        read_only_fields = ['id', 'female_parent_name', 'male_parent_name', 'location_name', 'created_at', 'updated_at']

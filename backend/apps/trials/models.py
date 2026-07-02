@@ -12,7 +12,7 @@ class Trial(models.Model):
         ('other', 'Other'),
     ]
 
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     trial_code = models.CharField(max_length=255, unique=True)
     brapi_study_db_id = models.CharField(max_length=255, blank=True)
     program = models.ForeignKey(Program, on_delete=models.CASCADE)
@@ -23,6 +23,8 @@ class Trial(models.Model):
     planting_date = models.DateField(null=True, blank=True)
     harvest_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.trial_code} - {self.name}"
@@ -79,7 +81,7 @@ class ObservationVariable(models.Model):
         ('date', 'Date'),
     ]
 
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     variable_code = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
     unit = models.CharField(max_length=64, blank=True)
@@ -110,7 +112,7 @@ class ObservationVariable(models.Model):
 class Observation(models.Model):
     plot = models.ForeignKey(Plot, on_delete=models.CASCADE, related_name='observations')
     variable = models.ForeignKey(ObservationVariable, on_delete=models.PROTECT, related_name='observations')
-    observation_time = models.DateTimeField(null=True, blank=True)
+    observation_time = models.DateTimeField(null=True, blank=True, db_index=True)
     value_text = models.TextField(blank=True)
     value_numeric = models.FloatField(null=True, blank=True)
     value_date = models.DateField(null=True, blank=True)

@@ -4,7 +4,7 @@ from .models import Observation, ObservationVariable, Plot, Trial
 
 @admin.register(Trial)
 class TrialAdmin(admin.ModelAdmin):
-    list_display = ['name', 'trial_code', 'program', 'location', 'season', 'design_type', 'num_reps']
+    list_display = ['name', 'trial_code', 'program', 'location', 'season', 'design_type', 'num_reps', 'created_at', 'updated_at']
     search_fields = ['name', 'trial_code']
     list_filter = ['design_type', 'program', 'location', 'season']
     raw_id_fields = ['program', 'location', 'season']
@@ -20,7 +20,7 @@ class PlotAdmin(admin.ModelAdmin):
 
 @admin.register(ObservationVariable)
 class ObservationVariableAdmin(admin.ModelAdmin):
-    list_display = ['name', 'variable_code', 'data_type', 'unit', 'is_required']
+    list_display = ['name', 'variable_code', 'data_type', 'unit', 'is_required', 'created_at']
     search_fields = ['name', 'variable_code']
     list_filter = ['data_type', 'is_required']
 

@@ -28,11 +28,13 @@ class TrialSerializer(serializers.ModelSerializer):
             'harvest_date',
             'notes',
             'plot_count',
+            'created_at',
+            'updated_at',
         ]
-        read_only_fields = ['id', 'program_name', 'location_name', 'season_name', 'plot_count']
+        read_only_fields = ['id', 'program_name', 'location_name', 'season_name', 'plot_count', 'created_at', 'updated_at']
 
     def get_plot_count(self, obj):
-        return obj.plots.count()
+        return getattr(obj, 'plot_count', obj.plots.count())
 
 
 class PlotSerializer(serializers.ModelSerializer):

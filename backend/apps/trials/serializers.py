@@ -4,98 +4,112 @@ from .models import Observation, ObservationVariable, Plot, Trial
 
 
 class TrialSerializer(serializers.ModelSerializer):
-    program_name = serializers.CharField(source='program.name', read_only=True)
-    location_name = serializers.CharField(source='location.name', read_only=True)
-    season_name = serializers.CharField(source='season.name', read_only=True)
+    program_name = serializers.CharField(source="program.name", read_only=True)
+    location_name = serializers.CharField(source="location.name", read_only=True)
+    season_name = serializers.CharField(source="season.name", read_only=True)
     plot_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Trial
         fields = [
-            'id',
-            'name',
-            'trial_code',
-            'brapi_study_db_id',
-            'program',
-            'program_name',
-            'location',
-            'location_name',
-            'season',
-            'season_name',
-            'design_type',
-            'num_reps',
-            'planting_date',
-            'harvest_date',
-            'notes',
-            'plot_count',
-            'created_at',
-            'updated_at',
+            "id",
+            "name",
+            "trial_code",
+            "brapi_study_db_id",
+            "program",
+            "program_name",
+            "location",
+            "location_name",
+            "season",
+            "season_name",
+            "design_type",
+            "num_reps",
+            "planting_date",
+            "harvest_date",
+            "notes",
+            "plot_count",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'program_name', 'location_name', 'season_name', 'plot_count', 'created_at', 'updated_at']
+        read_only_fields = [
+            "id",
+            "program_name",
+            "location_name",
+            "season_name",
+            "plot_count",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_plot_count(self, obj):
-        return getattr(obj, 'plot_count', obj.plots.count())
+        return getattr(obj, "plot_count", obj.plots.count())
 
 
 class PlotSerializer(serializers.ModelSerializer):
-    trial_code = serializers.CharField(source='trial.trial_code', read_only=True)
-    germplasm_name = serializers.CharField(source='germplasm.name', read_only=True)
+    trial_code = serializers.CharField(source="trial.trial_code", read_only=True)
+    germplasm_name = serializers.CharField(source="germplasm.name", read_only=True)
 
     class Meta:
         model = Plot
         fields = [
-            'id',
-            'trial',
-            'trial_code',
-            'germplasm',
-            'germplasm_name',
-            'rep',
-            'block',
-            'plot_number',
-            'row',
-            'column',
-            'status',
+            "id",
+            "trial",
+            "trial_code",
+            "germplasm",
+            "germplasm_name",
+            "rep",
+            "block",
+            "plot_number",
+            "row",
+            "column",
+            "status",
         ]
-        read_only_fields = ['id', 'trial_code', 'germplasm_name']
+        read_only_fields = ["id", "trial_code", "germplasm_name"]
 
 
 class ObservationVariableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ObservationVariable
         fields = [
-            'id',
-            'name',
-            'variable_code',
-            'description',
-            'unit',
-            'data_type',
-            'min_value',
-            'max_value',
-            'is_required',
-            'created_at',
+            "id",
+            "name",
+            "variable_code",
+            "description",
+            "unit",
+            "data_type",
+            "min_value",
+            "max_value",
+            "is_required",
+            "created_at",
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ["id", "created_at"]
 
 
 class ObservationSerializer(serializers.ModelSerializer):
-    trial_code = serializers.CharField(source='plot.trial.trial_code', read_only=True)
-    germplasm_name = serializers.CharField(source='plot.germplasm.name', read_only=True)
-    variable_name = serializers.CharField(source='variable.name', read_only=True)
+    trial_code = serializers.CharField(source="plot.trial.trial_code", read_only=True)
+    germplasm_name = serializers.CharField(source="plot.germplasm.name", read_only=True)
+    variable_name = serializers.CharField(source="variable.name", read_only=True)
 
     class Meta:
         model = Observation
         fields = [
-            'id',
-            'plot',
-            'trial_code',
-            'germplasm_name',
-            'variable',
-            'variable_name',
-            'observation_time',
-            'value_text',
-            'value_numeric',
-            'value_date',
-            'notes',
-            'created_at',
+            "id",
+            "plot",
+            "trial_code",
+            "germplasm_name",
+            "variable",
+            "variable_name",
+            "observation_time",
+            "value_text",
+            "value_numeric",
+            "value_date",
+            "notes",
+            "created_at",
         ]
-        read_only_fields = ['id', 'trial_code', 'germplasm_name', 'variable_name', 'created_at']
+        read_only_fields = [
+            "id",
+            "trial_code",
+            "germplasm_name",
+            "variable_name",
+            "created_at",
+        ]

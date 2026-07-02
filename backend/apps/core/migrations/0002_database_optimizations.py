@@ -7,35 +7,49 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0001_initial'),
+        ("core", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='location',
-            name='name',
+            model_name="location",
+            name="name",
             field=models.CharField(db_index=True, max_length=255),
         ),
         migrations.AlterField(
-            model_name='season',
-            name='year',
+            model_name="season",
+            name="year",
             field=models.IntegerField(db_index=True),
         ),
         migrations.AddField(
-            model_name='userprofile',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, default=django.utils.timezone.now),
+            model_name="userprofile",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, default=django.utils.timezone.now
+            ),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='userprofile',
-            name='updated_at',
-            field=models.DateTimeField(auto_now=True, default=django.utils.timezone.now),
+            model_name="userprofile",
+            name="updated_at",
+            field=models.DateTimeField(
+                auto_now=True, default=django.utils.timezone.now
+            ),
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='userprofile',
-            name='role',
-            field=models.CharField(choices=[('admin', 'Admin'), ('breeder', 'Breeder'), ('technician', 'Technician'), ('viewer', 'Viewer')], db_index=True, default='viewer', max_length=32),
+            model_name="userprofile",
+            name="role",
+            field=models.CharField(
+                choices=[
+                    ("admin", "Admin"),
+                    ("breeder", "Breeder"),
+                    ("technician", "Technician"),
+                    ("viewer", "Viewer"),
+                ],
+                db_index=True,
+                default="viewer",
+                max_length=32,
+            ),
         ),
     ]

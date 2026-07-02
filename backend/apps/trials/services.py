@@ -25,14 +25,16 @@ def generate_rcbd_layout(
     return layouts
 
 
-def create_plots_for_trial(trial, entries: Sequence[Germplasm], seed: int | None = None):
+def create_plots_for_trial(
+    trial, entries: Sequence[Germplasm], seed: int | None = None
+):
     entries = list(entries)
     if not entries:
-        raise ValidationError({'entries': 'At least one germplasm entry is required.'})
+        raise ValidationError({"entries": "At least one germplasm entry is required."})
     if trial.num_reps < 1:
-        raise ValidationError({'num_reps': 'Trial must have at least one replication.'})
+        raise ValidationError({"num_reps": "Trial must have at least one replication."})
     if Plot.objects.filter(trial=trial).exists():
-        raise ValidationError({'trial': 'Plots already exist for this trial.'})
+        raise ValidationError({"trial": "Plots already exist for this trial."})
 
     layouts = generate_rcbd_layout(entries, trial.num_reps, seed=seed)
     created = []

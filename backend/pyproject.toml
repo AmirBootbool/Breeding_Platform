@@ -1,0 +1,19 @@
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.(git|hg|mypy_cache|nox|venv|env|\.venv)
+  | \bbuild\b
+  | \bdist\b
+)
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "DJANGO", "FIRSTPARTY", "LOCALFOLDER"]
+known_first_party = ["apps", "backend"]
+known_django = ["django"]
+multi_line_output = 3
+include_trailing_comma = true

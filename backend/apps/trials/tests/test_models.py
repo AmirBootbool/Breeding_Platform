@@ -1,16 +1,22 @@
 import pytest
+
 from django.core.exceptions import ValidationError
 
-from apps.core.models import Program, Location, Season
+from apps.core.models import Location, Program, Season
 from apps.germplasm.models import Germplasm
 from apps.trials.models import Observation, ObservationVariable, Plot, Trial
-from apps.trials.utils import generate_rcbd_layout, create_plots_for_trial
+from apps.trials.utils import create_plots_for_trial, generate_rcbd_layout
 
 
 @pytest.mark.django_db
 def test_generate_rcbd_layout_consistency():
-    program = Program.objects.create(name='Trial Program')
-    entries = [Germplasm.objects.create(name=f'Line{i}', germplasm_db_id=f'G{i:03d}', program=program) for i in range(1, 5)]
+    program = Program.objects.create(name="Trial Program")
+    entries = [
+        Germplasm.objects.create(
+            name=f"Line{i}", germplasm_db_id=f"G{i:03d}", program=program
+        )
+        for i in range(1, 5)
+    ]
     layouts1 = generate_rcbd_layout(entries, num_reps=2, seed=42)
     layouts2 = generate_rcbd_layout(entries, num_reps=2, seed=42)
 
@@ -21,17 +27,22 @@ def test_generate_rcbd_layout_consistency():
 
 @pytest.mark.django_db
 def test_create_plots_for_trial():
-    program = Program.objects.create(name='Trial Program')
-    location = Location.objects.create(name='Field')
-    season = Season.objects.create(name='2026 Season', year=2026, program=program)
-    entries = [Germplasm.objects.create(name=f'Line{i}', germplasm_db_id=f'G{i:03d}', program=program) for i in range(1, 5)]
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+    entries = [
+        Germplasm.objects.create(
+            name=f"Line{i}", germplasm_db_id=f"G{i:03d}", program=program
+        )
+        for i in range(1, 5)
+    ]
     trial = Trial.objects.create(
-        name='RCBD Test',
-        trial_code='TR1',
+        name="RCBD Test",
+        trial_code="TR1",
         program=program,
         location=location,
         season=season,
-        design_type='RCBD',
+        design_type="RCBD",
         num_reps=2,
     )
 
@@ -39,23 +50,27 @@ def test_create_plots_for_trial():
     assert len(created) == 8
     assert Plot.objects.filter(trial=trial).count() == 8
 
-    plot_numbers = list(Plot.objects.filter(trial=trial).values_list('plot_number', flat=True))
+    plot_numbers = list(
+        Plot.objects.filter(trial=trial).values_list("plot_number", flat=True)
+    )
     assert sorted(plot_numbers) == list(range(1, 9))
 
 
 @pytest.mark.django_db
 def test_plot_unique_number_within_trial():
-    program = Program.objects.create(name='Trial Program')
-    location = Location.objects.create(name='Field')
-    season = Season.objects.create(name='2026 Season', year=2026, program=program)
-    entry = Germplasm.objects.create(name='LineA', germplasm_db_id='G001', program=program)
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+    entry = Germplasm.objects.create(
+        name="LineA", germplasm_db_id="G001", program=program
+    )
     trial = Trial.objects.create(
-        name='Unique Plot Test',
-        trial_code='TR2',
+        name="Unique Plot Test",
+        trial_code="TR2",
         program=program,
         location=location,
         season=season,
-        design_type='RCBD',
+        design_type="RCBD",
         num_reps=1,
     )
 
@@ -66,26 +81,28 @@ def test_plot_unique_number_within_trial():
 
 @pytest.mark.django_db
 def test_observation_variable_and_observation_creation():
-    program = Program.objects.create(name='Trial Program')
-    location = Location.objects.create(name='Field')
-    season = Season.objects.create(name='2026 Season', year=2026, program=program)
-    entry = Germplasm.objects.create(name='LineA', germplasm_db_id='G001', program=program)
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+    entry = Germplasm.objects.create(
+        name="LineA", germplasm_db_id="G001", program=program
+    )
     trial = Trial.objects.create(
-        name='Observation Trial',
-        trial_code='TR3',
+        name="Observation Trial",
+        trial_code="TR3",
         program=program,
         location=location,
         season=season,
-        design_type='RCBD',
+        design_type="RCBD",
         num_reps=1,
     )
     plot = Plot.objects.create(trial=trial, germplasm=entry, rep=1, plot_number=1)
 
     variable = ObservationVariable.objects.create(
-        name='Plant Height',
-        variable_code='PH',
-        data_type='numeric',
-        unit='cm',
+        name="Plant Height",
+        variable_code="PH",
+        data_type="numeric",
+        unit="cm",
         min_value=0,
         max_value=500,
         is_required=True,
@@ -95,7 +112,7 @@ def test_observation_variable_and_observation_creation():
         plot=plot,
         variable=variable,
         value_numeric=85.5,
-        observation_time='2026-05-01T10:00:00Z',
+        observation_time="2026-05-01T10:00:00Z",
     )
 
     assert Observation.objects.count() == 1
@@ -106,25 +123,27 @@ def test_observation_variable_and_observation_creation():
 
 @pytest.mark.django_db
 def test_observation_validation_for_numeric_variable():
-    program = Program.objects.create(name='Trial Program')
-    location = Location.objects.create(name='Field')
-    season = Season.objects.create(name='2026 Season', year=2026, program=program)
-    entry = Germplasm.objects.create(name='LineA', germplasm_db_id='G001', program=program)
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+    entry = Germplasm.objects.create(
+        name="LineA", germplasm_db_id="G001", program=program
+    )
     trial = Trial.objects.create(
-        name='Validation Trial',
-        trial_code='TR4',
+        name="Validation Trial",
+        trial_code="TR4",
         program=program,
         location=location,
         season=season,
-        design_type='RCBD',
+        design_type="RCBD",
         num_reps=1,
     )
     plot = Plot.objects.create(trial=trial, germplasm=entry, rep=1, plot_number=1)
     variable = ObservationVariable.objects.create(
-        name='Plant Height',
-        variable_code='PH',
-        data_type='numeric',
-        unit='cm',
+        name="Plant Height",
+        variable_code="PH",
+        data_type="numeric",
+        unit="cm",
         is_required=True,
     )
 

@@ -1,3 +1,4 @@
+import logging
 import random
 from typing import Sequence
 
@@ -8,6 +9,8 @@ from django.db.models import Avg, Count, Max, Min, StdDev
 from apps.germplasm.models import Germplasm
 
 from .models import Plot
+
+logger = logging.getLogger("apps.trials.services")
 
 
 def generate_rcbd_layout(
@@ -30,6 +33,14 @@ def create_plots_for_trial(
     trial, entries: Sequence[Germplasm], seed: int | None = None
 ):
     entries = list(entries)
+    logger.info(
+        "Creating %d plots for trial %s (replications: %d, seed: %s)",
+        len(entries) * trial.num_reps,
+        trial.trial_code,
+        trial.num_reps,
+        seed,
+    )
+
     if not entries:
         raise ValidationError({"entries": "At least one germplasm entry is required."})
     if trial.num_reps < 1:

@@ -1,6 +1,10 @@
+import logging
+
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from django.core.exceptions import ObjectDoesNotExist
+
+logger = logging.getLogger("apps.core.permissions")
 
 
 class RoleBasedPermission(BasePermission):
@@ -10,12 +14,30 @@ class RoleBasedPermission(BasePermission):
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
+            logger.warning(
+                "Permission denied: Unauthenticated user requested %s %s",
+                request.method,
+                request.path,
+            )
             return False
 
         if request.method in SAFE_METHODS:
             return True
 
-        return self._user_role(request.user) in self._allowed_roles(view)
+        allowed = self._allowed_roles(view)
+        user_role = self._user_role(request.user)
+        has_role = user_role in allowed
+        if not has_role:
+            logger.warning(
+                "Permission denied: User %s (role: %s) requested %s %s. Allowed roles: %s",
+                request.user.username,
+                user_role,
+                request.method,
+                request.path,
+                allowed,
+            )
+        return has_role
+
 
     def _allowed_roles(self, view):
         action_permissions = getattr(view, "role_action_permissions", {})

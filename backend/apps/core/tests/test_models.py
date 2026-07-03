@@ -40,3 +40,29 @@ def test_userprofile_role_default():
     user = User.objects.create_user(username="testbreeder", password="pass")
     profile = UserProfile.objects.create(user=user, program=program)
     assert profile.role == "viewer"
+
+
+@pytest.mark.django_db
+def test_user_profile_timestamps_and_relations():
+    program = Program.objects.create(name="CoreProg")
+    location = Location.objects.create(name="Loc1", country="Wonderland")
+    season = Season.objects.create(year=2026, name="2026 Main", program=program)
+
+    user = User.objects.create_user(username="alice", password="password")
+    profile = UserProfile.objects.create(user=user, role="breeder", program=program)
+
+    assert location.country == "Wonderland"
+    assert Location.objects.filter(country="Wonderland").exists()
+    assert season.program == program
+    assert profile.user.username == "alice"
+    assert profile.role == "breeder"
+    assert profile.program == program
+    assert profile.created_at is not None
+    assert profile.updated_at is not None
+
+    original_updated_at = profile.updated_at
+    profile.role = "technician"
+    profile.save()
+    profile.refresh_from_db()
+    assert profile.updated_at != original_updated_at
+

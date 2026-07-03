@@ -17,7 +17,7 @@ AI coding assistant starting a new session:
 The platform has moved well beyond initial scaffolding. Here is what exists
 and works today:
 
-### Implemented (Phases 1-3 complete, Phase 4 partially complete)
+### Implemented (Phases 1-4 complete)
 
 - **Security hardening**: SECRET_KEY from env with production guard,
   ALLOWED_HOSTS from env (not wildcard), CORS from env (not allow-all),
@@ -36,9 +36,9 @@ and works today:
   creation, sequential plot numbering, precondition validation.
 - **Django Admin**: All 10 domain models registered with list_display,
   readonly_fields, search_fields, list_filter, and raw_id_fields.
-- **Testing**: 52 tests passing — models, API CRUD, RBAC enforcement, admin
+- **Testing**: 58 tests passing — models, API CRUD, RBAC enforcement, admin
   registration, unique constraints, plot generation, observation validation,
-  custom exception handling formatting, query-parameter filtering, and import/export management commands.
+  custom exception handling formatting, query-parameter filtering, import/export management commands, trial summary statistics, and FK protection checks.
 - **Code quality tooling**: black, isort, flake8 configured in
   pyproject.toml / .flake8.
 
@@ -65,23 +65,26 @@ and works today:
 | django-filter integration         | Done |
 | Custom exception handler          | Done |
 | CSV import/export CLI commands    | Done |
+| Trial summary stats endpoint      | Done |
+| Test consolidation                | Done |
+| FK cascade review                 | Done |
+| Stale file & coreapi cleanup      | Done |
 
 ---
 
-## Next Phase: Phase 4 — Feature Completeness & Quality (Remaining Tasks)
+## Next Phase: Phase 5 — Production Readiness (Remaining Tasks)
 
-See `IMPLEMENTATION_ROADMAP.md` for the full task-by-task specification
-including exact files to modify, code patterns to follow, and test
-requirements for each item.
+See `IMPLEMENTATION_ROADMAP.md` for the full task-by-task specification.
 
 ### Priority order
 
 | #   | Task                    | Est.   | Impact |
 |-----|-------------------------|--------|--------|
-| 4.4 | Trial summary stats     | 2 h    | Medium — per-trial mean/CV/min/max |
-| 4.5 | Test consolidation      | 1 h    | Low — remove duplicates |
-| 4.6 | FK cascade review       | 1 h    | Medium — data safety |
-| 4.7 | Cleanup                 | 0.5 h  | Low — remove stale files |
+| 5.1 | Logging                 | 2 h    | Medium — structured logging |
+| 5.2 | Deployment hardening    | 2 h    | High — Gunicorn, Whitenoise, STATICFILES |
+| 5.3 | BrAPI v2 Endpoints      | 8-16 h | High — camelCase spec compatibility |
+| 5.4 | Monitoring & backups    | 2 h    | Low — health check, DB backup scripts |
+
 
 ---
 

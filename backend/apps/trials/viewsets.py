@@ -13,7 +13,7 @@ from .serializers import (
     PlotSerializer,
     TrialSerializer,
 )
-from .services import create_plots_for_trial
+from .services import compute_trial_summary, create_plots_for_trial
 
 
 class TrialViewSet(viewsets.ModelViewSet):
@@ -47,7 +47,7 @@ class TrialViewSet(viewsets.ModelViewSet):
             ).order_by("name")
             if germplasm_qs.count() != len(set(germplasm_ids)):
                 from rest_framework.exceptions import (
-                    ValidationError as DRFValidationError,
+                     ValidationError as DRFValidationError,
                 )
 
                 raise DRFValidationError(
@@ -72,6 +72,13 @@ class TrialViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=["get"])
+    def summary(self, request, pk=None):
+        trial = self.get_object()
+        stats = compute_trial_summary(trial)
+        return Response({"trial": trial.trial_code, "summary": stats})
+
 
 
 class PlotViewSet(viewsets.ModelViewSet):

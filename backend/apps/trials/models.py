@@ -17,8 +17,8 @@ class Trial(models.Model):
     trial_code = models.CharField(max_length=255, unique=True)
     brapi_study_db_id = models.CharField(max_length=255, blank=True)
     program = models.ForeignKey(Program, on_delete=models.CASCADE)
-    location = models.ForeignKey(Location, on_delete=models.CASCADE)
-    season = models.ForeignKey(Season, on_delete=models.CASCADE)
+    location = models.ForeignKey(Location, on_delete=models.PROTECT)
+    season = models.ForeignKey(Season, on_delete=models.PROTECT)
     design_type = models.CharField(
         max_length=32, choices=DESIGN_CHOICES, default="RCBD"
     )
@@ -62,7 +62,7 @@ class Plot(models.Model):
     ]
 
     trial = models.ForeignKey(Trial, on_delete=models.CASCADE, related_name="plots")
-    germplasm = models.ForeignKey(Germplasm, on_delete=models.CASCADE)
+    germplasm = models.ForeignKey(Germplasm, on_delete=models.PROTECT)
     rep = models.IntegerField()
     block = models.IntegerField(null=True, blank=True)
     plot_number = models.IntegerField()

@@ -3,8 +3,8 @@
 Updated: 2026-07-03
 
 Navigation guide for the wheat-breeding-platform documentation.
-Phases 1–3 of the implementation roadmap are complete. Approximately 40 of the
-original 55 code-review issues have been resolved. Phase 4 is next.
+Phases 1–4 of the implementation roadmap are complete. All 55 original code-review issues have been resolved. Phase 5 is next.
+
 
 ---
 
@@ -47,40 +47,28 @@ Of the **55 issues** identified in the original code review:
 | Security (10 issues) | ✅ All fixed | SECRET_KEY, DEBUG, ALLOWED_HOSTS, CORS, auth, password validators, HTTPS cookies, headers |
 | API & Views (10 issues) | ✅ All fixed | Serializers, viewsets, routing, permissions, token auth for all 3 apps |
 | Database & Models (11 issues) | ✅ All fixed | Indexes, timestamps, select_related, constraints, validations |
-| Testing (6 issues) | ✅ Mostly done | 34 tests passing; test fixtures via conftest.py; some consolidation still needed |
-| Admin (5 issues) | ✅ Done | All 10 models registered with full admin configuration |
-| Code Quality (5 issues) | ✅ Done | black, isort, flake8 configured in pyproject.toml / .flake8 |
-| Documentation (7 issues) | 🔶 Partial | Architecture doc written; inline docstrings still sparse |
+| Testing (6 issues) | ✅ All fixed | 58 tests passing; test fixtures via conftest.py; consolidated duplicate test files |
+| Admin (5 issues) | ✅ All fixed | All 10 models registered with full admin configuration |
+| Code Quality (5 issues) | ✅ All fixed | black, isort, flake8 configured in pyproject.toml / .flake8; coreapi removed |
+| Documentation (7 issues) | ✅ All fixed | Architecture doc written; inline docstrings; Next Phase summaries updated |
 
-**Bottom line:** ~40 of 55 issues resolved. Remaining items are covered by Phase 4.
+**Bottom line:** All 55 issues resolved.
 
 ---
 
-## Remaining Work — Phase 4 (~12 hours)
+## Remaining Work — Phase 5: Production Readiness
 
 These items are detailed in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md):
 
 | Task | Est. Hours | Description |
 |------|-----------|-------------|
-| django-filter wiring | 1–2 h | Add `filterset_fields` to all viewsets for FK/choice filtering |
-| Exception handler | 1 h | Structured error responses via custom `EXCEPTION_HANDLER` |
-| CSV import/export | 4–6 h | Management commands: import_germplasm, export_trial_data, fieldbook I/O |
-| Trial summary stats | 2 h | Per-trial mean/min/max/CV endpoint for observation variables |
-| Test consolidation | 1 h | Remove duplicate tests, add missing negative cases |
-| FK cascade review | 1 h | Switch Plot.germplasm, Trial.location, Trial.season from CASCADE to PROTECT |
-| Cleanup | 0.5 h | Remove stale files, drop coreapi dep, Dockerfile EXPOSE/CMD |
+| Logging | 2 h | Structured Django LOGGING dict |
+| Deployment hardening | 2 h | Gunicorn, collectstatic, Whitenoise setup |
+| BrAPI v2 Endpoints | 8–16 h | Read-only Breeding API camelCase endpoint subset |
+| Monitoring & backups | 2 h | Health checks and DB backup scripts |
 
 ---
 
-## Phase 5 — Production Readiness (~14–22 hours, later)
-
-- Structured logging (Django LOGGING dict)
-- Deployment hardening (gunicorn, collectstatic, whitenoise)
-- BrAPI v2 read-only endpoints (8–16 h, stretch)
-- Monitoring & observability (Sentry, health check)
-- Deployment documentation
-
----
 
 ## Quick-Start Reading Order
 
@@ -89,10 +77,11 @@ These items are detailed in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.m
 2. NEXT_PHASE_SUMMARY.md → understand current state
 3. docs/architecture.md → learn the domain model
 
-**Picking up Phase 4?**
+**Picking up Phase 5?**
 1. NEXT_PHASE_SUMMARY.md → context & decisions
 2. IMPLEMENTATION_ROADMAP.md → detailed task list
 3. API_IMPLEMENTATION_GUIDE.md → API patterns to follow
+
 
 **Reviewing history?**
 1. CODE_REVIEW_REPORT.md → original findings

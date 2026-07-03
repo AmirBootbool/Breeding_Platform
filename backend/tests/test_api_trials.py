@@ -125,3 +125,43 @@ def test_viewer_cannot_record_observation(client_for_role, plot, observation_var
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_trial_summary_with_observations(auth_client, trial, plot, observation_variable):
+    from apps.trials.models import Observation, Plot
+
+    second_plot = Plot.objects.create(
+        trial=trial, germplasm=plot.germplasm, rep=2, plot_number=2
+    )
+
+    Observation.objects.create(
+        plot=plot, variable=observation_variable, value_numeric=10.0
+    )
+    Observation.objects.create(
+        plot=second_plot, variable=observation_variable, value_numeric=20.0
+    )
+
+    response = auth_client.get(f"/api/trials/{trial.id}/summary/")
+    assert response.status_code == 200
+    assert response.data["trial"] == trial.trial_code
+
+    summary = response.data["summary"]
+    assert len(summary) == 1
+    stats = summary[0]
+    assert stats["variable"] == observation_variable.name
+    assert stats["count"] == 2
+    assert stats["mean"] == 15.0
+    assert stats["min"] == 10.0
+    assert stats["max"] == 20.0
+    assert stats["std_dev"] is not None
+    assert stats["cv_percent"] is not None
+
+
+@pytest.mark.django_db
+def test_trial_summary_without_observations(auth_client, trial):
+    response = auth_client.get(f"/api/trials/{trial.id}/summary/")
+    assert response.status_code == 200
+    assert response.data["trial"] == trial.trial_code
+    assert response.data["summary"] == []
+

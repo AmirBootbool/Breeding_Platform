@@ -149,3 +149,71 @@ def test_observation_validation_for_numeric_variable():
 
     with pytest.raises(ValidationError):
         Observation.objects.create(plot=plot, variable=variable)
+
+
+@pytest.mark.django_db
+def test_deleting_germplasm_with_plots_raises():
+    from django.db.models import ProtectedError
+
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+    germplasm = Germplasm.objects.create(
+        name="LineA", germplasm_db_id="G001", program=program
+    )
+    trial = Trial.objects.create(
+        name="Unique Plot Test",
+        trial_code="TR2",
+        program=program,
+        location=location,
+        season=season,
+        design_type="RCBD",
+        num_reps=1,
+    )
+    Plot.objects.create(trial=trial, germplasm=germplasm, rep=1, plot_number=1)
+
+    with pytest.raises(ProtectedError):
+        germplasm.delete()
+
+
+@pytest.mark.django_db
+def test_deleting_location_with_trials_raises():
+    from django.db.models import ProtectedError
+
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+    Trial.objects.create(
+        name="Unique Plot Test",
+        trial_code="TR2",
+        program=program,
+        location=location,
+        season=season,
+        design_type="RCBD",
+        num_reps=1,
+    )
+
+    with pytest.raises(ProtectedError):
+        location.delete()
+
+
+@pytest.mark.django_db
+def test_deleting_season_with_trials_raises():
+    from django.db.models import ProtectedError
+
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+    Trial.objects.create(
+        name="Unique Plot Test",
+        trial_code="TR2",
+        program=program,
+        location=location,
+        season=season,
+        design_type="RCBD",
+        num_reps=1,
+    )
+
+    with pytest.raises(ProtectedError):
+        season.delete()
+

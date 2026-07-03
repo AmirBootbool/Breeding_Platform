@@ -22,13 +22,31 @@ def health_check(request):
         )
 
 
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/token/", obtain_auth_token, name="api-token-auth"),
     path("api/health/", health_check, name="api-health"),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/schema/swagger-ui/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
+    path(
+        "api/schema/redoc/",
+        SpectacularRedocView.as_view(url_name="schema"),
+        name="redoc",
+    ),
     path("api/", include("apps.core.urls")),
     path("api/", include("apps.germplasm.urls")),
     path("api/", include("apps.trials.urls")),
     path("brapi/v2/", include("apps.brapi.urls")),
 ]
+
 

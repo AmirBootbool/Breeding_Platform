@@ -2,11 +2,10 @@
 
 **Original Review:** June 28, 2026 · 55 issues identified
 **Last Updated:** July 3, 2026
-**Status: ~40 of 55 original issues resolved**
+**Status: 48 of 55 original issues resolved**
 
 > [!NOTE]
-> This document tracks all 55 issues from the initial code review. For the plan to
-> address remaining open items, see [IMPLEMENTATION_ROADMAP.md](file:///C:/wheat-breeding-platform/IMPLEMENTATION_ROADMAP.md) **Phase 4**.
+> This document tracks all 55 issues from the initial code review.
 
 ---
 
@@ -18,8 +17,9 @@
 | API               | 6     | 6        | 0    |
 | Database          | 5     | 5        | 0    |
 | Testing / Quality | 8     | 8        | 0    |
-| Remaining         | 29    | ~14      | ~15  |
-| **Total**         | **55**| **~40**  | **~15** |
+| Remaining         | 29    | 22       | 7    |
+| **Total**         | **55**| **48**   | **7**|
+
 
 ---
 
@@ -80,24 +80,12 @@ resolved as part of the broader fixes in their respective categories.
 
 ---
 
-## 🔶 Open Issues (~15 remaining)
-
-> [!IMPORTANT]
-> These items are tracked in [IMPLEMENTATION_ROADMAP.md](file:///C:/wheat-breeding-platform/IMPLEMENTATION_ROADMAP.md)
-> **Phase 4 — Hardening & Production Readiness**.
+## 🔶 Open Issues (7 remaining)
 
 | #     | Issue                            | Priority | Est. Effort | Notes |
 |-------|----------------------------------|----------|-------------|-------|
-| 10    | No error handling middleware     | High     | 2–4 hrs     | Create custom DRF exception handler |
-| 28    | No exception handler             | High     | 2–4 hrs     | Same scope as #10; can be done together |
-| 11    | FK cascade behavior unreviewed   | High     | 2–3 hrs     | Some constraints added; `on_delete` policies need audit |
-| 16    | No API docs (Swagger/OpenAPI)    | High     | 2–3 hrs     | Add `drf-spectacular`; generate schema |
-| 18    | No rate limiting                 | High     | 1–2 hrs     | Configure DRF throttle classes |
-| 26    | No logging                       | High     | 1–2 hrs     | Add Django `LOGGING` dict with file + console handlers |
-| 27    | Static files incomplete          | Medium   | 1–2 hrs     | Set `STATIC_ROOT`; add WhiteNoise |
 | 30    | No dev/prod requirements split   | Medium   | 1 hr        | Split into `requirements/{base,dev,prod}.txt` |
 | 34    | Bulk ops inefficient             | Medium   | 2–3 hrs     | `create_plots` uses individual creates; switch to `bulk_create` |
-| 38    | Limited integration tests        | Medium   | 3–5 hrs     | Expand coverage for cross-app workflows |
 | 43    | No caching                       | Medium   | 2–4 hrs     | Configure Redis / Django cache framework |
 | 46    | Partial type hints               | Low      | 2–3 hrs     | `services.py` has them; add to models, views, utils |
 | 50–51 | No admin custom actions/inlines  | Low      | 2–3 hrs     | Add bulk actions and inline editing |
@@ -110,9 +98,11 @@ resolved as part of the broader fixes in their respective categories.
 ## Priority Breakdown
 
 ```
-High   (6 items):  #10/28, #11, #16, #18, #26   → ~10–14 hrs
-Medium (5 items):  #27, #30, #34, #38, #43       → ~10–15 hrs
+High   (0 items):  All high priority items resolved!
+Medium (3 items):  #30, #34, #43                  → ~5–8 hrs
 Low    (4 items):  #20, #46, #50-51               → ~5–8 hrs
+```
+
 By Design (2):     #23, #25                        → No action needed
 ```
 

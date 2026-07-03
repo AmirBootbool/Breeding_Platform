@@ -40,7 +40,9 @@ INSTALLED_APPS = [
     "apps.germplasm",
     "apps.trials",
     "apps.brapi",
+    "drf_spectacular",
 ]
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -156,7 +158,17 @@ REST_FRAMEWORK = {
         "rest_framework.filters.OrderingFilter",
     ],
     "EXCEPTION_HANDLER": "config.exception_handlers.api_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "10000/day",
+    },
 }
+
 
 # Additional Security Settings
 SECURE_BROWSER_XSS_FILTER = True
@@ -210,4 +222,12 @@ LOGGING = {
         },
     },
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Wheat Breeding Platform API",
+    "DESCRIPTION": "API for managing wheat breeding germplasm, trials, and observations.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
 

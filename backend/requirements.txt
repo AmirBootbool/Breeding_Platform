@@ -6,8 +6,10 @@ psycopg2-binary==2.9.*
 python-decouple==3.8.*
 dj-database-url==2.*
 whitenoise==6.7.*
+drf-spectacular==0.27.*
 pytest==8.*
 pytest-django==4.*
+
 
 
 # Development tooling for Phase 4 code quality and formatting

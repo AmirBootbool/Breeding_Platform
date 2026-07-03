@@ -1,12 +1,26 @@
 # Wheat Breeding Platform
 
-A Phase 0/1 scaffold for a wheat breeding data management platform.
+A self-hosted data management platform for wheat breeding programs. Manages
+germplasm registry with pedigree tracking, crossing blocks, trial design with
+RCBD plot layout generation, and phenotypic observation capture — with role-based
+access control and a full REST API.
+
+## Current Status
+
+- **34 tests passing** across models, API, RBAC, and admin
+- Full CRUD API for 10 domain models with token authentication
+- Role-based permissions (admin / breeder / technician / viewer)
+- RCBD plot generation with seeded randomization
+- Django Admin configured for all models
+
+See [docs/architecture.md](docs/architecture.md) for the full engineering
+reference and [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) for what's
+next.
 
 ## Local development (recommended)
 
-1. Copy `.env.example` to `.env` and fill in secrets.
-   - For local development, keep `USE_SQLITE=True`.
-   - If you later want Docker/Postgres, set `USE_SQLITE=False`.
+1. Copy `.env.example` to `backend/.env` and fill in secrets.
+   - For local development, keep `USE_SQLITE=True` and `DJANGO_DEBUG=True`.
 
 2. Create and activate a Python virtual environment in `backend`:
 
@@ -29,21 +43,29 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-5. Run the development server:
+5. Create a superuser:
+
+```powershell
+python manage.py createsuperuser
+```
+
+6. Run the development server:
 
 ```powershell
 python manage.py runserver
 ```
 
-6. Open the app in your browser:
+7. Open the app in your browser:
 
 ```text
-http://localhost:8000
+Admin:  http://localhost:8000/admin/
+API:    http://localhost:8000/api/
 ```
 
 ## Docker / Postgres (optional)
 
-If you want to run the app with Postgres, install Docker Desktop and use the compose stack.
+If you want to run the app with Postgres, install Docker Desktop and use the
+compose stack.
 
 1. Set `USE_SQLITE=False` in `.env`.
 2. Start the services:
@@ -60,13 +82,7 @@ docker compose exec web python manage.py makemigrations
 docker compose exec web python manage.py migrate
 ```
 
-4. Check that Django is using the Postgres database:
-
-```powershell
-docker compose exec web python manage.py check --database default
-```
-
-5. Visit the app at:
+4. Visit the app at:
 
 ```text
 http://localhost:8000
@@ -81,15 +97,34 @@ cd backend
 python -m pytest -q
 ```
 
-## Notes
+## Project Structure
 
-- `USE_SQLITE=True` is fine for local development and quick iteration.
-- Use `USE_SQLITE=False` only when you want to test against Postgres.
-- `.venv/` is ignored by git so your local virtual environment does not get committed.
+```
+wheat-breeding-platform/
+├── docs/architecture.md           ← engineering reference (start here)
+├── IMPLEMENTATION_ROADMAP.md      ← phase status and next steps
+├── NEXT_PHASE_SUMMARY.md          ← session handoff document
+├── backend/
+│   ├── config/                    ← Django settings, URLs, WSGI
+│   ├── apps/
+│   │   ├── core/                  ← Program, Location, Season, UserProfile
+│   │   ├── germplasm/             ← Germplasm, Cross
+│   │   └── trials/                ← Trial, Plot, ObservationVariable, Observation
+│   ├── tests/                     ← API + integration tests
+│   ├── requirements.txt
+│   └── Dockerfile
+├── docker-compose.yml
+└── .env.example
+```
 
-## Project structure
+## API Authentication
 
-- `backend/` — Django application and project code
-- `docker-compose.yml` — local development services for Django and Postgres
-- `.env.example` — example environment variables template
-- `docs/architecture.md` — project architecture notes
+```bash
+# Get a token
+curl -X POST http://localhost:8000/api/auth/token/ \
+  -H "Content-Type: application/json" \
+  -d '{"username": "youruser", "password": "yourpass"}'
+
+# Use the token
+curl -H "Authorization: Token YOUR_TOKEN" http://localhost:8000/api/programs/
+```

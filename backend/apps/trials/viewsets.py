@@ -2,7 +2,6 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from django.core.exceptions import ValidationError
 from django.db.models import Count
 
 from apps.core.permissions import RoleBasedPermission
@@ -23,6 +22,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "trial_code", "program__name"]
     ordering_fields = ["trial_code", "name", "created_at"]
+    filterset_fields = ["program", "season", "location", "design_type"]
 
     def get_queryset(self):
         return (
@@ -46,27 +46,20 @@ class TrialViewSet(viewsets.ModelViewSet):
                 id__in=germplasm_ids
             ).order_by("name")
             if germplasm_qs.count() != len(set(germplasm_ids)):
-                return Response(
+                from rest_framework.exceptions import (
+                    ValidationError as DRFValidationError,
+                )
+
+                raise DRFValidationError(
                     {
                         "germplasm_ids": (
                             "One or more germplasm IDs are invalid for this "
                             "trial program."
                         )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                    }
                 )
 
-        try:
-            created = create_plots_for_trial(trial, germplasm_qs, seed=seed)
-        except ValidationError as exc:
-            return Response(
-                (
-                    exc.message_dict
-                    if hasattr(exc, "message_dict")
-                    else {"detail": exc.messages}
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        created = create_plots_for_trial(trial, germplasm_qs, seed=seed)
 
         serializer = PlotSerializer(
             created, many=True, context=self.get_serializer_context()
@@ -93,9 +86,14 @@ class PlotViewSet(viewsets.ModelViewSet):
     }
     search_fields = ["trial__trial_code", "germplasm__name"]
     ordering_fields = ["plot_number", "rep", "status"]
+    filterset_fields = ["trial", "germplasm", "rep", "status"]
 
     def get_queryset(self):
-        return Plot.objects.select_related("trial", "germplasm").all()
+        return (
+            Plot.objects.select_related("trial", "germplasm")
+            .all()
+            .order_by("trial", "plot_number")
+        )
 
 
 class ObservationVariableViewSet(viewsets.ModelViewSet):
@@ -104,6 +102,7 @@ class ObservationVariableViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "variable_code", "description"]
     ordering_fields = ["name", "data_type", "created_at"]
+    filterset_fields = ["data_type", "is_required"]
 
     def get_queryset(self):
         return ObservationVariable.objects.all().order_by("name")
@@ -119,6 +118,7 @@ class ObservationViewSet(viewsets.ModelViewSet):
         "variable__name",
     ]
     ordering_fields = ["created_at", "observation_time"]
+    filterset_fields = ["plot", "variable", "plot__trial"]
 
     def get_queryset(self):
         return Observation.objects.select_related(

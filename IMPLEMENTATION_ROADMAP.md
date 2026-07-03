@@ -1,373 +1,516 @@
-# Implementation Roadmap & Priority Matrix
+# Implementation Roadmap
 
-## Priority Matrix
+Updated: 2026-07-03
 
-Issues are classified by **Severity** and **Effort** to help prioritize implementation.
-
-### Color Coding:
-- 🔴 **RED (Critical):** Security issue - must fix before production
-- 🟠 **ORANGE (High):** Important functionality - fix soon
-- 🟡 **YELLOW (Medium):** Nice to have - schedule for later
-- 🟢 **GREEN (Low):** Minor improvements - low priority
+This roadmap contains detailed implementation instructions for each task.
+Each section is self-contained: a builder model can read any single section
+and implement it without reading the others.
 
 ---
 
-## Quick Win Tasks (< 1 hour each)
+## Phase Summary
 
-These can be completed quickly and provide immediate value:
-
-| # | Issue | Current | Fixed | Effort | Impact |
-|---|-------|---------|-------|--------|--------|
-| 1 | Remove .swp files | ✗ | ✓ | 5 min | 🟢 Code cleanliness |
-| 2 | Add `readonly_fields` to admin | ✗ | ✓ | 15 min | 🟡 Admin UX |
-| 3 | Add type hints to utils.py | ✗ | ✓ | 30 min | 🟡 Code quality |
-| 4 | Add docstrings to models | ✗ | ✓ | 45 min | 🟡 Documentation |
-
-**Total Time:** ~1.5 hours
+| Phase | Status   | Description                       |
+|-------|----------|-----------------------------------|
+| 1     | ✅ Done  | Security hardening                |
+| 2     | ✅ Done  | REST API implementation           |
+| 3     | ✅ Done  | Database optimization             |
+| 4     | 🔶 Next  | Feature completeness & quality    |
+| 5     | ⬜ Later | Production readiness              |
 
 ---
 
-## Phase 1: Critical Security (IMMEDIATE - 2 hours)
+## Phase 1: Security Hardening — ✅ COMPLETE
 
-**Objective:** Fix critical security vulnerabilities before any production deployment.
-
-| Priority | Issue | File | Line | Action | Effort | Verification |
-|----------|-------|------|------|--------|--------|--------------|
-| 🔴 P1 | ALLOWED_HOSTS = '*' | settings.py | 8 | Restrict to domains | 15 min | `python manage.py check` |
-| 🔴 P2 | DEBUG defaults True | settings.py | 7 | Change default to False | 5 min | `django.conf.settings.DEBUG` |
-| 🔴 P3 | Weak SECRET_KEY | settings.py | 6 | Require environment var | 15 min | App won't start without key |
-| 🔴 P4 | No password validators | settings.py | 66 | Enable validation | 10 min | User creation test |
-| 🟠 P5 | No CORS config | settings.py | - | Add CORS headers | 20 min | Frontend can access API |
-| 🟠 P6 | No auth setup | settings.py | - | Configure TokenAuth | 30 min | API returns 401 without token |
-
-**Subtasks:**
-- [ ] Review and update `.env.example` with new variables
-- [ ] Test each setting with `python manage.py check`
-- [ ] Generate production SECRET_KEY
-- [ ] Document .env requirements
-- [ ] Create management command to verify security settings
-
-**Success Criteria:**
-- `python manage.py check --deploy` returns no errors
-- SECRET_KEY is not visible in code
-- DEBUG is False in production settings
-- API requires authentication
+- [x] SECRET_KEY loaded from environment; ValueError in production if missing
+- [x] DEBUG defaults to False
+- [x] ALLOWED_HOSTS from env, defaults to localhost only (not wildcard)
+- [x] Password validators enabled (min 12 chars, 4 validators)
+- [x] Token authentication configured and endpoint live
+- [x] CORS from env with explicit origins (not allow-all)
+- [x] HTTPS cookie settings gated on DEBUG=False
+- [x] Content-Security-Policy and XSS filter headers
 
 ---
 
-## Phase 2: API Implementation (1-2 weeks)
+## Phase 2: REST API Implementation — ✅ COMPLETE
 
-**Objective:** Implement complete REST API with proper authentication and serialization.
-
-### Step 2.1: Core App API (2-3 hours)
-
-| Component | File | Status | Tasks |
-|-----------|------|--------|-------|
-| Serializers | `apps/core/serializers.py` | 🔴 TODO | Create Program, Location, Season, UserProfile serializers |
-| ViewSets | `apps/core/viewsets.py` | 🔴 TODO | Create ModelViewSets with filtering |
-| Tests | `tests/test_api_core.py` | 🔴 TODO | Add API endpoint tests |
-
-**Deliverables:**
-- Core API endpoints functional
-- All endpoints tested
-- Authentication enforced
-
-### Step 2.2: Germplasm App API (2-3 hours)
-
-| Component | File | Status | Tasks |
-|-----------|------|--------|-------|
-| Serializers | `apps/germplasm/serializers.py` | 🔴 TODO | Create Germplasm, Cross serializers |
-| ViewSets | `apps/germplasm/viewsets.py` | 🔴 TODO | Create ModelViewSets with filtering |
-| Tests | `tests/test_api_germplasm.py` | 🔴 TODO | Add API endpoint tests |
-
-**Deliverables:**
-- Germplasm API endpoints functional
-- Cross relationships handled correctly
-- All endpoints tested
-
-### Step 2.3: Trials App API (3-4 hours)
-
-| Component | File | Status | Tasks |
-|-----------|------|--------|-------|
-| Serializers | `apps/trials/serializers.py` | 🔴 TODO | Create Trial, Plot, Observation serializers |
-| ViewSets | `apps/trials/viewsets.py` | 🔴 TODO | Create ModelViewSets with filtering |
-| Tests | `tests/test_api_trials.py` | 🔴 TODO | Add API endpoint tests |
-
-**Deliverables:**
-- Trials API endpoints functional
-- Plot creation through API
-- Observation recording through API
-
-### Step 2.4: URL Configuration (1 hour)
-
-| Task | File | Status |
-|------|------|--------|
-| Router setup | `config/urls.py` | 🔴 TODO |
-| Token auth endpoint | `config/urls.py` | 🔴 TODO |
-| API documentation | `config/urls.py` | 🔴 TODO |
-
-**Deliverables:**
-- All endpoints registered
-- Token generation works
-- API documentation available at `/api/docs/`
+- [x] Core serializers + viewsets (Program, Location, Season, UserProfile)
+- [x] Germplasm serializers + viewsets (Germplasm, Cross)
+- [x] Trials serializers + viewsets (Trial, Plot, ObservationVariable, Observation)
+- [x] URL routing via DRF DefaultRouter
+- [x] Token auth endpoint (`api/auth/token/`)
+- [x] RoleBasedPermission with per-action overrides
+- [x] Custom `create_plots` action on TrialViewSet
+- [x] Computed fields (program_name, plot_count, etc.) on serializers
+- [x] SearchFilter and OrderingFilter on all viewsets
 
 ---
 
-## Phase 3: Database Optimization (1 week)
+## Phase 3: Database Optimization — ✅ COMPLETE
 
-**Objective:** Add indexes, timestamps, and optimize queries.
+- [x] Indexes on lookup fields (name, year, cross_date, observation_time, etc.)
+- [x] Timestamps (created_at/updated_at) on all mutable models
+- [x] select_related() on all viewset querysets
+- [x] Unique constraints (germplasm_db_id, trial_code, cross_code, plot number)
+- [x] Model validation via clean() + full_clean() in save()
+- [x] CheckConstraint on ObservationVariable (min ≤ max)
+- [x] Cross self-referencing validation (female ≠ male)
 
-### Step 3.1: Database Indexes (2-3 hours)
+---
 
-| Model | Field | Reason | Priority |
-|-------|-------|--------|----------|
-| Germplasm | name | Search queries | HIGH |
-| Germplasm | program | Filtering | HIGH |
-| Trial | trial_code | Unique lookup | HIGH |
-| Trial | program | Filtering | HIGH |
-| Plot | trial | Filtering | HIGH |
-| Plot | germplasm | Filtering | HIGH |
-| Observation | variable | Filtering | HIGH |
-| Cross | female_parent | Lookup | MEDIUM |
-| Cross | male_parent | Lookup | MEDIUM |
+## Phase 4: Feature Completeness & Quality — 🔶 IN PROGRESS
 
-**Action:**
+### 4.1 django-filter Integration (1–2 hours)
+
+**Goal:** Enable query-parameter filtering (e.g., `?program=3&design_type=RCBD`)
+on all list endpoints.
+
+**Context:** `django-filter` is already in `requirements.txt` and
+`django_filters` is NOT currently in INSTALLED_APPS (only `django-cors-headers`
+is). The viewsets currently only have `SearchFilter` and `OrderingFilter`.
+
+**Step-by-step implementation:**
+
+1. Add `"django_filters"` to `INSTALLED_APPS` in `config/settings.py`.
+
+2. Add `"django_filters.rest_framework.DjangoFilterBackend"` to the
+   `DEFAULT_FILTER_BACKENDS` list in `REST_FRAMEWORK` settings — put it as
+   the first item before `SearchFilter` and `OrderingFilter`.
+
+3. Add `filterset_fields` to each viewset. Use this exact mapping:
+
+   | File                              | ViewSet                    | Add attribute                                          |
+   |-----------------------------------|----------------------------|--------------------------------------------------------|
+   | `apps/core/viewsets.py`           | `ProgramViewSet`           | `filterset_fields = ["crop"]`                          |
+   | `apps/core/viewsets.py`           | `LocationViewSet`          | `filterset_fields = ["country", "region"]`             |
+   | `apps/core/viewsets.py`           | `SeasonViewSet`            | `filterset_fields = ["year", "program"]`               |
+   | `apps/core/viewsets.py`           | `UserProfileViewSet`       | `filterset_fields = ["role", "program"]`               |
+   | `apps/germplasm/viewsets.py`      | `GermplasmViewSet`         | `filterset_fields = ["program", "cross_type", "species"]` |
+   | `apps/germplasm/viewsets.py`      | `CrossViewSet`             | `filterset_fields = ["female_parent", "male_parent", "location"]` |
+   | `apps/trials/viewsets.py`         | `TrialViewSet`             | `filterset_fields = ["program", "season", "location", "design_type"]` |
+   | `apps/trials/viewsets.py`         | `PlotViewSet`              | `filterset_fields = ["trial", "germplasm", "rep", "status"]` |
+   | `apps/trials/viewsets.py`         | `ObservationVariableViewSet` | `filterset_fields = ["data_type", "is_required"]`    |
+   | `apps/trials/viewsets.py`         | `ObservationViewSet`       | `filterset_fields = ["plot", "variable", "plot__trial"]` |
+
+4. **Tests to add** (in `tests/test_api_trials.py` or a new
+   `tests/test_api_filtering.py`):
+   - Test that `GET /api/trials/?program={id}` returns only matching trials.
+   - Test that `GET /api/germplasm/?cross_type=biparental` filters correctly.
+   - Test that `GET /api/observations/?plot__trial={id}` filters by trial.
+
+5. **Verify**: Run `python -m pytest -q`. All existing + new tests must pass.
+
+---
+
+### 4.2 Custom Exception Handler (1 hour)
+
+**Goal:** Return structured JSON error responses from the API instead of
+DRF's default format.
+
+**Step-by-step implementation:**
+
+1. Create `backend/config/exception_handlers.py`:
+
 ```python
-# Add db_index=True to model fields
-model_field = models.CharField(db_index=True)
+from rest_framework.views import exception_handler
 
-# Run migrations
-python manage.py makemigrations
-python manage.py migrate
+from django.core.exceptions import ValidationError as DjangoValidationError
+
+
+def api_exception_handler(exc, context):
+    if isinstance(exc, DjangoValidationError):
+        from rest_framework.exceptions import ValidationError
+        if hasattr(exc, "message_dict"):
+            exc = ValidationError(detail=exc.message_dict)
+        else:
+            exc = ValidationError(detail=exc.messages)
+
+    response = exception_handler(exc, context)
+
+    if response is not None:
+        response.data = {
+            "status_code": response.status_code,
+            "errors": response.data,
+        }
+
+    return response
 ```
 
-### Step 3.2: Missing Timestamps (1-2 hours)
+2. Wire it into `config/settings.py` by adding to `REST_FRAMEWORK`:
 
-| Model | Missing Fields | Action |
-|-------|----------------|--------|
-| UserProfile | created_at, updated_at | Add timestamp fields |
-| Cross | created_at, updated_at | Add timestamp fields |
-| Trial | created_at, updated_at | Add timestamp fields |
-
-**Action:**
 ```python
-# Add to models
-created_at = models.DateTimeField(auto_now_add=True)
-updated_at = models.DateTimeField(auto_now=True)
-
-# Create and run migrations
-python manage.py makemigrations
-python manage.py migrate
+"EXCEPTION_HANDLER": "config.exception_handlers.api_exception_handler",
 ```
 
-### Step 3.3: Query Optimization (1-2 hours)
+3. **Tests to add** (in `tests/test_api_core.py` or new
+   `tests/test_exception_handler.py`):
+   - Test that a 401 response has keys `status_code` and `errors`.
+   - Test that a validation error (e.g., creating a program with a
+     duplicate name) returns `status_code: 400` with field-level errors
+     in `errors`.
 
-| ViewSet | Current Query | Optimized Query | Benefit |
-|---------|---------------|-----------------|---------|
-| TrialViewSet | Trial.objects.all() | Trial.objects.select_related(...) | Eliminate N+1 queries |
-| PlotViewSet | Plot.objects.all() | Plot.objects.select_related(...) | Reduce queries |
-| ObservationViewSet | Observation.objects.all() | Observation.objects.select_related(...) | Reduce queries |
-
-**Action:** Add `select_related()` and `prefetch_related()` to ViewSets
-
-### Step 3.4: Constraints (1 hour)
-
-| Model | Constraint | Action |
-|-------|-----------|--------|
-| ObservationVariable | min_value <= max_value | Add CheckConstraint |
-| Cross | female_parent != male_parent | Add validation |
+4. **Verify**: Run `python -m pytest -q`. Check that existing tests still
+   pass (some may need minor assertions updated if they check `response.data`
+   structure directly — look for tests checking `response.data["count"]`
+   which are on success responses and should be unaffected).
 
 ---
 
-## Phase 4: Code Quality & Testing (1 week)
+### 4.3 CSV Import / Export Commands (4–6 hours)
 
-**Objective:** Improve testing, documentation, and code standards.
+**Goal:** Give breeders working CLI tools to move data in and out of the
+system using CSV files.
 
-### Step 4.1: Test Fixtures (2 hours)
+**Context:** Breeders currently have germplasm data in spreadsheets and need
+to get observation data out for analysis. Field Book is an Android app that
+imports/exports CSV.
 
-| File | Status | Tasks |
-|------|--------|-------|
-| `tests/conftest.py` | 🔴 TODO | Create reusable pytest fixtures |
-| `tests/test_api.py` | 🔴 TODO | Add comprehensive API tests |
-| `tests/test_admin.py` | 🔴 TODO | Add admin interface tests |
+**Step-by-step implementation:**
 
-**Action:**
-```bash
-python -m pytest tests/ -v  # Run all tests
-python -m pytest tests/ --cov=apps --cov-report=html  # Coverage report
+#### 4.3.1 `import_germplasm` command
+
+1. Create `backend/apps/germplasm/management/__init__.py` (empty).
+2. Create `backend/apps/germplasm/management/commands/__init__.py` (empty).
+3. Create `backend/apps/germplasm/management/commands/import_germplasm.py`:
+
+```python
+import csv
+from django.core.management.base import BaseCommand, CommandError
+from apps.core.models import Program
+from apps.germplasm.models import Germplasm
+
+
+class Command(BaseCommand):
+    help = "Import germplasm records from a CSV file."
+
+    def add_arguments(self, parser):
+        parser.add_argument("csv_file", help="Path to the CSV file")
+        parser.add_argument("--program", required=True, help="Program name")
+        parser.add_argument(
+            "--dry-run", action="store_true",
+            help="Validate without saving",
+        )
+
+    def handle(self, *args, **options):
+        try:
+            program = Program.objects.get(name=options["program"])
+        except Program.DoesNotExist:
+            raise CommandError(f"Program '{options['program']}' not found.")
+
+        # Expected CSV columns: name, species, pedigree_string, cross_type,
+        # year_developed, notes
+        # Only 'name' is required.
+        ...  # implement: open csv, iterate rows, create Germplasm objects
+        # Use transaction.atomic() for the batch
+        # Print summary: created count, skipped count, error count
 ```
 
-### Step 4.2: Code Formatting (1 hour)
+   Expected CSV format (document in `--help`):
+   ```
+   name,species,pedigree_string,cross_type,year_developed,notes
+   KAUZ,Triticum aestivum,KAUZ/PASTOR,biparental,2015,
+   ```
 
-| Tool | Config | Status |
-|------|--------|--------|
-| Black | pyproject.toml | 🔴 TODO |
-| isort | pyproject.toml | 🔴 TODO |
-| flake8 | .flake8 | 🔴 TODO |
+#### 4.3.2 `export_trial_data` command
 
-**Action:**
-```bash
-black backend/
-isort backend/
-flake8 backend/
-```
+1. Create `backend/apps/trials/management/commands/export_trial_data.py`.
+2. Accept `--trial` (trial_code) and `--output` (file path, default stdout).
+3. Query all observations for the trial via:
+   ```python
+   Observation.objects.filter(plot__trial=trial).select_related(
+       "plot__germplasm", "variable"
+   )
+   ```
+4. Output CSV with columns: `plot_number, germplasm_name, rep, variable_name,
+   value_numeric, value_text, value_date, observation_time, notes`.
 
-### Step 4.3: Documentation (2 hours)
+#### 4.3.3 `export_fieldbook` command
 
-| Document | Status | Tasks |
-|----------|--------|-------|
-| API Documentation | 🔴 TODO | Auto-generate from serializers |
-| Model Docstrings | 🔴 TODO | Add comprehensive docstrings |
-| Deployment Guide | 🔴 TODO | Create deployment.md |
+1. Create `backend/apps/trials/management/commands/export_fieldbook.py`.
+2. Field Book expects a CSV with at minimum: `plot_id, range, plot, entry`.
+   Map these to: `plot_number, rep, plot_number, germplasm_name`.
+3. Also include trait columns as empty headers (one per
+   `ObservationVariable`).
+
+#### 4.3.4 `import_fieldbook` command
+
+1. Create `backend/apps/trials/management/commands/import_fieldbook.py`.
+2. Accept `--trial` (trial_code) and the CSV file path.
+3. Field Book exports CSV with columns: `plot_id` + one column per trait.
+4. Match `plot_id` to `Plot.plot_number`, trait column headers to
+   `ObservationVariable.name`, create `Observation` records.
+5. Use `transaction.atomic()`.
+
+**Tests for all commands:** Add `tests/test_management_commands.py`:
+- Test `import_germplasm` with a sample CSV (use `io.StringIO`).
+- Test `export_trial_data` produces expected CSV rows.
+- Test `import_germplasm --dry-run` does not create records.
+- Test error handling for missing program, bad CSV format.
+
+**Verify**: `python -m pytest -q`.
 
 ---
 
-## Phase 5: Performance & Production Readiness (1 week)
+### 4.4 Per-Trial Summary Statistics (2 hours)
 
-**Objective:** Prepare for production deployment.
+**Goal:** Add a `summary` endpoint on trials that returns trait statistics.
 
-### Step 5.1: Caching Layer (2 hours)
+**Step-by-step implementation:**
 
-| Component | Implementation | Status |
-|-----------|----------------|--------|
-| Redis Setup | Install & configure | 🔴 TODO |
-| Cache Settings | Add to settings.py | 🔴 TODO |
-| Cache Views | Decorate expensive queries | 🔴 TODO |
+1. Add a service function in `apps/trials/services.py`:
 
-### Step 5.2: Logging (1-2 hours)
+```python
+from django.db.models import Avg, Min, Max, StdDev, Count
 
-| Logger | Configuration | Status |
-|--------|---------------|--------|
-| Django Logger | LOGGING dict | 🔴 TODO |
-| Application Logger | App-specific logging | 🔴 TODO |
-| Error Tracking | Sentry integration | 🟡 OPTIONAL |
+def compute_trial_summary(trial):
+    """Return per-variable stats for all observations in a trial."""
+    from .models import Observation
+    stats = (
+        Observation.objects.filter(
+            plot__trial=trial, value_numeric__isnull=False
+        )
+        .values("variable__name", "variable__unit")
+        .annotate(
+            count=Count("id"),
+            mean=Avg("value_numeric"),
+            min_val=Min("value_numeric"),
+            max_val=Max("value_numeric"),
+            std_dev=StdDev("value_numeric"),
+        )
+        .order_by("variable__name")
+    )
+    results = []
+    for row in stats:
+        cv = None
+        if row["mean"] and row["std_dev"]:
+            cv = round((row["std_dev"] / row["mean"]) * 100, 2)
+        results.append({
+            "variable": row["variable__name"],
+            "unit": row["variable__unit"],
+            "count": row["count"],
+            "mean": round(row["mean"], 4) if row["mean"] else None,
+            "min": row["min_val"],
+            "max": row["max_val"],
+            "std_dev": round(row["std_dev"], 4) if row["std_dev"] else None,
+            "cv_percent": cv,
+        })
+    return results
+```
 
-### Step 5.3: Monitoring (1-2 hours)
+2. Add the action to `TrialViewSet` in `apps/trials/viewsets.py`:
 
-| Metric | Tool | Status |
-|--------|------|--------|
-| Error Tracking | Sentry | 🟡 OPTIONAL |
-| Performance Monitoring | New Relic | 🟡 OPTIONAL |
-| Uptime Monitoring | UptimeRobot | 🟡 OPTIONAL |
+```python
+@action(detail=True, methods=["get"])
+def summary(self, request, pk=None):
+    trial = self.get_object()
+    stats = compute_trial_summary(trial)
+    return Response({"trial": trial.trial_code, "summary": stats})
+```
 
-### Step 5.4: Production Deployment (2 hours)
+   Import `compute_trial_summary` from `.services`.
 
-| Task | Status | Verification |
-|------|--------|--------------|
-| Configure Gunicorn | 🔴 TODO | Server starts without errors |
-| Configure Nginx | 🔴 TODO | HTTPS works, static files served |
-| Environment Setup | 🔴 TODO | All env vars documented |
-| Database Backup | 🔴 TODO | Backup procedure documented |
+3. **Tests** (in `tests/test_api_trials.py`):
+   - Create a trial with plots and observations, call
+     `GET /api/trials/{id}/summary/`, verify response has `mean`, `cv_percent`.
+   - Test with no observations returns empty summary list.
+
+4. **Verify**: `python -m pytest -q`.
 
 ---
 
-## Implementation Timeline (Estimate)
+### 4.5 Test Consolidation (1 hour)
 
-### Week 1
-- **Days 1-2:** Phase 1 - Security Fixes (2 hours) + Quick Wins (1.5 hours)
-- **Days 3-5:** Phase 2.1-2.2 - Core & Germplasm API (5-6 hours/day)
+**Goal:** Remove duplicate tests and establish a clear convention.
 
-### Week 2
-- **Days 1-3:** Phase 2.3-2.4 - Trials API & URL Config (5-6 hours/day)
-- **Days 4-5:** Phase 3.1-3.2 - Database Indexes & Timestamps (4-5 hours)
+**Convention to enforce:**
+- `apps/*/tests/test_models.py` — model-level unit tests (str, validation,
+  constraints, service functions).
+- `tests/test_api_*.py` — API integration tests (CRUD, RBAC, endpoint behavior).
+- `tests/test_admin.py` — admin registration and configuration.
 
-### Week 3
-- **Days 1-2:** Phase 3.3-3.4 - Query Optimization (3-4 hours)
-- **Days 3-5:** Phase 4 - Code Quality & Testing (5 hours)
+**Step-by-step implementation:**
 
-### Week 4
-- **Days 1-2:** Phase 5.1-5.2 - Caching & Logging (3-4 hours)
-- **Days 3-5:** Phase 5.3-5.4 - Monitoring & Deployment (4-5 hours)
+1. **Remove `tests/test_plot_constraints.py`** — its test
+   (`test_plot_unique_number_within_trial`) is duplicated in
+   `apps/trials/tests/test_models.py`.
 
-**Total Estimate:** 35-40 hours (4-5 weeks at ~8 hours/week)
+2. **Remove `tests/test_trials.py`** — its test
+   (`test_generate_rcbd_layout_and_create`) is duplicated in
+   `apps/trials/tests/test_models.py` (which has both
+   `test_generate_rcbd_layout_consistency` and `test_create_plots_for_trial`).
+
+3. **Remove `tests/test_core.py`** — its test
+   (`test_core_models_and_userprofile`) overlaps with the 5 tests in
+   `apps/core/tests/test_models.py`.
+
+4. **Remove `tests/test_germplasm.py`** — its test
+   (`test_germplasm_parents_and_cross`) overlaps with the 4 tests in
+   `apps/germplasm/tests/test_models.py`.
+
+5. **Add missing negative API tests** to `tests/test_api_germplasm.py`:
+   - `test_cross_self_cross_via_api` — POST a cross where female == male,
+     expect 400.
+   - `test_duplicate_germplasm_db_id_via_api` — POST two germplasm with
+     same germplasm_db_id, expect 400 on second.
+
+6. **Verify**: `python -m pytest -q`. Test count should decrease slightly
+   (removed ~4 duplicates) then increase by 2 (new negative tests). All
+   must pass.
+
+---
+
+### 4.6 FK Cascade Review (1 hour)
+
+**Goal:** Prevent accidental data loss from cascade deletes.
+
+**Step-by-step implementation:**
+
+1. In `apps/trials/models.py`, change `Plot.germplasm`:
+   ```python
+   # Before:
+   germplasm = models.ForeignKey(Germplasm, on_delete=models.CASCADE)
+   # After:
+   germplasm = models.ForeignKey(Germplasm, on_delete=models.PROTECT)
+   ```
+
+2. In `apps/trials/models.py`, change `Trial.location`:
+   ```python
+   # Before:
+   location = models.ForeignKey(Location, on_delete=models.CASCADE)
+   # After:
+   location = models.ForeignKey(Location, on_delete=models.PROTECT)
+   ```
+
+3. In `apps/trials/models.py`, change `Trial.season`:
+   ```python
+   # Before:
+   season = models.ForeignKey(Season, on_delete=models.CASCADE)
+   # After:
+   season = models.ForeignKey(Season, on_delete=models.PROTECT)
+   ```
+
+4. Generate and apply migration:
+   ```powershell
+   cd backend
+   .venv\Scripts\python manage.py makemigrations trials
+   .venv\Scripts\python manage.py migrate
+   ```
+
+5. **Add test** in `apps/trials/tests/test_models.py`:
+   ```python
+   @pytest.mark.django_db
+   def test_deleting_germplasm_with_plots_raises():
+       # Create germplasm, trial, plot. Try to delete germplasm.
+       # Expect django.db.models.ProtectedError.
+       ...
+   ```
+
+6. **Verify**: `python -m pytest -q`.
+
+---
+
+### 4.7 Cleanup (30 min)
+
+**Step-by-step implementation:**
+
+1. Delete `backend/flake_remaining.txt`:
+   ```powershell
+   Remove-Item C:\wheat-breeding-platform\backend\flake_remaining.txt
+   ```
+
+2. Remove `coreapi` from `backend/requirements.txt` — delete the line
+   `coreapi==2.*`. It is deprecated and unused.
+
+3. Update `backend/Dockerfile` — add `EXPOSE` and `CMD`:
+   ```dockerfile
+   FROM python:3.12-slim
+   WORKDIR /app
+   COPY requirements.txt .
+   RUN pip install --no-cache-dir -r requirements.txt
+   COPY . .
+   EXPOSE 8000
+   CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+   ```
+
+4. **Verify**: `python -m pytest -q` and `docker compose build` (if Docker
+   available).
+
+---
+
+## Phase 5: Production Readiness — ⬜ LATER
+
+### 5.1 Logging (2 hours)
+
+**Implementation notes for builder:**
+- Add `LOGGING` dict to `config/settings.py`.
+- Use `"django.server"` and app-level loggers (`"apps.trials"`, etc.).
+- JSON format for production, console for development (switch on `DEBUG`).
+- Add `logger.info()` calls in `services.py` for plot creation.
+- Add `logger.warning()` in permission denials.
+
+### 5.2 Deployment Hardening (2 hours)
+
+**Implementation notes for builder:**
+- Install `whitenoise` and add to `requirements.txt`.
+- Add `WhiteNoiseMiddleware` after `SecurityMiddleware` in settings.
+- Set `STATIC_ROOT = BASE_DIR / "staticfiles"`.
+- Add `STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"`.
+- Dockerfile already has gunicorn CMD from 4.7.
+- Create `docs/deployment.md` with step-by-step production setup.
+
+### 5.3 BrAPI v2 Endpoints (8–16 hours)
+
+**Implementation notes for builder:**
+- Create `apps/brapi/` as a new Django app.
+- Implement read-only endpoints mapping to BrAPI v2 spec:
+  - `/brapi/v2/studies` → Trial
+  - `/brapi/v2/germplasm` → Germplasm
+  - `/brapi/v2/observations` → Observation
+  - `/brapi/v2/observationvariables` → ObservationVariable
+- Use separate serializers that match BrAPI JSON schema (camelCase field
+  names, BrAPI-specific wrapper format with `metadata` and `result`).
+- Reference: https://brapi.org/specification
+- Keep internal API (`/api/`) unchanged.
+
+### 5.4 Monitoring & Observability (2 hours, optional)
+
+**Implementation notes for builder:**
+- Add a `/api/health/` endpoint (no auth required) that returns DB status.
+- Optionally integrate Sentry via `sentry-sdk[django]`.
+- Document backup procedure for PostgreSQL (`pg_dump`).
+
+---
+
+## Effort Estimates
+
+| Phase | Estimated Hours | Priority |
+|-------|-----------------|----------|
+| 4.1 django-filter          | 1–2 h   | High     |
+| 4.2 Exception handler      | 1 h     | Medium   |
+| 4.3 CSV import/export      | 4–6 h   | High     |
+| 4.4 Trial summary stats    | 2 h     | Medium   |
+| 4.5 Test consolidation     | 1 h     | Low      |
+| 4.6 FK cascade review      | 1 h     | Medium   |
+| 4.7 Cleanup                | 0.5 h   | Low      |
+| **Phase 4 total**          | **~12 h**| —       |
+| Phase 5 (all items)        | ~14–22 h| Later    |
 
 ---
 
 ## Success Metrics
 
-### Security
-- ✅ `python manage.py check --deploy` passes
-- ✅ No hardcoded secrets in code
-- ✅ All endpoints require authentication
-- ✅ Rate limiting active
+### Phase 4 Complete When:
+- All list endpoints support filtering by FK and choice fields
+- Structured error responses on all API errors
+- At least one CSV import and one export command working
+- No duplicate test coverage
+- FK cascade behavior reviewed and updated where needed
+- All tests passing
 
-### API Quality
-- ✅ All endpoints tested (>80% coverage)
-- ✅ API documentation complete
-- ✅ Response time < 500ms (p95)
-- ✅ No N+1 query problems
-
-### Code Quality
-- ✅ All code formatted with Black
-- ✅ Zero flake8 violations
-- ✅ Type hints on 90%+ of functions
-- ✅ Comprehensive docstrings
-
-### Performance
-- ✅ Database indexes on all filter fields
-- ✅ Query optimization complete
-- ✅ Caching layer active
-- ✅ Static file handling optimized
-
-### Testing
-- ✅ >80% test coverage
-- ✅ All critical paths tested
-- ✅ API tests comprehensive
-- ✅ Admin tests passing
-
----
-
-## Risk Assessment
-
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|-----------|
-| Data migration issues | Medium | High | Create comprehensive backup before schema changes |
-| API breaking changes | Low | High | Implement API versioning from start |
-| Performance regression | Low | High | Run load tests before each release |
-| Security vulnerabilities | Low | Critical | Use OWASP checklists, security audit |
-
----
-
-## Sign-Off Checklist
-
-Before marking each phase complete:
-
-### Phase 1 Security
-- [ ] All security settings verified
-- [ ] No warnings from `manage.py check --deploy`
-- [ ] .env.example updated
-- [ ] Team reviewed security changes
-
-### Phase 2 API
-- [ ] All endpoints working
-- [ ] All endpoints tested
-- [ ] API documentation generated
-- [ ] Authentication verified
-
-### Phase 3 Database
-- [ ] All migrations created
-- [ ] Database integrity verified
-- [ ] Queries optimized (query count verified)
-- [ ] No data loss during migration
-
-### Phase 4 Quality
-- [ ] Tests passing (>80% coverage)
-- [ ] Code formatted consistently
-- [ ] Documentation complete
-- [ ] Code review approved
-
-### Phase 5 Production
-- [ ] Load testing completed
-- [ ] Monitoring configured
-- [ ] Deployment procedure documented
-- [ ] Rollback procedure documented
-
----
-
-## References
-
-- Django Security Documentation: https://docs.djangoproject.com/en/5.1/topics/security/
-- Django REST Framework Guide: https://www.django-rest-framework.org/
-- OWASP Top 10: https://owasp.org/www-project-top-ten/
-- pytest-django Documentation: https://pytest-django.readthedocs.io/
-
+### Phase 5 Complete When:
+- Application runs in production mode with gunicorn
+- Static files served properly
+- Structured logging in place
+- BrAPI v2 read-only endpoints functional
+- Deployment procedure documented

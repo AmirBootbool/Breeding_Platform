@@ -17,6 +17,7 @@ class GermplasmViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "germplasm_db_id", "pedigree_string"]
     ordering_fields = ["name", "year_developed", "created_at"]
+    filterset_fields = ["program", "cross_type", "species"]
 
 
 class CrossViewSet(viewsets.ModelViewSet):
@@ -30,3 +31,4 @@ class CrossViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["cross_code", "female_parent__name", "male_parent__name"]
     ordering_fields = ["cross_date", "cross_code"]
+    filterset_fields = ["female_parent", "male_parent", "location"]

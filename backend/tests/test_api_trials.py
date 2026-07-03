@@ -30,7 +30,7 @@ def test_trial_create_plots_rejects_invalid_germplasm_ids(auth_client, trial):
     )
 
     assert response.status_code == 400
-    assert "germplasm_ids" in response.data
+    assert "germplasm_ids" in response.data["errors"]
 
 
 @pytest.mark.django_db
@@ -48,7 +48,7 @@ def test_trial_create_plots_rejects_duplicate_generation(auth_client, trial, ger
 
     assert first_response.status_code == 201
     assert second_response.status_code == 400
-    assert "trial" in second_response.data
+    assert "trial" in second_response.data["errors"]
 
 
 @pytest.mark.django_db

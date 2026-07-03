@@ -17,6 +17,7 @@ class ProgramViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name"]
     ordering_fields = ["name", "created_at"]
+    filterset_fields = ["crop"]
 
 
 class LocationViewSet(viewsets.ModelViewSet):
@@ -26,6 +27,7 @@ class LocationViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "country", "region"]
     ordering_fields = ["name", "country", "region"]
+    filterset_fields = ["country", "region"]
 
 
 class SeasonViewSet(viewsets.ModelViewSet):
@@ -35,6 +37,7 @@ class SeasonViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "program__name"]
     ordering_fields = ["name", "year"]
+    filterset_fields = ["year", "program"]
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):
@@ -44,3 +47,4 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     write_roles = {"admin"}
     search_fields = ["user__username", "user__email", "role"]
     ordering_fields = ["role"]
+    filterset_fields = ["role", "program"]

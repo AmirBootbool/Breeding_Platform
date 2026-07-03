@@ -1,510 +1,296 @@
-# API Implementation Guide
+# Wheat Breeding Platform — API Reference
 
-Complete implementation templates for REST API endpoints.
+> **Last updated:** July 3 2026
+> This document describes the REST API as currently implemented.
 
-## Installation Requirements
+---
+
+## 1. Architecture Overview
+
+| Layer | Detail |
+|---|---|
+| Framework | Django REST Framework |
+| Auth | Token authentication (`rest_framework.authtoken`) |
+| Permissions | Custom `RoleBasedPermission` class (role-aware RBAC) |
+| Routing | One `DefaultRouter` per app; all included under the `api/` prefix in `config/urls.py` |
+
+---
+
+## 2. Authentication
+
+Obtain a token by posting credentials to the token endpoint:
 
 ```bash
-pip install django-filter
+curl -X POST http://localhost:8000/api/auth/token/ \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "secret"}'
 ```
 
-Add to `backend/config/settings.py` INSTALLED_APPS:
-```python
-'django_filters',
+Response:
+
+```json
+{ "token": "abc123..." }
 ```
 
----
+Include the token in subsequent requests:
 
-## 1. CORE APP API
-
-### Create: `backend/apps/core/serializers.py`
-
-```python
-"""Serializers for core app models."""
-
-from rest_framework import serializers
-from .models import Program, Location, Season, UserProfile
-
-
-class ProgramSerializer(serializers.ModelSerializer):
-    """Serializer for Program model."""
-    
-    class Meta:
-        model = Program
-        fields = ['id', 'name', 'crop', 'description', 'created_at']
-        read_only_fields = ['id', 'created_at']
-
-
-class LocationSerializer(serializers.ModelSerializer):
-    """Serializer for Location model."""
-    
-    class Meta:
-        model = Location
-        fields = ['id', 'name', 'latitude', 'longitude', 'country', 'region']
-        read_only_fields = ['id']
-
-
-class SeasonSerializer(serializers.ModelSerializer):
-    """Serializer for Season model."""
-    
-    program_name = serializers.CharField(source='program.name', read_only=True)
-    
-    class Meta:
-        model = Season
-        fields = ['id', 'name', 'year', 'program', 'program_name']
-        read_only_fields = ['id']
-
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    """Serializer for UserProfile model."""
-    
-    username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.CharField(source='user.email', read_only=True)
-    
-    class Meta:
-        model = UserProfile
-        fields = ['id', 'username', 'email', 'role', 'program', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
 ```
-
-### Create: `backend/apps/core/viewsets.py`
-
-```python
-"""ViewSets for core app models."""
-
-from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
-
-from .models import Program, Location, Season, UserProfile
-from .serializers import (
-    ProgramSerializer,
-    LocationSerializer,
-    SeasonSerializer,
-    UserProfileSerializer,
-)
-
-
-class ProgramViewSet(viewsets.ModelViewSet):
-    """ViewSet for Program model.
-    
-    List, create, retrieve, update, and delete programs.
-    """
-    queryset = Program.objects.all()
-    serializer_class = ProgramSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'crop']
-    ordering_fields = ['name', 'created_at']
-    ordering = ['name']
-
-
-class LocationViewSet(viewsets.ModelViewSet):
-    """ViewSet for Location model.
-    
-    List, create, retrieve, update, and delete locations.
-    """
-    queryset = Location.objects.all()
-    serializer_class = LocationSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['name', 'country', 'region']
-    filterset_fields = ['country', 'region']
-
-
-class SeasonViewSet(viewsets.ModelViewSet):
-    """ViewSet for Season model.
-    
-    List, create, retrieve, update, and delete seasons.
-    """
-    queryset = Season.objects.all()
-    serializer_class = SeasonSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['year', 'program']
-    ordering = ['-year']
-
-
-class UserProfileViewSet(viewsets.ModelViewSet):
-    """ViewSet for UserProfile model.
-    
-    List, create, retrieve, update, and delete user profiles.
-    """
-    queryset = UserProfile.objects.all()
-    serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
-    filterset_fields = ['role', 'program']
+Authorization: Token abc123...
 ```
 
 ---
 
-## 2. GERMPLASM APP API
+## 3. Role-Based Access Control (RBAC)
 
-### Create: `backend/apps/germplasm/serializers.py`
+All viewsets use **`RoleBasedPermission`** — not plain `IsAuthenticated`.
 
-```python
-"""Serializers for germplasm app models."""
+| Role | Capabilities |
+|---|---|
+| **admin** | Full read/write on every endpoint |
+| **breeder** | Read all; write on most endpoints (except user profiles) |
+| **technician** | Read all; write only on observations, and update/partial-update on plots |
+| **viewer** | Read-only everywhere |
 
-from rest_framework import serializers
-from .models import Germplasm, Cross
-
-
-class GermplasmSerializer(serializers.ModelSerializer):
-    """Serializer for Germplasm model."""
-    
-    program_name = serializers.CharField(source='program.name', read_only=True)
-    parent_female_name = serializers.CharField(source='parent_female.name', read_only=True)
-    parent_male_name = serializers.CharField(source='parent_male.name', read_only=True)
-    
-    class Meta:
-        model = Germplasm
-        fields = [
-            'id', 'name', 'germplasm_db_id', 'species', 'program', 'program_name',
-            'parent_female', 'parent_female_name', 'parent_male', 'parent_male_name',
-            'pedigree_string', 'cross_type', 'year_developed', 'notes', 'created_at'
-        ]
-        read_only_fields = ['id', 'germplasm_db_id', 'created_at']
-
-
-class CrossSerializer(serializers.ModelSerializer):
-    """Serializer for Cross model."""
-    
-    female_parent_name = serializers.CharField(source='female_parent.name', read_only=True)
-    male_parent_name = serializers.CharField(source='male_parent.name', read_only=True)
-    location_name = serializers.CharField(source='location.name', read_only=True)
-    
-    class Meta:
-        model = Cross
-        fields = [
-            'id', 'cross_code', 'female_parent', 'female_parent_name',
-            'male_parent', 'male_parent_name', 'cross_date', 'location',
-            'location_name', 'notes', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-```
-
-### Create: `backend/apps/germplasm/viewsets.py`
-
-```python
-"""ViewSets for germplasm app models."""
-
-from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
-
-from .models import Germplasm, Cross
-from .serializers import GermplasmSerializer, CrossSerializer
-
-
-class GermplasmViewSet(viewsets.ModelViewSet):
-    """ViewSet for Germplasm model.
-    
-    List, create, retrieve, update, and delete germplasm lines.
-    """
-    queryset = Germplasm.objects.select_related('program', 'parent_female', 'parent_male')
-    serializer_class = GermplasmSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'germplasm_db_id', 'pedigree_string']
-    filterset_fields = ['program', 'cross_type']
-    ordering_fields = ['name', 'year_developed', 'created_at']
-    ordering = ['name']
-
-
-class CrossViewSet(viewsets.ModelViewSet):
-    """ViewSet for Cross model.
-    
-    List, create, retrieve, update, and delete crosses.
-    """
-    queryset = Cross.objects.select_related('female_parent', 'male_parent', 'location')
-    serializer_class = CrossSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['cross_code', 'female_parent__name', 'male_parent__name']
-    filterset_fields = ['location', 'cross_date']
-    ordering = ['-cross_date']
-```
+Per-viewset `write_roles` are listed in the endpoint table below. Some viewsets also define `role_action_permissions` to grant write access on specific actions (e.g. `PlotViewSet` allows technicians to `update` and `partial_update`).
 
 ---
 
-## 3. TRIALS APP API
+## 4. Endpoint Reference
 
-### Create: `backend/apps/trials/serializers.py`
+### 4.1 Core App (`apps/core/`)
 
-```python
-"""Serializers for trials app models."""
+#### Programs — `api/programs/`
 
-from rest_framework import serializers
-from .models import Trial, Plot, ObservationVariable, Observation
+| Write Roles | `admin`, `breeder` |
+|---|---|
 
+**Serializer fields:**
 
-class TrialSerializer(serializers.ModelSerializer):
-    """Serializer for Trial model."""
-    
-    program_name = serializers.CharField(source='program.name', read_only=True)
-    location_name = serializers.CharField(source='location.name', read_only=True)
-    season_name = serializers.CharField(source='season.name', read_only=True)
-    
-    class Meta:
-        model = Trial
-        fields = [
-            'id', 'name', 'trial_code', 'brapi_study_db_id', 'program', 'program_name',
-            'location', 'location_name', 'season', 'season_name', 'design_type',
-            'num_reps', 'planting_date', 'harvest_date', 'notes', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'brapi_study_db_id', 'created_at', 'updated_at']
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name` | string | |
+| `crop` | string | |
+| `description` | string | |
+| `created_at` | datetime | read-only |
 
+#### Locations — `api/locations/`
 
-class PlotSerializer(serializers.ModelSerializer):
-    """Serializer for Plot model."""
-    
-    trial_code = serializers.CharField(source='trial.trial_code', read_only=True)
-    germplasm_name = serializers.CharField(source='germplasm.name', read_only=True)
-    
-    class Meta:
-        model = Plot
-        fields = [
-            'id', 'trial', 'trial_code', 'germplasm', 'germplasm_name',
-            'rep', 'block', 'plot_number', 'row', 'column', 'status'
-        ]
-        read_only_fields = ['id', 'trial_code']
+| Write Roles | `admin`, `breeder` |
+|---|---|
 
+**Serializer fields:**
 
-class ObservationVariableSerializer(serializers.ModelSerializer):
-    """Serializer for ObservationVariable model."""
-    
-    class Meta:
-        model = ObservationVariable
-        fields = [
-            'id', 'name', 'variable_code', 'description', 'unit',
-            'data_type', 'min_value', 'max_value', 'is_required', 'created_at'
-        ]
-        read_only_fields = ['id', 'created_at']
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name` | string | |
+| `latitude` | decimal | |
+| `longitude` | decimal | |
+| `country` | string | |
+| `region` | string | |
 
+#### Seasons — `api/seasons/`
 
-class ObservationSerializer(serializers.ModelSerializer):
-    """Serializer for Observation model."""
-    
-    plot_number = serializers.IntegerField(source='plot.plot_number', read_only=True)
-    variable_name = serializers.CharField(source='variable.name', read_only=True)
-    
-    class Meta:
-        model = Observation
-        fields = [
-            'id', 'plot', 'plot_number', 'variable', 'variable_name',
-            'observation_time', 'value_text', 'value_numeric', 'value_date',
-            'notes', 'created_at'
-        ]
-        read_only_fields = ['id', 'created_at']
-```
+| Write Roles | `admin`, `breeder` |
+|---|---|
 
-### Create: `backend/apps/trials/viewsets.py`
+Uses `select_related('program')` for efficient queries.
 
-```python
-"""ViewSets for trials app models."""
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name` | string | |
+| `year` | int | |
+| `program` | int (FK) | |
+| `program_name` | string | read-only, computed from `program.name` |
 
-from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
-from django_filters.rest_framework import DjangoFilterBackend
+#### User Profiles — `api/user-profiles/`
 
-from .models import Trial, Plot, ObservationVariable, Observation
-from .serializers import (
-    TrialSerializer,
-    PlotSerializer,
-    ObservationVariableSerializer,
-    ObservationSerializer,
-)
+| Write Roles | `admin` only |
+|---|---|
 
+Uses `select_related('user', 'program')`.
 
-class TrialViewSet(viewsets.ModelViewSet):
-    """ViewSet for Trial model.
-    
-    List, create, retrieve, update, and delete trials.
-    """
-    queryset = Trial.objects.select_related('program', 'location', 'season')
-    serializer_class = TrialSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'trial_code']
-    filterset_fields = ['program', 'location', 'season', 'design_type']
-    ordering_fields = ['trial_code', 'planting_date']
-    ordering = ['trial_code']
-
-
-class PlotViewSet(viewsets.ModelViewSet):
-    """ViewSet for Plot model.
-    
-    List, create, retrieve, update, and delete plots.
-    """
-    queryset = Plot.objects.select_related('trial', 'germplasm')
-    serializer_class = PlotSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['germplasm__name', 'trial__trial_code']
-    filterset_fields = ['trial', 'rep', 'status']
-
-
-class ObservationVariableViewSet(viewsets.ModelViewSet):
-    """ViewSet for ObservationVariable model.
-    
-    List, create, retrieve, update, and delete observation variables.
-    """
-    queryset = ObservationVariable.objects.all()
-    serializer_class = ObservationVariableSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['name', 'variable_code']
-    filterset_fields = ['data_type', 'is_required']
-
-
-class ObservationViewSet(viewsets.ModelViewSet):
-    """ViewSet for Observation model.
-    
-    List, create, retrieve, update, and delete observations.
-    """
-    queryset = Observation.objects.select_related('plot', 'variable')
-    serializer_class = ObservationSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['plot__trial__trial_code', 'variable__name']
-    filterset_fields = ['plot', 'variable', 'observation_time']
-```
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `user` | int (FK) | |
+| `username` | string | read-only, from `user.username` |
+| `email` | string | read-only, from `user.email` |
+| `role` | string | |
+| `program` | int (FK) | |
+| `program_name` | string | read-only, computed |
+| `created_at` | datetime | read-only |
+| `updated_at` | datetime | read-only |
 
 ---
 
-## 4. URL Configuration
+### 4.2 Germplasm App (`apps/germplasm/`)
 
-### Update: `backend/config/urls.py`
+#### Germplasm — `api/germplasm/`
 
-```python
-"""URL configuration for wheat breeding platform."""
+| Write Roles | `admin`, `breeder` |
+|---|---|
 
-from django.contrib import admin
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from rest_framework.authtoken import views as token_views
-from rest_framework.documentation.views import get_schema_view
-from rest_framework import permissions as drf_permissions
+Uses `select_related` for parent/program lookups.
 
-# Import viewsets from each app
-from apps.core.viewsets import ProgramViewSet, LocationViewSet, SeasonViewSet, UserProfileViewSet
-from apps.germplasm.viewsets import GermplasmViewSet, CrossViewSet
-from apps.trials.viewsets import TrialViewSet, PlotViewSet, ObservationViewSet, ObservationVariableViewSet
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| _model fields_ | — | all model fields included |
+| `parent_female_name` | string | read-only, computed |
+| `parent_male_name` | string | read-only, computed |
+| `program_name` | string | read-only, computed |
 
-# Create router and register viewsets
-router = DefaultRouter(trailing_slash=False)
-router.register(r'programs', ProgramViewSet, basename='program')
-router.register(r'locations', LocationViewSet, basename='location')
-router.register(r'seasons', SeasonViewSet, basename='season')
-router.register(r'users', UserProfileViewSet, basename='user-profile')
-router.register(r'germplasm', GermplasmViewSet, basename='germplasm')
-router.register(r'crosses', CrossViewSet, basename='cross')
-router.register(r'trials', TrialViewSet, basename='trial')
-router.register(r'plots', PlotViewSet, basename='plot')
-router.register(r'observations', ObservationViewSet, basename='observation')
-router.register(r'observation-variables', ObservationVariableViewSet, basename='observation-variable')
+#### Crosses — `api/crosses/`
 
-# Schema view for API documentation (optional)
-schema_view = get_schema_view(
-    title='Wheat Breeding Platform API',
-    description='REST API for wheat breeding data management',
-    version='1.0.0',
-    public=True,
-    permission_classes=(drf_permissions.AllowAny,),
-)
+| Write Roles | `admin`, `breeder` |
+|---|---|
 
-urlpatterns = [
-    # Admin
-    path('admin/', admin.site.urls),
-    
-    # API
-    path('api/v1/', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls')),
-    path('api/v1/auth-token/', token_views.obtain_auth_token),  # Token generation endpoint
-    
-    # Documentation
-    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-]
-```
+Uses `select_related` for parent/location lookups.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| _model fields_ | — | all model fields included |
+| `female_parent_name` | string | read-only, computed |
+| `male_parent_name` | string | read-only, computed |
+| `location_name` | string | read-only, computed |
 
 ---
 
-## 5. Testing API
+### 4.3 Trials App (`apps/trials/`)
 
-### Test with curl:
+#### Trials — `api/trials/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+Annotates `plot_count`; uses `select_related('program', 'location', 'season')`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| _model fields_ | — | all model fields included |
+| `program_name` | string | read-only, computed |
+| `location_name` | string | read-only, computed |
+| `season_name` | string | read-only, computed |
+| `plot_count` | int | read-only, annotated |
+
+**Custom action — `create_plots`**
+
+```
+POST api/trials/{id}/create_plots/
+```
+
+Bulk-creates plots for a trial. Accessible to `admin` and `breeder` roles. Accepts a list of plot data in the request body and creates them linked to the specified trial.
 
 ```bash
-# Get authentication token
-curl -X POST http://localhost:8000/api/v1/auth-token/ \
+curl -X POST http://localhost:8000/api/trials/1/create_plots/ \
+  -H "Authorization: Token abc123..." \
   -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "password": "testpass"}'
+  -d '[{"germplasm": 5, "plot_number": 1, "replication": 1}]'
+```
 
-# Response: {"token":"YOUR_TOKEN_HERE"}
+#### Plots — `api/plots/`
 
-# Use token to access API
-TOKEN="YOUR_TOKEN_HERE"
+| Write Roles | `admin`, `breeder` (create/delete) — `technician` may also `update`/`partial_update` |
+|---|---|
 
-# List programs
-curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/programs/
+Uses `select_related('trial', 'germplasm')`. The viewset defines `role_action_permissions` to extend write access for technicians on update actions.
 
-# Create program
-curl -X POST http://localhost:8000/api/v1/programs/ \
-  -H "Authorization: Token $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Winter Wheat 2026",
-    "crop": "wheat",
-    "description": "Winter wheat breeding program"
-  }'
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| _model fields_ | — | all model fields included |
+| `trial_code` | string | read-only, computed |
+| `germplasm_name` | string | read-only, computed |
 
-# Get specific program
-curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/programs/1/
+#### Observation Variables — `api/observation-variables/`
 
-# Update program
-curl -X PUT http://localhost:8000/api/v1/programs/1/ \
-  -H "Authorization: Token $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"description": "Updated description"}'
+| Write Roles | `admin`, `breeder` |
+|---|---|
 
-# Delete program
-curl -X DELETE http://localhost:8000/api/v1/programs/1/ \
-  -H "Authorization: Token $TOKEN"
+All model fields are included in the serializer.
+
+#### Observations — `api/observations/`
+
+| Write Roles | `admin`, `breeder`, `technician` |
+|---|---|
+
+Uses `select_related` for related lookups.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| _model fields_ | — | all model fields included |
+| `trial_code` | string | read-only, computed |
+| `germplasm_name` | string | read-only, computed |
+| `variable_name` | string | read-only, computed |
+
+---
+
+## 5. Searching & Ordering
+
+All viewsets expose `search_fields` and `ordering_fields` via DRF's `SearchFilter` and `OrderingFilter` backends. Append query parameters:
+
+```bash
+# Search programs by name
+curl "http://localhost:8000/api/programs/?search=wheat" \
+  -H "Authorization: Token abc123..."
+
+# Order germplasm by name descending
+curl "http://localhost:8000/api/germplasm/?ordering=-name" \
+  -H "Authorization: Token abc123..."
 ```
 
 ---
 
-## 6. API Endpoints Reference
+## 6. Common CRUD Examples
 
-### Core App
-- `GET/POST /api/v1/programs/` - List/create programs
-- `GET/PUT/DELETE /api/v1/programs/{id}/` - Retrieve/update/delete program
-- `GET/POST /api/v1/locations/` - List/create locations
-- `GET/PUT/DELETE /api/v1/locations/{id}/` - Retrieve/update/delete location
-- `GET/POST /api/v1/seasons/` - List/create seasons
-- `GET/PUT/DELETE /api/v1/seasons/{id}/` - Retrieve/update/delete season
-- `GET /api/v1/users/` - List user profiles
+### Create a program
 
-### Germplasm App
-- `GET/POST /api/v1/germplasm/` - List/create germplasm
-- `GET/PUT/DELETE /api/v1/germplasm/{id}/` - Retrieve/update/delete germplasm
-- `GET/POST /api/v1/crosses/` - List/create crosses
-- `GET/PUT/DELETE /api/v1/crosses/{id}/` - Retrieve/update/delete cross
+```bash
+curl -X POST http://localhost:8000/api/programs/ \
+  -H "Authorization: Token abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Spring Wheat 2026", "crop": "wheat", "description": "Main program"}'
+```
 
-### Trials App
-- `GET/POST /api/v1/trials/` - List/create trials
-- `GET/PUT/DELETE /api/v1/trials/{id}/` - Retrieve/update/delete trial
-- `GET/POST /api/v1/plots/` - List/create plots
-- `GET/PUT/DELETE /api/v1/plots/{id}/` - Retrieve/update/delete plot
-- `GET/POST /api/v1/observations/` - List/create observations
-- `GET/PUT/DELETE /api/v1/observations/{id}/` - Retrieve/update/delete observation
-- `GET/POST /api/v1/observation-variables/` - List/create observation variables
-- `GET/PUT/DELETE /api/v1/observation-variables/{id}/` - Retrieve/update/delete variable
+### List seasons (with computed program_name)
 
-### Authentication
-- `POST /api/v1/auth-token/` - Get authentication token
-- `GET /api-auth/login/` - Browser login
-- `GET /api-auth/logout/` - Browser logout
+```bash
+curl http://localhost:8000/api/seasons/ \
+  -H "Authorization: Token abc123..."
+```
 
-### Documentation
-- `GET /api/docs/` - Swagger API documentation
+### Update a plot (as technician)
 
+```bash
+curl -X PATCH http://localhost:8000/api/plots/42/ \
+  -H "Authorization: Token <technician-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"notes": "Lodging observed"}'
+```
+
+### Record an observation (as technician)
+
+```bash
+curl -X POST http://localhost:8000/api/observations/ \
+  -H "Authorization: Token <technician-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"plot": 42, "variable": 3, "value": "8.5", "recorded_date": "2026-07-01"}'
+```
+
+---
+
+## 7. Not Yet Implemented
+
+The following features are planned but **not present** in the current codebase:
+
+| Feature | Status |
+|---|---|
+| `DjangoFilterBackend` / `filterset_fields` | Not configured — field-level filtering (e.g. `?program=1`) is unavailable |
+| Swagger / OpenAPI documentation | No `drf-spectacular` or `drf-yasg` integration |
+| Rate limiting | No throttle classes configured |

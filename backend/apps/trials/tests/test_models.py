@@ -48,6 +48,7 @@ def test_create_plots_for_trial():
 
     created = create_plots_for_trial(trial, entries, seed=42)
     assert len(created) == 8
+    assert all(plot.id is not None for plot in created)
     assert Plot.objects.filter(trial=trial).count() == 8
 
     plot_numbers = list(
@@ -216,4 +217,3 @@ def test_deleting_season_with_trials_raises():
 
     with pytest.raises(ProtectedError):
         season.delete()
-

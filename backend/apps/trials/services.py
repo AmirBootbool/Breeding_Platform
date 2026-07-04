@@ -4,8 +4,8 @@ from typing import Sequence
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-
 from django.db.models import Avg, Count, Max, Min, StdDev
+
 from apps.germplasm.models import Germplasm
 
 from .models import Plot
@@ -49,20 +49,23 @@ def create_plots_for_trial(
         raise ValidationError({"trial": "Plots already exist for this trial."})
 
     layouts = generate_rcbd_layout(entries, trial.num_reps, seed=seed)
-    created = []
+    plots_to_create = []
     plot_number = 1
 
-    with transaction.atomic():
-        for rep, entry_list in layouts:
-            for germplasm in entry_list:
-                plot = Plot.objects.create(
+    for rep, entry_list in layouts:
+        for germplasm in entry_list:
+            plots_to_create.append(
+                Plot(
                     trial=trial,
                     germplasm=germplasm,
                     rep=rep,
                     plot_number=plot_number,
                 )
-                created.append(plot)
-                plot_number += 1
+            )
+            plot_number += 1
+
+    with transaction.atomic():
+        created = Plot.objects.bulk_create(plots_to_create)
 
     return created
 
@@ -72,9 +75,7 @@ def compute_trial_summary(trial):
     from .models import Observation
 
     stats = (
-        Observation.objects.filter(
-            plot__trial=trial, value_numeric__isnull=False
-        )
+        Observation.objects.filter(plot__trial=trial, value_numeric__isnull=False)
         .values("variable__name", "variable__unit")
         .annotate(
             count=Count("id"),
@@ -98,9 +99,10 @@ def compute_trial_summary(trial):
                 "mean": round(row["mean"], 4) if row["mean"] is not None else None,
                 "min": row["min_val"],
                 "max": row["max_val"],
-                "std_dev": round(row["std_dev"], 4) if row["std_dev"] is not None else None,
+                "std_dev": (
+                    round(row["std_dev"], 4) if row["std_dev"] is not None else None
+                ),
                 "cv_percent": cv,
             }
         )
     return results
-

@@ -84,7 +84,9 @@ def test_cross_code_unique(program):
 def test_germplasm_db_id_unique(program):
     Germplasm.objects.create(name="F1", germplasm_db_id="G-UNIQUE-ID", program=program)
     with pytest.raises(Exception):
-        Germplasm.objects.create(name="Dup", germplasm_db_id="G-UNIQUE-ID", program=program)
+        Germplasm.objects.create(
+            name="Dup", germplasm_db_id="G-UNIQUE-ID", program=program
+        )
 
 
 @pytest.mark.django_db
@@ -101,4 +103,3 @@ def test_cross_raises_for_identical_parents(program):
             male_parent=germplasm,
             cross_date="2026-01-01",
         )
-

@@ -1,8 +1,8 @@
 import pytest
 
-from apps.core.models import Location, Program, Season, UserProfile
+from apps.core.models import Location, Program, Season
 from apps.germplasm.models import Cross, Germplasm
-from apps.trials.models import Observation, ObservationVariable, Plot, Trial
+from apps.trials.models import Observation, Plot, Trial
 
 
 @pytest.mark.django_db
@@ -38,7 +38,9 @@ def test_filter_locations(auth_client):
 @pytest.mark.django_db
 def test_filter_seasons(auth_client, program, season):
     other_program = Program.objects.create(name="Other Program")
-    other_season = Season.objects.create(name="2025 Winter", year=2025, program=other_program)
+    Season.objects.create(
+        name="2025 Winter", year=2025, program=other_program
+    )
 
     # Filter by year
     response = auth_client.get("/api/seasons/?year=2025")
@@ -56,7 +58,7 @@ def test_filter_seasons(auth_client, program, season):
 @pytest.mark.django_db
 def test_filter_germplasm(auth_client, program, germplasm):
     other_program = Program.objects.create(name="Other Program")
-    other_germplasm = Germplasm.objects.create(
+    Germplasm.objects.create(
         name="Line C",
         germplasm_db_id="G003",
         program=other_program,
@@ -86,17 +88,21 @@ def test_filter_germplasm(auth_client, program, germplasm):
 @pytest.mark.django_db
 def test_filter_crosses(auth_client, germplasm, second_germplasm):
     other_program = Program.objects.create(name="Other Program")
-    germ_c = Germplasm.objects.create(name="Line C", germplasm_db_id="G003", program=other_program)
-    germ_d = Germplasm.objects.create(name="Line D", germplasm_db_id="G004", program=other_program)
+    germ_c = Germplasm.objects.create(
+        name="Line C", germplasm_db_id="G003", program=other_program
+    )
+    germ_d = Germplasm.objects.create(
+        name="Line D", germplasm_db_id="G004", program=other_program
+    )
     loc = Location.objects.create(name="Crossing Block A")
 
-    cross1 = Cross.objects.create(
+    Cross.objects.create(
         cross_code="C001",
         female_parent=germplasm,
         male_parent=second_germplasm,
         cross_date="2026-06-01",
     )
-    cross2 = Cross.objects.create(
+    Cross.objects.create(
         cross_code="C002",
         female_parent=germ_c,
         male_parent=germ_d,
@@ -121,8 +127,10 @@ def test_filter_crosses(auth_client, germplasm, second_germplasm):
 def test_filter_trials(auth_client, program, location, season, trial):
     other_program = Program.objects.create(name="Other Program")
     other_loc = Location.objects.create(name="Other Field")
-    other_season = Season.objects.create(name="2025 Season", year=2025, program=other_program)
-    other_trial = Trial.objects.create(
+    other_season = Season.objects.create(
+        name="2025 Season", year=2025, program=other_program
+    )
+    Trial.objects.create(
         name="Trial Two",
         trial_code="TR-002",
         program=other_program,
@@ -146,8 +154,10 @@ def test_filter_trials(auth_client, program, location, season, trial):
 
 @pytest.mark.django_db
 def test_filter_plots(auth_client, trial, plot):
-    other_germ = Germplasm.objects.create(name="Other Line", germplasm_db_id="G999", program=trial.program)
-    other_plot = Plot.objects.create(
+    other_germ = Germplasm.objects.create(
+        name="Other Line", germplasm_db_id="G999", program=trial.program
+    )
+    Plot.objects.create(
         trial=trial,
         germplasm=other_germ,
         rep=2,
@@ -170,7 +180,7 @@ def test_filter_plots(auth_client, trial, plot):
 
 @pytest.mark.django_db
 def test_filter_observations(auth_client, plot, observation_variable):
-    obs = Observation.objects.create(
+    Observation.objects.create(
         plot=plot,
         variable=observation_variable,
         value_numeric=15.2,

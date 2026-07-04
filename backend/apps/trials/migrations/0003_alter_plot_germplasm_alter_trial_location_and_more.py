@@ -7,25 +7,31 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0002_database_optimizations'),
-        ('germplasm', '0002_database_optimizations'),
-        ('trials', '0002_database_optimizations'),
+        ("core", "0002_database_optimizations"),
+        ("germplasm", "0002_database_optimizations"),
+        ("trials", "0002_database_optimizations"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='plot',
-            name='germplasm',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='germplasm.germplasm'),
+            model_name="plot",
+            name="germplasm",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to="germplasm.germplasm"
+            ),
         ),
         migrations.AlterField(
-            model_name='trial',
-            name='location',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='core.location'),
+            model_name="trial",
+            name="location",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to="core.location"
+            ),
         ),
         migrations.AlterField(
-            model_name='trial',
-            name='season',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='core.season'),
+            model_name="trial",
+            name="season",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to="core.season"
+            ),
         ),
     ]

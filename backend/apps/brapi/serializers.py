@@ -1,6 +1,5 @@
 from rest_framework import serializers
 
-from apps.core.models import Program
 from apps.germplasm.models import Germplasm
 from apps.trials.models import Observation, ObservationVariable, Trial
 
@@ -84,7 +83,9 @@ class BrapiGermplasmSerializer(serializers.ModelSerializer):
     genus = serializers.SerializerMethodField()
     commonCropName = serializers.CharField(source="program.crop", read_only=True)
     breedingMethod = serializers.CharField(source="cross_type", read_only=True)
-    yearOfDevelopment = serializers.IntegerField(source="year_developed", read_only=True)
+    yearOfDevelopment = serializers.IntegerField(
+        source="year_developed", read_only=True
+    )
     programDbId = serializers.SerializerMethodField()
     programName = serializers.CharField(source="program.name", read_only=True)
     additionalInfo = serializers.SerializerMethodField()
@@ -124,13 +125,19 @@ class BrapiObservationSerializer(serializers.ModelSerializer):
     observationUnitDbId = serializers.SerializerMethodField()
     observationUnitName = serializers.SerializerMethodField()
     observationVariableDbId = serializers.SerializerMethodField()
-    observationVariableName = serializers.CharField(source="variable.name", read_only=True)
+    observationVariableName = serializers.CharField(
+        source="variable.name", read_only=True
+    )
     studyDbId = serializers.SerializerMethodField()
     studyName = serializers.CharField(source="plot.trial.name", read_only=True)
-    germplasmDbId = serializers.CharField(source="plot.germplasm.germplasm_db_id", read_only=True)
+    germplasmDbId = serializers.CharField(
+        source="plot.germplasm.germplasm_db_id", read_only=True
+    )
     germplasmName = serializers.CharField(source="plot.germplasm.name", read_only=True)
     value = serializers.SerializerMethodField()
-    observationTimeStamp = serializers.DateTimeField(source="observation_time", read_only=True)
+    observationTimeStamp = serializers.DateTimeField(
+        source="observation_time", read_only=True
+    )
     notes = serializers.CharField(read_only=True)
     additionalInfo = serializers.SerializerMethodField()
 
@@ -190,7 +197,9 @@ class BrapiObservationSerializer(serializers.ModelSerializer):
 class BrapiObservationVariableSerializer(serializers.ModelSerializer):
     observationVariableDbId = serializers.SerializerMethodField()
     observationVariableName = serializers.CharField(source="name", read_only=True)
-    observationVariableCode = serializers.CharField(source="variable_code", read_only=True)
+    observationVariableCode = serializers.CharField(
+        source="variable_code", read_only=True
+    )
     description = serializers.CharField(read_only=True)
     defaultValue = serializers.SerializerMethodField()
     scale = serializers.SerializerMethodField()

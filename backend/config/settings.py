@@ -99,9 +99,7 @@ AUTH_PASSWORD_VALIDATORS = [
         ),
     },
     {
-        "NAME": (
-            "django.contrib.auth.password_validation.MinimumLengthValidator"
-        ),
+        "NAME": ("django.contrib.auth.password_validation.MinimumLengthValidator"),
         "OPTIONS": {
             "min_length": 12,
         },
@@ -225,9 +223,9 @@ LOGGING = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Wheat Breeding Platform API",
-    "DESCRIPTION": "API for managing wheat breeding germplasm, trials, and observations.",
+    "DESCRIPTION": (
+        "API for managing wheat breeding germplasm, trials, and observations."
+    ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
-
-

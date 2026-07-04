@@ -47,7 +47,7 @@ class TrialViewSet(viewsets.ModelViewSet):
             ).order_by("name")
             if germplasm_qs.count() != len(set(germplasm_ids)):
                 from rest_framework.exceptions import (
-                     ValidationError as DRFValidationError,
+                    ValidationError as DRFValidationError,
                 )
 
                 raise DRFValidationError(
@@ -78,7 +78,6 @@ class TrialViewSet(viewsets.ModelViewSet):
         trial = self.get_object()
         stats = compute_trial_summary(trial)
         return Response({"trial": trial.trial_code, "summary": stats})
-
 
 
 class PlotViewSet(viewsets.ModelViewSet):

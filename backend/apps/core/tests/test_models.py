@@ -65,4 +65,3 @@ def test_user_profile_timestamps_and_relations():
     profile.save()
     profile.refresh_from_db()
     assert profile.updated_at != original_updated_at
-

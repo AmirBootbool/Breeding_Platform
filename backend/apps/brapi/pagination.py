@@ -11,7 +11,8 @@ class BrapiPagination(PageNumberPagination):
         if self.page_query_param in request.query_params:
             val = request.query_params[self.page_query_param]
             try:
-                # Page numbers in BrAPI are 0-indexed, so we add 1 to match DRF's 1-indexed pages
+                # Page numbers in BrAPI are 0-indexed, so we add 1 to
+                # match DRF's 1-indexed pages
                 return int(val) + 1
             except (TypeError, ValueError):
                 pass
@@ -38,4 +39,3 @@ class BrapiPagination(PageNumberPagination):
                 "result": {"data": data},
             }
         )
-

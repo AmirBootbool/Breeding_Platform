@@ -89,7 +89,9 @@ class BrapiObservationViewSet(BrapiModelViewSet):
         if observation_unit_db_id:
             queryset = queryset.filter(plot_id=observation_unit_db_id)
 
-        observation_variable_db_id = self.request.query_params.get("observationVariableDbId")
+        observation_variable_db_id = self.request.query_params.get(
+            "observationVariableDbId"
+        )
         if observation_variable_db_id:
             queryset = queryset.filter(variable_id=observation_variable_db_id)
 
@@ -110,11 +112,15 @@ class BrapiObservationVariableViewSet(BrapiModelViewSet):
     def get_queryset(self):
         queryset = ObservationVariable.objects.all()
 
-        observation_variable_db_id = self.request.query_params.get("observationVariableDbId")
+        observation_variable_db_id = self.request.query_params.get(
+            "observationVariableDbId"
+        )
         if observation_variable_db_id:
             queryset = queryset.filter(id=observation_variable_db_id)
 
-        observation_variable_name = self.request.query_params.get("observationVariableName")
+        observation_variable_name = self.request.query_params.get(
+            "observationVariableName"
+        )
         if observation_variable_name:
             queryset = queryset.filter(name__icontains=observation_variable_name)
 

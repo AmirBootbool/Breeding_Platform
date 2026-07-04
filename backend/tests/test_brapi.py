@@ -32,8 +32,10 @@ def test_brapi_requires_auth(api_client):
     ]
     for endpoint in endpoints:
         response = api_client.get(endpoint)
-        assert response.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
-
+        assert response.status_code in (
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        )
 
 
 @pytest.mark.django_db
@@ -58,7 +60,9 @@ def test_brapi_studies(auth_client, trial):
     detail_data = response_detail.data
     assert "metadata" in detail_data
     assert "result" in detail_data
-    assert "data" not in detail_data["result"]  # detail view shouldn't have data wrapper
+    assert (
+        "data" not in detail_data["result"]
+    )  # detail view shouldn't have data wrapper
     assert detail_data["result"]["studyDbId"] == str(trial.id)
 
 
@@ -114,7 +118,9 @@ def test_brapi_variables(auth_client, observation_variable):
     # Test retrieve
     response_detail = auth_client.get(f"/brapi/v2/variables/{observation_variable.id}")
     assert response_detail.status_code == status.HTTP_200_OK
-    assert response_detail.data["result"]["observationVariableDbId"] == str(observation_variable.id)
+    assert response_detail.data["result"]["observationVariableDbId"] == str(
+        observation_variable.id
+    )
 
 
 @pytest.mark.django_db

@@ -84,4 +84,3 @@ def test_rate_limiting_anon():
     request2 = factory.get("/fake/")
     response2 = view(request2)
     assert response2.status_code == status.HTTP_429_TOO_MANY_REQUESTS
-

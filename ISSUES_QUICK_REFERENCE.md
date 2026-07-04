@@ -1,8 +1,8 @@
 # Issues Quick Reference
 
 **Original Review:** June 28, 2026 · 55 issues identified
-**Last Updated:** July 3, 2026
-**Status: 48 of 55 original issues resolved**
+**Last Updated:** July 4, 2026
+**Status: 49 of 55 original issues resolved**
 
 > [!NOTE]
 > This document tracks all 55 issues from the initial code review.
@@ -17,8 +17,9 @@
 | API               | 6     | 6        | 0    |
 | Database          | 5     | 5        | 0    |
 | Testing / Quality | 8     | 8        | 0    |
-| Remaining         | 29    | 22       | 7    |
-| **Total**         | **55**| **48**   | **7**|
+| Remaining         | 29    | 23       | 6    |
+| **Total**         | **55**| **49**   | **6**|
+
 
 
 ---
@@ -80,12 +81,11 @@ resolved as part of the broader fixes in their respective categories.
 
 ---
 
-## 🔶 Open Issues (7 remaining)
+## 🔶 Open Issues (6 remaining)
 
 | #     | Issue                            | Priority | Est. Effort | Notes |
 |-------|----------------------------------|----------|-------------|-------|
 | 30    | No dev/prod requirements split   | Medium   | 1 hr        | Split into `requirements/{base,dev,prod}.txt` |
-| 34    | Bulk ops inefficient             | Medium   | 2–3 hrs     | `create_plots` uses individual creates; switch to `bulk_create` |
 | 43    | No caching                       | Medium   | 2–4 hrs     | Configure Redis / Django cache framework |
 | 46    | Partial type hints               | Low      | 2–3 hrs     | `services.py` has them; add to models, views, utils |
 | 50–51 | No admin custom actions/inlines  | Low      | 2–3 hrs     | Add bulk actions and inline editing |
@@ -99,7 +99,7 @@ resolved as part of the broader fixes in their respective categories.
 
 ```
 High   (0 items):  All high priority items resolved!
-Medium (3 items):  #30, #34, #43                  → ~5–8 hrs
+Medium (2 items):  #30, #43                        → ~3–5 hrs
 Low    (4 items):  #20, #46, #50-51               → ~5–8 hrs
 ```
 

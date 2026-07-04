@@ -71,4 +71,3 @@ def test_duplicate_germplasm_db_id_via_api(auth_client, program, germplasm):
     assert response.status_code == 400
     assert "errors" in response.data
     assert "germplasm_db_id" in response.data["errors"]
-

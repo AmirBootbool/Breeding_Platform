@@ -2,6 +2,11 @@ from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 from django.contrib import admin
 from django.db import connection
@@ -21,12 +26,6 @@ def health_check(request):
             status=503,
         )
 
-
-from drf_spectacular.views import (
-    SpectacularAPIView,
-    SpectacularRedocView,
-    SpectacularSwaggerView,
-)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -48,5 +47,3 @@ urlpatterns = [
     path("api/", include("apps.trials.urls")),
     path("brapi/v2/", include("apps.brapi.urls")),
 ]
-
-

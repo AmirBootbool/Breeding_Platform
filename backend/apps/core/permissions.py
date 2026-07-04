@@ -29,7 +29,8 @@ class RoleBasedPermission(BasePermission):
         has_role = user_role in allowed
         if not has_role:
             logger.warning(
-                "Permission denied: User %s (role: %s) requested %s %s. Allowed roles: %s",
+                "Permission denied: User %s (role: %s) requested %s %s. "
+                "Allowed roles: %s",
                 request.user.username,
                 user_role,
                 request.method,
@@ -37,7 +38,6 @@ class RoleBasedPermission(BasePermission):
                 allowed,
             )
         return has_role
-
 
     def _allowed_roles(self, view):
         action_permissions = getattr(view, "role_action_permissions", {})

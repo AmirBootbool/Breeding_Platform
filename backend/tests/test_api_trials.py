@@ -128,7 +128,9 @@ def test_viewer_cannot_record_observation(client_for_role, plot, observation_var
 
 
 @pytest.mark.django_db
-def test_trial_summary_with_observations(auth_client, trial, plot, observation_variable):
+def test_trial_summary_with_observations(
+    auth_client, trial, plot, observation_variable
+):
     from apps.trials.models import Observation, Plot
 
     second_plot = Plot.objects.create(
@@ -164,4 +166,3 @@ def test_trial_summary_without_observations(auth_client, trial):
     assert response.status_code == 200
     assert response.data["trial"] == trial.trial_code
     assert response.data["summary"] == []
-

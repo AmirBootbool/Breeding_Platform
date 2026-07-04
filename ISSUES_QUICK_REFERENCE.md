@@ -2,7 +2,7 @@
 
 **Original Review:** June 28, 2026 · 55 issues identified
 **Last Updated:** July 4, 2026
-**Status: 53 of 55 original issues resolved**
+**Status: 54 of 55 original issues resolved**
 
 > [!NOTE]
 > This document tracks all 55 issues from the initial code review.
@@ -17,8 +17,9 @@
 | API               | 6     | 6        | 0    |
 | Database          | 5     | 5        | 0    |
 | Testing / Quality | 8     | 8        | 0    |
-| Remaining         | 29    | 27       | 2    |
-| **Total**         | **55**| **53**   | **2**|
+| Remaining         | 29    | 28       | 1    |
+| **Total**         | **55**| **54**   | **1**|
+
 
 
 
@@ -83,11 +84,10 @@ resolved as part of the broader fixes in their respective categories.
 
 ---
 
-## 🔶 Open Issues (2 remaining)
+## 🔶 Open Issues (1 remaining)
 
 | #     | Issue                            | Priority | Est. Effort | Notes |
 |-------|----------------------------------|----------|-------------|-------|
-| 46    | Partial type hints               | Low      | 2–3 hrs     | `services.py` has them; add to models, views, utils |
 | 20    | Germplasm double-save for auto-ID| Low      | 1–2 hrs     | Intentional for now; refactor to DB sequence later |
 | 23    | `full_clean()` on every save     | Low      | —           | By design for data integrity; revisit if perf issue arises |
 | 25    | Redundant pedigree fields        | Low      | —           | Intentional design (parent FKs + pedigree string); no action |
@@ -99,7 +99,7 @@ resolved as part of the broader fixes in their respective categories.
 ```
 High   (0 items):  All high priority items resolved!
 Medium (0 items):  All medium priority items resolved!
-Low    (2 items):  #20, #46                        → ~3–5 hrs
+Low    (1 item):   #20                             → ~1–2 hrs
 ```
 
 By Design (2):     #23, #25                        → No action needed

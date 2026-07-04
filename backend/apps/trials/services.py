@@ -8,7 +8,7 @@ from django.db.models import Avg, Count, Max, Min, StdDev
 
 from apps.germplasm.models import Germplasm
 
-from .models import Plot
+from .models import Plot, Trial
 
 logger = logging.getLogger("apps.trials.services")
 
@@ -17,7 +17,7 @@ def generate_rcbd_layout(
     entries: Sequence[Germplasm],
     num_reps: int,
     seed: int | None = None,
-):
+) -> list[tuple[int, list[Germplasm]]]:
     rng = random.Random(seed)
     entries = list(entries)
 
@@ -30,8 +30,8 @@ def generate_rcbd_layout(
 
 
 def create_plots_for_trial(
-    trial, entries: Sequence[Germplasm], seed: int | None = None
-):
+    trial: Trial, entries: Sequence[Germplasm], seed: int | None = None
+) -> list[Plot]:
     entries = list(entries)
     logger.info(
         "Creating %d plots for trial %s (replications: %d, seed: %s)",
@@ -70,7 +70,7 @@ def create_plots_for_trial(
     return created
 
 
-def compute_trial_summary(trial):
+def compute_trial_summary(trial: Trial) -> list[dict]:
     """Return per-variable stats for all observations in a trial."""
     from .models import Observation
 

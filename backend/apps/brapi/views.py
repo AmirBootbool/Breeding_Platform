@@ -1,14 +1,18 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
 
+from apps.core.models import Location, Program
 from apps.germplasm.models import Germplasm
-from apps.trials.models import Observation, ObservationVariable, Trial
+from apps.trials.models import Observation, ObservationVariable, Plot, Trial
 
 from .pagination import BrapiPagination
 from .serializers import (
     BrapiGermplasmSerializer,
+    BrapiLocationSerializer,
     BrapiObservationSerializer,
+    BrapiObservationUnitSerializer,
     BrapiObservationVariableSerializer,
+    BrapiProgramSerializer,
     BrapiStudySerializer,
 )
 
@@ -123,5 +127,91 @@ class BrapiObservationVariableViewSet(BrapiModelViewSet):
         )
         if observation_variable_name:
             queryset = queryset.filter(name__icontains=observation_variable_name)
+
+        return queryset
+
+
+class BrapiServerInfoViewSet(viewsets.ViewSet):
+    def list(self, request):
+        calls = [
+            {"service": "serverinfo", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "studies", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "germplasm", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "observations", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "observationvariables", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "variables", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "locations", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "programs", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+            {"service": "observationunits", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
+        ]
+        return Response({
+            "metadata": {
+                "pagination": None,
+                "status": [],
+                "datafiles": [],
+            },
+            "result": {
+                "calls": calls
+            }
+        })
+
+
+class BrapiLocationViewSet(BrapiModelViewSet):
+    serializer_class = BrapiLocationSerializer
+
+    def get_queryset(self):
+        queryset = Location.objects.all()
+
+        location_db_id = self.request.query_params.get("locationDbId")
+        if location_db_id:
+            queryset = queryset.filter(id=location_db_id)
+
+        location_name = self.request.query_params.get("locationName")
+        if location_name:
+            queryset = queryset.filter(name__icontains=location_name)
+
+        country_name = self.request.query_params.get("countryName")
+        if country_name:
+            queryset = queryset.filter(country__icontains=country_name)
+
+        return queryset
+
+
+class BrapiProgramViewSet(BrapiModelViewSet):
+    serializer_class = BrapiProgramSerializer
+
+    def get_queryset(self):
+        queryset = Program.objects.all()
+
+        program_db_id = self.request.query_params.get("programDbId")
+        if program_db_id:
+            queryset = queryset.filter(id=program_db_id)
+
+        program_name = self.request.query_params.get("programName")
+        if program_name:
+            queryset = queryset.filter(name__icontains=program_name)
+
+        common_crop_name = self.request.query_params.get("commonCropName")
+        if common_crop_name:
+            queryset = queryset.filter(crop__icontains=common_crop_name)
+
+        return queryset
+class BrapiObservationUnitViewSet(BrapiModelViewSet):
+    serializer_class = BrapiObservationUnitSerializer
+
+    def get_queryset(self):
+        queryset = Plot.objects.select_related("trial", "germplasm").order_by("trial_id", "plot_number")
+
+        observation_unit_db_id = self.request.query_params.get("observationUnitDbId")
+        if observation_unit_db_id:
+            queryset = queryset.filter(id=observation_unit_db_id)
+
+        study_db_id = self.request.query_params.get("studyDbId")
+        if study_db_id:
+            queryset = queryset.filter(trial_id=study_db_id)
+
+        germplasm_db_id = self.request.query_params.get("germplasmDbId")
+        if germplasm_db_id:
+            queryset = queryset.filter(germplasm__germplasm_db_id=germplasm_db_id)
 
         return queryset

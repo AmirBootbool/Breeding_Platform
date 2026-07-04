@@ -35,7 +35,7 @@ Static files are served directly by WhiteNoise inside the Django process.
 During deployment, you must run the following command to collect all static files into `staticfiles/`:
 
 ```bash
-docker compose exec web python manage.py collectstatic --noinput
+docker compose -f docker-compose.prod.yml exec web python manage.py collectstatic --noinput
 ```
 
 WhiteNoise handles compression (gzip and brotli) and configures caching headers for maximum performance.
@@ -48,32 +48,39 @@ To build and run the application using Docker Compose:
 
 1. **Build and start services**:
    ```bash
-   docker compose up -d --build
+   docker compose -f docker-compose.prod.yml up -d --build
    ```
 
 2. **Run database migrations**:
    ```bash
-   docker compose exec web python manage.py migrate --noinput
+   docker compose -f docker-compose.prod.yml exec web python manage.py migrate --noinput
    ```
 
 3. **Collect static files**:
    ```bash
-   docker compose exec web python manage.py collectstatic --noinput
+   docker compose -f docker-compose.prod.yml exec web python manage.py collectstatic --noinput
    ```
 
 4. **Create a superuser**:
    ```bash
-   docker compose exec web python manage.py createsuperuser
+   docker compose -f docker-compose.prod.yml exec web python manage.py createsuperuser
    ```
 
 ---
 
-## 5. Logging
+## 5. Logging & Monitoring
 
+### Standard Output Logs
 Logs are written to standard output (`stdout`) in JSON format when `DJANGO_DEBUG` is `False`. This allows easy integration with log aggregation platforms like:
 - AWS CloudWatch / Elastic Container Service logs
 - ELK Stack (Elasticsearch, Logstash, Kibana)
 - Datadog / Grafana Loki
+
+### Sentry Error Tracking
+The application has built-in integration with Sentry for real-time error tracking and performance profiling. It initializes automatically if the following environment variables are supplied:
+- `SENTRY_DSN`: Sentry DSN endpoint (e.g. `https://your-public-key@o0.ingest.sentry.io/your-project-id`)
+- `SENTRY_TRACES_SAMPLE_RATE`: Sample rate for transaction/performance tracing (optional, defaults to `0.1` or 10%)
+- `SENTRY_PROFILES_SAMPLE_RATE`: Sample rate for profiling tracing (optional, defaults to `0.1` or 10%)
 
 ---
 
@@ -81,19 +88,39 @@ Logs are written to standard output (`stdout`) in JSON format when `DJANGO_DEBUG
 
 It is critical to run periodic backups of your PostgreSQL database. 
 
-### Backup Command
-To take an online backup of the database:
+### Automated Backup Script
+A helper script is provided at `scripts/backup_db.sh` to automate backing up the database, compressing the output to `.sql.gz`, and purging backups older than a retention threshold (defaults to 7 days).
+
+To run the backup script:
 ```bash
-docker compose exec -t db pg_dump -U postgres db_name > backup_$(date +%Y%m%d_%H%M%S).sql
+./scripts/backup_db.sh
+```
+
+#### Configuring Retention & Paths
+You can customize the backup settings by defining the following environment variables in your `.env` file:
+- `BACKUP_DIR`: Directory where backups will be stored (defaults to `./backups` in project root).
+- `RETENTION_DAYS`: Number of days to keep backups (defaults to `7`).
+- `POSTGRES_DB`: The target database name (defaults to `wheatbreeding`).
+- `POSTGRES_USER`: The PostgreSQL database user (defaults to `wheatuser`).
+
+You can configure this script to run on a daily cron job:
+```bash
+0 2 * * * /path/to/project/scripts/backup_db.sh >> /var/log/db_backup.log 2>&1
+```
+
+### Manual Backup Command
+To take a manual online backup of the database:
+```bash
+docker compose -f docker-compose.prod.yml exec -T db pg_dump -U postgres db_name > backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 ### Restore Command
 To restore a database backup:
 ```bash
 # 1. Drop and recreate database
-docker compose exec db dropdb -U postgres db_name
-docker compose exec db createdb -U postgres db_name
+docker compose -f docker-compose.prod.yml exec db dropdb -U postgres db_name
+docker compose -f docker-compose.prod.yml exec db createdb -U postgres db_name
 
 # 2. Restore from SQL file
-docker compose exec -T db psql -U postgres db_name < backup_file.sql
+docker compose -f docker-compose.prod.yml exec -T db psql -U postgres db_name < backup_file.sql
 ```

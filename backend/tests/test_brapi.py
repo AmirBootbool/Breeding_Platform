@@ -29,6 +29,10 @@ def test_brapi_requires_auth(api_client):
         "/brapi/v2/observations",
         "/brapi/v2/variables",
         "/brapi/v2/observationvariables",
+        "/brapi/v2/serverinfo",
+        "/brapi/v2/locations",
+        "/brapi/v2/programs",
+        "/brapi/v2/observationunits",
     ]
     for endpoint in endpoints:
         response = api_client.get(endpoint)
@@ -161,3 +165,68 @@ def test_brapi_filtering(auth_client, trial, germplasm, observation):
     response = auth_client.get("/brapi/v2/observations?studyDbId=9999")
     assert response.status_code == status.HTTP_200_OK
     assert len(response.data["result"]["data"]) == 0
+
+
+@pytest.mark.django_db
+def test_brapi_serverinfo(auth_client):
+    response = auth_client.get("/brapi/v2/serverinfo")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.data
+    assert "metadata" in data
+    assert "result" in data
+    assert "calls" in data["result"]
+    assert any(c["service"] == "serverinfo" for c in data["result"]["calls"])
+    assert any(c["service"] == "locations" for c in data["result"]["calls"])
+    assert any(c["service"] == "observationunits" for c in data["result"]["calls"])
+
+
+@pytest.mark.django_db
+def test_brapi_locations(auth_client, location):
+    response = auth_client.get("/brapi/v2/locations")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.data
+    assert len(data["result"]["data"]) == 1
+    loc = data["result"]["data"][0]
+    assert loc["locationDbId"] == str(location.id)
+    assert loc["locationName"] == location.name
+    assert loc["countryName"] == location.country
+
+    # Test retrieve
+    response_detail = auth_client.get(f"/brapi/v2/locations/{location.id}")
+    assert response_detail.status_code == status.HTTP_200_OK
+    assert response_detail.data["result"]["locationDbId"] == str(location.id)
+
+
+@pytest.mark.django_db
+def test_brapi_programs(auth_client, program):
+    response = auth_client.get("/brapi/v2/programs")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.data
+    assert len(data["result"]["data"]) == 1
+    prog = data["result"]["data"][0]
+    assert prog["programDbId"] == str(program.id)
+    assert prog["programName"] == program.name
+    assert prog["commonCropName"] == program.crop
+
+    # Test retrieve
+    response_detail = auth_client.get(f"/brapi/v2/programs/{program.id}")
+    assert response_detail.status_code == status.HTTP_200_OK
+    assert response_detail.data["result"]["programDbId"] == str(program.id)
+
+
+@pytest.mark.django_db
+def test_brapi_observationunits(auth_client, plot):
+    response = auth_client.get("/brapi/v2/observationunits")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.data
+    assert len(data["result"]["data"]) == 1
+    unit = data["result"]["data"][0]
+    assert unit["observationUnitDbId"] == str(plot.id)
+    assert unit["observationUnitName"] == f"Plot {plot.plot_number}"
+    assert unit["studyDbId"] == str(plot.trial.id)
+    assert unit["germplasmDbId"] == plot.germplasm.germplasm_db_id
+
+    # Test retrieve
+    response_detail = auth_client.get(f"/brapi/v2/observationunits/{plot.id}")
+    assert response_detail.status_code == status.HTTP_200_OK
+    assert response_detail.data["result"]["observationUnitDbId"] == str(plot.id)

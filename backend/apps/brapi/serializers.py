@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
+from apps.core.models import Location, Program
 from apps.germplasm.models import Germplasm
-from apps.trials.models import Observation, ObservationVariable, Trial
+from apps.trials.models import Observation, ObservationVariable, Plot, Trial
 
 
 class BrapiStudySerializer(serializers.ModelSerializer):
@@ -248,4 +249,121 @@ class BrapiObservationVariableSerializer(serializers.ModelSerializer):
             "traitDbId": f"trait_{obj.id}",
             "traitName": obj.name,
             "description": obj.description,
+        }
+
+
+class BrapiLocationSerializer(serializers.ModelSerializer):
+    locationDbId = serializers.SerializerMethodField()
+    locationName = serializers.CharField(source="name", read_only=True)
+    latitude = serializers.FloatField(read_only=True)
+    longitude = serializers.FloatField(read_only=True)
+    countryName = serializers.CharField(source="country", read_only=True)
+    countryCode = serializers.SerializerMethodField()
+    additionalInfo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Location
+        fields = [
+            "locationDbId",
+            "locationName",
+            "latitude",
+            "longitude",
+            "countryName",
+            "countryCode",
+            "additionalInfo",
+        ]
+
+    def get_locationDbId(self, obj):
+        return str(obj.id)
+
+    def get_countryCode(self, obj):
+        if obj.country:
+            return obj.country[:3].upper()
+        return None
+
+    def get_additionalInfo(self, obj):
+        return {
+            "region": obj.region,
+        }
+
+
+class BrapiProgramSerializer(serializers.ModelSerializer):
+    programDbId = serializers.SerializerMethodField()
+    programName = serializers.CharField(source="name", read_only=True)
+    commonCropName = serializers.CharField(source="crop", read_only=True)
+    objective = serializers.CharField(source="description", read_only=True)
+    abbreviation = serializers.SerializerMethodField()
+    additionalInfo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Program
+        fields = [
+            "programDbId",
+            "programName",
+            "commonCropName",
+            "objective",
+            "abbreviation",
+            "additionalInfo",
+        ]
+
+    def get_programDbId(self, obj):
+        return str(obj.id)
+
+    def get_abbreviation(self, obj):
+        if obj.name:
+            return "".join([w[0].upper() for w in obj.name.split() if w])
+        return None
+
+    def get_additionalInfo(self, obj):
+        return {}
+
+
+class BrapiObservationUnitSerializer(serializers.ModelSerializer):
+    observationUnitDbId = serializers.SerializerMethodField()
+    observationUnitName = serializers.SerializerMethodField()
+    studyDbId = serializers.SerializerMethodField()
+    studyName = serializers.CharField(source="trial.name", read_only=True)
+    germplasmDbId = serializers.CharField(source="germplasm.germplasm_db_id", read_only=True)
+    germplasmName = serializers.CharField(source="germplasm.name", read_only=True)
+    observationUnitPosition = serializers.SerializerMethodField()
+    additionalInfo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Plot
+        fields = [
+            "observationUnitDbId",
+            "observationUnitName",
+            "studyDbId",
+            "studyName",
+            "germplasmDbId",
+            "germplasmName",
+            "observationUnitPosition",
+            "additionalInfo",
+        ]
+
+    def get_observationUnitDbId(self, obj):
+        return str(obj.id)
+
+    def get_observationUnitName(self, obj):
+        return f"Plot {obj.plot_number}"
+
+    def get_studyDbId(self, obj):
+        return str(obj.trial.id)
+
+    def get_observationUnitPosition(self, obj):
+        return {
+            "replicate": str(obj.rep) if obj.rep else None,
+            "blockNumber": str(obj.block) if obj.block else None,
+            "rowNumber": str(obj.row) if obj.row else None,
+            "columnNumber": str(obj.column) if obj.column else None,
+            "entryType": "check" if obj.rep > 1 else "test",
+            "observationLevel": {
+                "levelName": "plot",
+                "levelCode": str(obj.plot_number),
+            }
+        }
+
+    def get_additionalInfo(self, obj):
+        return {
+            "status": obj.status,
         }

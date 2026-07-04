@@ -247,3 +247,20 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
+
+# Sentry Configuration
+SENTRY_DSN = config("SENTRY_DSN", default=None)
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=config("SENTRY_TRACES_SAMPLE_RATE", default=0.1, cast=float),
+            profiles_sample_rate=config("SENTRY_PROFILES_SAMPLE_RATE", default=0.1, cast=float),
+            send_default_pii=True,
+        )
+    except ImportError:
+        pass

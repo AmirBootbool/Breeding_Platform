@@ -1,9 +1,9 @@
 # Document Index
 
-Updated: 2026-07-03
+Updated: 2026-07-04
 
 Navigation guide for the wheat-breeding-platform documentation.
-Phases 1–4 of the implementation roadmap are complete. All 55 original code-review issues have been resolved. Phase 5 is next.
+All five phases of the implementation roadmap are complete, including the original 55 code-review issues and Phase 5 Production Readiness.
 
 
 ---
@@ -16,7 +16,7 @@ primary references.
 | Document | What it contains | When to read it |
 |----------|-----------------|-----------------|
 | [README.md](README.md) | Setup instructions, prerequisites, local dev workflow | First time cloning the repo |
-| [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) | Five-phase plan with Phases 1–3 done and Phase 4 tasks detailed | Planning the next sprint or reviewing progress |
+| [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) | Five-phase plan with all five phases (Phases 1–5) completed | Planning the next sprint or reviewing progress |
 | [NEXT_PHASE_SUMMARY.md](NEXT_PHASE_SUMMARY.md) | Handoff document: what's implemented, what's next, key decisions | Starting a new work session |
 | [SECURITY_FIXES.md](SECURITY_FIXES.md) | Security configuration status — all original findings fixed | Auditing security posture or onboarding DevOps |
 | [API_IMPLEMENTATION_GUIDE.md](API_IMPLEMENTATION_GUIDE.md) | API reference: endpoints, serializers, viewsets, permissions | Working on or consuming the REST API |
@@ -56,16 +56,14 @@ Of the **55 issues** identified in the original code review:
 
 ---
 
-## Remaining Work — Phase 5: Production Readiness
+## Completed Work — Phase 5: Production Readiness
 
-These items are detailed in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md):
+Phase 5 has been fully implemented and verified. The details can be referenced in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md):
 
-| Task | Est. Hours | Description |
-|------|-----------|-------------|
-| Logging | 2 h | Structured Django LOGGING dict |
-| Deployment hardening | 2 h | Gunicorn, collectstatic, Whitenoise setup |
-| BrAPI v2 Endpoints | 8–16 h | Read-only Breeding API camelCase endpoint subset |
-| Monitoring & backups | 2 h | Health checks and DB backup scripts |
+- **Structured Logging**: Gated on `DEBUG`, outputs JSON to stdout in production, and simple formatted strings in development.
+- **Deployment Hardening**: Enabled Gunicorn as WSGI server, WhiteNoise middleware for static files, and secure cookie/redirect settings.
+- **BrAPI v2 Endpoints**: Fully compatible read-only endpoints (studies, germplasm, observations, variables).
+- **Monitoring & Backups**: Public health check endpoint at `/api/health/` and PostgreSQL backup/restore guidelines in [docs/deployment.md](docs/deployment.md).
 
 ---
 
@@ -77,10 +75,10 @@ These items are detailed in [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.m
 2. NEXT_PHASE_SUMMARY.md → understand current state
 3. docs/architecture.md → learn the domain model
 
-**Picking up Phase 5?**
-1. NEXT_PHASE_SUMMARY.md → context & decisions
-2. IMPLEMENTATION_ROADMAP.md → detailed task list
-3. API_IMPLEMENTATION_GUIDE.md → API patterns to follow
+**Deploying or extending the platform?**
+1. NEXT_PHASE_SUMMARY.md → context & current state
+2. docs/deployment.md → production stack & backups setup
+3. API_IMPLEMENTATION_GUIDE.md → API endpoints reference
 
 
 **Reviewing history?**

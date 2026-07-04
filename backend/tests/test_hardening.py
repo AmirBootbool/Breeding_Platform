@@ -89,5 +89,6 @@ def test_rate_limiting_anon():
 @pytest.mark.django_db
 def test_caching_configuration():
     from django.core.cache import cache
+
     cache.set("test_key", "test_value", 30)
     assert cache.get("test_key") == "test_value"

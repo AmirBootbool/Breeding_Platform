@@ -323,7 +323,9 @@ class BrapiObservationUnitSerializer(serializers.ModelSerializer):
     observationUnitName = serializers.SerializerMethodField()
     studyDbId = serializers.SerializerMethodField()
     studyName = serializers.CharField(source="trial.name", read_only=True)
-    germplasmDbId = serializers.CharField(source="germplasm.germplasm_db_id", read_only=True)
+    germplasmDbId = serializers.CharField(
+        source="germplasm.germplasm_db_id", read_only=True
+    )
     germplasmName = serializers.CharField(source="germplasm.name", read_only=True)
     observationUnitPosition = serializers.SerializerMethodField()
     additionalInfo = serializers.SerializerMethodField()
@@ -360,7 +362,7 @@ class BrapiObservationUnitSerializer(serializers.ModelSerializer):
             "observationLevel": {
                 "levelName": "plot",
                 "levelCode": str(obj.plot_number),
-            }
+            },
         }
 
     def get_additionalInfo(self, obj):

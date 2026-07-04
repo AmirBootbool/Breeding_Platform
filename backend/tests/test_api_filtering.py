@@ -38,9 +38,7 @@ def test_filter_locations(auth_client):
 @pytest.mark.django_db
 def test_filter_seasons(auth_client, program, season):
     other_program = Program.objects.create(name="Other Program")
-    Season.objects.create(
-        name="2025 Winter", year=2025, program=other_program
-    )
+    Season.objects.create(name="2025 Winter", year=2025, program=other_program)
 
     # Filter by year
     response = auth_client.get("/api/seasons/?year=2025")

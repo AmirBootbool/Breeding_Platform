@@ -1,12 +1,12 @@
-from rest_framework.authtoken.views import obtain_auth_token
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework.authtoken.views import obtain_auth_token
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 from django.contrib import admin
 from django.db import connection

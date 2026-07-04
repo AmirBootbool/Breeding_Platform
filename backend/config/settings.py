@@ -258,8 +258,12 @@ if SENTRY_DSN:
         sentry_sdk.init(
             dsn=SENTRY_DSN,
             integrations=[DjangoIntegration()],
-            traces_sample_rate=config("SENTRY_TRACES_SAMPLE_RATE", default=0.1, cast=float),
-            profiles_sample_rate=config("SENTRY_PROFILES_SAMPLE_RATE", default=0.1, cast=float),
+            traces_sample_rate=config(
+                "SENTRY_TRACES_SAMPLE_RATE", default=0.1, cast=float
+            ),
+            profiles_sample_rate=config(
+                "SENTRY_PROFILES_SAMPLE_RATE", default=0.1, cast=float
+            ),
             send_default_pii=True,
         )
     except ImportError:

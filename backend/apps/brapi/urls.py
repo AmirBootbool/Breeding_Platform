@@ -5,9 +5,9 @@ from django.urls import include, path
 from .views import (
     BrapiGermplasmViewSet,
     BrapiLocationViewSet,
+    BrapiObservationUnitViewSet,
     BrapiObservationVariableViewSet,
     BrapiObservationViewSet,
-    BrapiObservationUnitViewSet,
     BrapiProgramViewSet,
     BrapiServerInfoViewSet,
     BrapiStudyViewSet,
@@ -30,7 +30,9 @@ router.register(
 )
 router.register("locations", BrapiLocationViewSet, basename="brapi-locations")
 router.register("programs", BrapiProgramViewSet, basename="brapi-programs")
-router.register("observationunits", BrapiObservationUnitViewSet, basename="brapi-observationunits")
+router.register(
+    "observationunits", BrapiObservationUnitViewSet, basename="brapi-observationunits"
+)
 
 urlpatterns = [
     path("", include(router.urls)),

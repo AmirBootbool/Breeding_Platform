@@ -134,26 +134,71 @@ class BrapiObservationVariableViewSet(BrapiModelViewSet):
 class BrapiServerInfoViewSet(viewsets.ViewSet):
     def list(self, request):
         calls = [
-            {"service": "serverinfo", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "studies", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "germplasm", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "observations", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "observationvariables", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "variables", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "locations", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "programs", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-            {"service": "observationunits", "dataTypes": ["application/json"], "methods": ["GET"], "versions": ["2.0"]},
-        ]
-        return Response({
-            "metadata": {
-                "pagination": None,
-                "status": [],
-                "datafiles": [],
+            {
+                "service": "serverinfo",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
             },
-            "result": {
-                "calls": calls
+            {
+                "service": "studies",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+            {
+                "service": "germplasm",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+            {
+                "service": "observations",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+            {
+                "service": "observationvariables",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+            {
+                "service": "variables",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+            {
+                "service": "locations",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+            {
+                "service": "programs",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+            {
+                "service": "observationunits",
+                "dataTypes": ["application/json"],
+                "methods": ["GET"],
+                "versions": ["2.0"],
+            },
+        ]
+        return Response(
+            {
+                "metadata": {
+                    "pagination": None,
+                    "status": [],
+                    "datafiles": [],
+                },
+                "result": {"calls": calls},
             }
-        })
+        )
 
 
 class BrapiLocationViewSet(BrapiModelViewSet):
@@ -196,11 +241,15 @@ class BrapiProgramViewSet(BrapiModelViewSet):
             queryset = queryset.filter(crop__icontains=common_crop_name)
 
         return queryset
+
+
 class BrapiObservationUnitViewSet(BrapiModelViewSet):
     serializer_class = BrapiObservationUnitSerializer
 
     def get_queryset(self):
-        queryset = Plot.objects.select_related("trial", "germplasm").order_by("trial_id", "plot_number")
+        queryset = Plot.objects.select_related("trial", "germplasm").order_by(
+            "trial_id", "plot_number"
+        )
 
         observation_unit_db_id = self.request.query_params.get("observationUnitDbId")
         if observation_unit_db_id:

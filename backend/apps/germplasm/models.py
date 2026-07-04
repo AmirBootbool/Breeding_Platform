@@ -49,12 +49,25 @@ class Germplasm(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
+        from django.db import connection
+
         if not self.germplasm_db_id:
-            super().save(*args, **kwargs)
-            self.germplasm_db_id = f"G{self.pk:06d}"
-            Germplasm.objects.filter(pk=self.pk).update(
-                germplasm_db_id=self.germplasm_db_id
-            )
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT nextval(pg_get_serial_sequence("
+                        "'germplasm_germplasm', 'id'))"
+                    )
+                    next_id = cursor.fetchone()[0]
+                self.id = next_id
+                self.germplasm_db_id = f"G{next_id:06d}"
+                super().save(*args, **kwargs)
+            else:
+                super().save(*args, **kwargs)
+                self.germplasm_db_id = f"G{self.pk:06d}"
+                Germplasm.objects.filter(pk=self.pk).update(
+                    germplasm_db_id=self.germplasm_db_id
+                )
         else:
             super().save(*args, **kwargs)
 

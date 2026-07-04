@@ -84,3 +84,10 @@ def test_rate_limiting_anon():
     request2 = factory.get("/fake/")
     response2 = view(request2)
     assert response2.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+
+@pytest.mark.django_db
+def test_caching_configuration():
+    from django.core.cache import cache
+    cache.set("test_key", "test_value", 30)
+    assert cache.get("test_key") == "test_value"

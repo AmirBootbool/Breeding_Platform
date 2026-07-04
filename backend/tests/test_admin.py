@@ -58,3 +58,23 @@ def test_admin_search_and_filter_fields_cover_main_workflows():
         "plot__germplasm__name",
         "variable__name",
     }.issubset(set(observation_admin.search_fields))
+
+
+def test_admin_inlines_and_actions():
+    trial_admin = admin.site._registry[Trial]
+    plot_admin = admin.site._registry[Plot]
+    germplasm_admin = admin.site._registry[Germplasm]
+
+    # Verify Inlines
+    inline_classes = [inline.__name__ for inline in trial_admin.inlines]
+    assert "PlotInline" in inline_classes
+
+    plot_inline_classes = [inline.__name__ for inline in plot_admin.inlines]
+    assert "ObservationInline" in plot_inline_classes
+
+    # Verify Actions
+    assert "export_to_csv" in trial_admin.actions
+    assert "export_to_csv" in germplasm_admin.actions
+    assert "make_planted" in plot_admin.actions
+    assert "make_harvested" in plot_admin.actions
+    assert "make_discarded" in plot_admin.actions

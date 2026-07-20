@@ -26,6 +26,9 @@ Create a `.env` file in the root or set these variables in your deployment envir
 | `SECURE_SSL_REDIRECT` | `True` | Redirects all HTTP requests to HTTPS (gated on `DEBUG=False`). |
 | `SESSION_COOKIE_SECURE` | `True` | Forces cookies to be sent over HTTPS only. |
 | `CSRF_COOKIE_SECURE` | `True` | Forces CSRF cookies to be sent over HTTPS only. |
+| `SECURE_HSTS_SECONDS` | `31536000` | Enables HSTS after HTTPS is confirmed; start with a lower value during rollout. |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS` | `True` | Applies HSTS to subdomains; enable only when every subdomain supports HTTPS. |
+| `SECURE_HSTS_PRELOAD` | `True` | Opts into preload eligibility; enable only after reviewing the irreversible operational impact. |
 
 ---
 

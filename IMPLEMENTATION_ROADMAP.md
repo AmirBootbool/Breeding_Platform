@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-Updated: 2026-07-03
+Updated: 2026-07-20
 
 This roadmap contains detailed implementation instructions for each task.
 Each section is self-contained: a builder model can read any single section
@@ -17,6 +17,7 @@ and implement it without reading the others.
 | 3     | ✅ Done  | Database optimization             |
 | 4     | ✅ Done  | Feature completeness & quality    |
 | 5     | ✅ Done  | Production readiness              |
+| 6     | ✅ Done  | Documentation & tech-debt cleanup |
 
 
 ---
@@ -483,6 +484,42 @@ def summary(self, request, pk=None):
 
 ---
 
+## Phase 6: Documentation & Tech-Debt Cleanup — ✅ COMPLETE
+
+### 6.1 Current-State Documentation
+
+- [x] Updated README test baseline and OpenAPI/Swagger/ReDoc links.
+- [x] Refreshed the architecture scope, components, model relationships,
+  resolved issues, and future opportunities.
+- [x] Updated the session handoff and document index.
+
+### 6.2 OpenAPI Documentation
+
+- [x] Documented the schema URL, generated UIs, schema export, and purpose.
+- [x] Added explicit drf-spectacular response annotations to
+  `BrapiServerInfoViewSet` and `health_check`.
+- [x] Verified schema generation has no endpoint-introspection errors.
+
+### 6.3 Architecture Decision Records
+
+- [x] Accepted and documented the database-specific germplasm identifier save
+  strategy.
+- [x] Confirmed and documented global `ObservationVariable` scope.
+
+### 6.4 Historical Documentation
+
+- [x] Replaced the resolved detailed code-review documents with
+  `docs/history.md`.
+- [x] Retained the full originals in Git history.
+
+### 6.5 Verification
+
+- [x] Verified 77 passing tests and 1 optional Sentry skip.
+- [x] Verified the production environment values that clear Django deployment
+  security warnings.
+
+---
+
 ## Effort Estimates
 
 | Phase | Estimated Hours | Priority |
@@ -515,3 +552,11 @@ def summary(self, request, pk=None):
 - Structured logging in place
 - BrAPI v2 read-only endpoints functional
 - Deployment procedure documented
+
+### Phase 6 Complete When:
+- Current-state documentation matches the live code and test baseline
+- OpenAPI URLs and generation workflow are documented
+- The two schema endpoint-introspection errors are resolved
+- Germplasm identifier and trait-scope decisions are recorded as ADRs
+- Historical review documents are consolidated
+- Tests and deployment security settings are verified

@@ -7,15 +7,19 @@ access control and a full REST API.
 
 ## Current Status
 
-- **34 tests passing** across models, API, RBAC, and admin
+- **77 tests passing** (plus 1 optional Sentry test skipped when its production
+  dependency is not installed)
 - Full CRUD API for 10 domain models with token authentication
 - Role-based permissions (admin / breeder / technician / viewer)
 - RCBD plot generation with seeded randomization
+- CSV/Field Book import and export commands, trial summary statistics, and
+  read-only BrAPI v2 endpoints
+- OpenAPI schema with interactive Swagger UI and ReDoc documentation
 - Django Admin configured for all models
 
 See [docs/architecture.md](docs/architecture.md) for the full engineering
-reference and [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) for what's
-next.
+reference and [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) for phase
+history and status.
 
 ## Local development (recommended)
 
@@ -58,8 +62,11 @@ python manage.py runserver
 7. Open the app in your browser:
 
 ```text
-Admin:  http://localhost:8000/admin/
-API:    http://localhost:8000/api/
+Admin:       http://localhost:8000/admin/
+API:         http://localhost:8000/api/
+OpenAPI:     http://localhost:8000/api/schema/
+Swagger UI:  http://localhost:8000/api/schema/swagger-ui/
+ReDoc:       http://localhost:8000/api/schema/redoc/
 ```
 
 ## Docker / Postgres (optional)
@@ -102,6 +109,8 @@ python -m pytest -q
 ```
 wheat-breeding-platform/
 ├── docs/architecture.md           ← engineering reference (start here)
+├── docs/adr/                      ← accepted architecture decisions
+├── docs/history.md                ← original code-review history
 ├── IMPLEMENTATION_ROADMAP.md      ← phase status and next steps
 ├── NEXT_PHASE_SUMMARY.md          ← session handoff document
 ├── backend/
@@ -109,7 +118,8 @@ wheat-breeding-platform/
 │   ├── apps/
 │   │   ├── core/                  ← Program, Location, Season, UserProfile
 │   │   ├── germplasm/             ← Germplasm, Cross
-│   │   └── trials/                ← Trial, Plot, ObservationVariable, Observation
+│   │   ├── trials/                ← Trial, Plot, ObservationVariable, Observation
+│   │   └── brapi/                 ← BrAPI v2 read-only compatibility API
 │   ├── tests/                     ← API + integration tests
 │   ├── requirements.txt
 │   └── Dockerfile

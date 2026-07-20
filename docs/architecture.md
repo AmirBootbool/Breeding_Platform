@@ -1,424 +1,335 @@
-Wheat Breeding Platform — Architecture & Engineering Reference
+# Wheat Breeding Platform — Architecture & Engineering Reference
 
-Last updated: 2026-07-02
+Last updated: 2026-07-20
 
----
+## 1. Project Overview
 
-1. Project Overview
+### 1.1 Goal
 
-1.1 Goal
+A lean, self-hosted platform for managing a wheat breeding program's core
+data: germplasm and pedigrees, crossing records, field trials and plot
+layouts, and phenotypic observations. It exposes role-controlled internal APIs,
+a BrAPI v2 compatibility API, and a Django Admin back office.
 
-A lean, self-hosted platform for managing a wheat breeding program's core data:
-germplasm and pedigree records, crossing blocks, field trials with plot layouts,
-and phenotypic observations — with role-based access and a REST API.
+### 1.2 Current Scope
 
-1.2 Current Scope (implemented)
+The following capabilities are implemented:
 
-- Germplasm registry with pedigree tracking (self-referencing parents)
-- Crossing block records linked to germplasm and locations
-- Trial creation with RCBD plot layout generation (seeded randomization)
-- Plot lifecycle tracking (planned → planted → harvested → discarded)
-- Phenotypic observation capture with per-data-type validation
-- Role-based access control (admin / breeder / technician / viewer)
-- Full REST API with token authentication
-- Django Admin back-office with search, filters, and readonly timestamps
-- SQLite for local development; PostgreSQL via Docker Compose for production
-- 34 passing tests covering models, API CRUD, and RBAC enforcement
+- Germplasm registry with self-referencing pedigree links and crossing records.
+- Trial creation and seeded RCBD plot-layout generation.
+- Plot lifecycle tracking and data-type-aware phenotypic observations.
+- Per-trial numeric summary statistics: count, mean, minimum, maximum,
+  standard deviation, and coefficient of variation.
+- CSV germplasm import, trial-data export, and Field Book import/export.
+- Token and session authentication with admin, breeder, technician, and viewer
+  roles.
+- Full internal REST API with searching, ordering, field filtering, structured
+  error responses, and throttling.
+- Read-only BrAPI v2 resources for server information, studies, germplasm,
+  observations, observation variables, locations, programs, and observation
+  units.
+- OpenAPI 3 schema generation through drf-spectacular, with Swagger UI and
+  ReDoc views.
+- Django Admin, production logging, WhiteNoise static-file serving, Gunicorn,
+  health checks, optional Redis caching and Sentry integration, and PostgreSQL
+  backup guidance.
+- SQLite development and PostgreSQL production database paths.
+- 77 passing tests, plus one optional Sentry test skipped when the production
+  dependency is absent.
 
-1.3 Out of Scope (future phases)
+### 1.3 Out of Scope
 
-- Field Book Android app integration (CSV import/export pipelines)
-- BrAPI v2 endpoint subset (data model has `brapi_study_db_id` stub ready)
-- Genomic data storage and analysis
-- Drone / image-based phenotyping
-- Multi-environment trial statistics (heritability, GxE models)
-- Multi-institution data federation
+- A custom browser or mobile frontend; Django Admin is the current UI.
+- Genomic data storage and analysis.
+- Drone or image-based phenotyping.
+- Multi-environment models such as heritability and genotype-by-environment
+  analysis.
+- Multi-institution data federation.
+- BrAPI write operations.
 
-1.4 Design Principles
+### 1.4 Design Principles
 
-1. Admin UI before custom UI — Django Admin is the primary back-office tool.
-2. BrAPI-compatible data model — core entities map to BrAPI v2 resources.
-3. Boring technology — Python/Django/DRF for maximum AI-assistant and
-   community support.
-4. Schema-first — data model stabilized before business logic.
-5. Service layer for workflow logic — models own invariants, serializers own
-   API shape, services own cross-cutting workflows.
+1. Django Admin before a custom UI.
+2. BrAPI-compatible external representations without coupling the internal API
+   to BrAPI response shapes.
+3. Conventional Python, Django, and Django REST Framework components.
+4. Models own invariants, serializers own API shape, and services own
+   multi-model workflows.
+5. Environment-driven configuration with secure production defaults.
 
----
+## 2. Technology and Components
 
-2. Technology Stack
+| Component | Responsibility |
+|---|---|
+| Python 3.12+ / Django 5.1 | Application and domain model |
+| Django REST Framework 3.15 | Internal and BrAPI HTTP APIs |
+| `apps.core` | Programs, locations, seasons, profiles, and RBAC |
+| `apps.germplasm` | Germplasm, pedigrees, crosses, and CSV import |
+| `apps.trials` | Trials, plots, observations, statistics, and Field Book workflows |
+| `apps.brapi` | Read-only BrAPI v2 serializers, pagination, routes, and views |
+| drf-spectacular | OpenAPI 3 schema, Swagger UI, and ReDoc |
+| django-filter | Field-level query-parameter filtering |
+| SQLite / PostgreSQL 16 | Development / production persistence |
+| WhiteNoise / Gunicorn | Production static files / WSGI serving |
+| LocMem / Redis | Development / optional production caching |
+| pytest + pytest-django | Unit and integration tests |
+| black, isort, flake8 | Formatting and linting |
+| python-decouple | Environment configuration |
 
-| Layer               | Choice                                      |
-|---------------------|---------------------------------------------|
-| Language            | Python 3.12+                                |
-| Backend framework   | Django 5.1 + Django REST Framework 3.15     |
-| Database (dev)      | SQLite                                      |
-| Database (prod)     | PostgreSQL 16                               |
-| Authentication      | Session + Token (DRF `obtain_auth_token`)   |
-| Filtering           | `SearchFilter`, `OrderingFilter`            |
-| CORS                | django-cors-headers                         |
-| Containerization    | Docker Compose (web + db services)          |
-| Testing             | pytest 8 + pytest-django 4                  |
-| Code quality        | black, isort, flake8                        |
-| Config management   | python-decouple (`.env` files)              |
+The platform is designed to run locally on a laptop without a GPU.
 
-Hard constraint: Everything must run locally on a laptop with no GPU and 16 GB RAM.
+## 3. Data Model
 
----
+### 3.1 Relationships
 
-3. Data Model
+```text
+Program 1:N Season
+Program 1:N Germplasm
+Program 1:N Trial
+Program 1:N UserProfile
+Location 1:N Trial
+Location 1:N Cross
+Season 1:N Trial
+User 1:1 UserProfile
 
-3.1 Entity-Relationship Summary
+Germplasm self-FK parent_female / parent_male (SET_NULL)
+Germplasm 1:N Cross as female or male parent (PROTECT)
+Germplasm 1:N Plot (PROTECT)
 
+Trial 1:N Plot (CASCADE)
+Plot 1:N Observation (CASCADE)
+ObservationVariable 1:N Observation (PROTECT)
 ```
-Program ──1:N──→ Season
-Program ──1:N──→ Germplasm
-Program ──1:N──→ Trial
-Program ──1:N──→ UserProfile (members)
-Location ──1:N──→ Trial
-Location ──1:N──→ Cross
-Season  ──1:N──→ Trial
-User    ──1:1──→ UserProfile
 
-Germplasm ──self FK──→ parent_female / parent_male  (SET_NULL)
-Germplasm ──1:N──→ Cross (as female/male parent, PROTECT)
-Germplasm ──1:N──→ Plot  (CASCADE)
+### 3.2 Core Models
 
-Trial ──1:N──→ Plot
-Plot  ──1:N──→ Observation
-ObservationVariable ──1:N──→ Observation (PROTECT)
-```
+- `Program`: unique name, crop, description, and creation timestamp.
+- `Location`: indexed name, coordinates, country, and region.
+- `Season`: name, indexed year, and program; unique within
+  `(name, program, year)`.
+- `UserProfile`: one-to-one user, role, optional program, and timestamps.
 
-3.2 Core App Models
+### 3.3 Germplasm Models
 
-Program
-  - name (CharField, 255, unique)
-  - crop (CharField, 255, default="wheat")
-  - description (TextField, blank)
-  - created_at (auto)
+- `Germplasm`: name, unique `germplasm_db_id`, species, program, optional
+  parents, pedigree text, cross type, development year, notes, and timestamps.
+- `Cross`: unique cross code, protected female and male parents, date,
+  optional location, notes, and timestamps. Model validation prevents a record
+  from using the same parent on both sides.
 
-Location
-  - name (CharField, 255, indexed)
-  - latitude / longitude (FloatField, nullable)
-  - country / region (CharField, 255, blank)
+The automatic germplasm identifier strategy is recorded in
+[ADR-0001](adr/0001-germplasm-identifier-save-strategy.md).
 
-Season
-  - name (CharField, 200)
-  - year (IntegerField, indexed)
-  - program (FK → Program, CASCADE)
-  - unique_together: (name, program, year)
+### 3.4 Trial Models
 
-UserProfile
-  - user (OneToOne → User, CASCADE, related_name="profile")
-  - role (admin | breeder | technician | viewer, default=viewer, indexed)
-  - program (FK → Program, SET_NULL, nullable)
-  - created_at / updated_at (auto)
+- `Trial`: unique code, optional BrAPI study ID, program, protected location
+  and season, design type, replication count, dates, notes, and timestamps.
+- `Plot`: trial, protected germplasm, replication/block/position fields,
+  lifecycle status, and a trial-scoped unique plot number.
+- `ObservationVariable`: global trait name and code, unit, type, validation
+  range, required flag, and creation timestamp.
+- `Observation`: plot, protected variable, observation time, typed value
+  fields, notes, and creation timestamp.
 
-3.3 Germplasm App Models
+Observation validation enforces the selected variable's data type, numeric
+range, and whole-number requirement. The decision to keep traits global is
+recorded in [ADR-0002](adr/0002-global-observation-variable-scope.md).
 
-Germplasm
-  - name (CharField, 300, indexed)
-  - germplasm_db_id (CharField, 100, unique, auto-generated as G{pk:06d})
-  - species (CharField, 100, default="Triticum aestivum")
-  - program (FK → Program, CASCADE, related_name="germplasm")
-  - parent_female / parent_male (self FK, SET_NULL, nullable)
-  - pedigree_string (CharField, 500, blank)
-  - cross_type (biparental | self | backcross | doubled_haploid | other | unknown)
-  - year_developed (IntegerField, nullable)
-  - notes, created_at, updated_at
+## 4. HTTP Interfaces
 
-Cross
-  - cross_code (CharField, 100, unique)
-  - female_parent / male_parent (FK → Germplasm, PROTECT)
-  - cross_date (DateField, indexed)
-  - location (FK → Location, SET_NULL, nullable)
-  - notes, created_at, updated_at
-  - Validation: female_parent ≠ male_parent (clean + full_clean in save)
+### 4.1 Internal API
 
-3.4 Trials App Models
+Internal API endpoints are under `/api/`. Authentication is required except
+for the health check and schema documentation.
 
-Trial
-  - name (CharField, 255, indexed)
-  - trial_code (CharField, 255, unique)
-  - brapi_study_db_id (CharField, 255, blank — BrAPI stub)
-  - program (FK → Program, CASCADE)
-  - location (FK → Location, CASCADE)
-  - season (FK → Season, CASCADE)
-  - design_type (RCBD | alpha_lattice | augmented | unreplicated | other)
-  - num_reps (IntegerField, default=1, validated ≥ 1)
-  - planting_date / harvest_date (DateField, nullable)
-  - notes, created_at, updated_at
+| Endpoint | Purpose |
+|---|---|
+| `/api/auth/token/` | Obtain a DRF token |
+| `/api/health/` | Public database health check |
+| `/api/schema/` | OpenAPI 3 schema |
+| `/api/schema/swagger-ui/` | Interactive Swagger UI |
+| `/api/schema/redoc/` | ReDoc reference |
+| `/api/programs/` | Program CRUD |
+| `/api/locations/` | Location CRUD |
+| `/api/seasons/` | Season CRUD |
+| `/api/user-profiles/` | Profile and role CRUD |
+| `/api/germplasm/` | Germplasm CRUD |
+| `/api/crosses/` | Cross CRUD |
+| `/api/trials/` | Trial CRUD |
+| `/api/trials/{id}/create_plots/` | Generate an RCBD layout |
+| `/api/trials/{id}/summary/` | Per-trait numeric statistics |
+| `/api/plots/` | Plot CRUD |
+| `/api/observation-variables/` | Trait vocabulary CRUD |
+| `/api/observations/` | Observation CRUD |
 
-Plot
-  - trial (FK → Trial, CASCADE, related_name="plots")
-  - germplasm (FK → Germplasm, CASCADE)
-  - rep (IntegerField)
-  - block (IntegerField, nullable)
-  - plot_number (IntegerField)
-  - row / column (IntegerField, nullable)
-  - status (planned | planted | harvested | discarded)
-  - unique_together: (trial, plot_number)
+List viewsets support `DjangoFilterBackend`, `SearchFilter`, and
+`OrderingFilter`, with a default page size of 100.
 
-ObservationVariable
-  - name (CharField, 255, indexed)
-  - variable_code (CharField, 100, blank)
-  - description (TextField, blank)
-  - unit (CharField, 64, blank)
-  - data_type (numeric | integer | categorical | text | date)
-  - min_value / max_value (FloatField, nullable, validated min ≤ max)
-  - is_required (BooleanField, default=False)
-  - created_at (auto)
+### 4.2 BrAPI v2
 
-Observation
-  - plot (FK → Plot, CASCADE, related_name="observations")
-  - variable (FK → ObservationVariable, PROTECT)
-  - observation_time (DateTimeField, nullable, indexed)
-  - value_text (TextField, blank)
-  - value_numeric (FloatField, nullable)
-  - value_date (DateField, nullable)
-  - notes, created_at
-  - Validation: enforces required value per data_type; range checks for
-    numeric/integer against variable min/max; integer whole-number check
+Read-only compatibility endpoints are under `/brapi/v2/`:
 
----
+- `serverinfo`
+- `studies`
+- `germplasm`
+- `observations`
+- `observationvariables` and its `variables` alias
+- `locations`
+- `programs`
+- `observationunits`
 
-4. API Endpoints
+BrAPI serializers translate internal models into camelCase BrAPI fields.
+`BrapiPagination` provides the BrAPI `metadata` and `result.data` envelope.
+These endpoints retain the project's default authentication requirement.
 
-All endpoints require authentication (session or token). Write operations are
-gated by role-based permissions.
+## 5. Role-Based Access Control
 
-| Endpoint                              | Methods | Write Roles                     |
-|---------------------------------------|---------|----------------------------------|
-| `api/auth/token/`                     | POST    | any (returns auth token)         |
-| `api/programs/`                       | CRUD    | admin, breeder                   |
-| `api/locations/`                      | CRUD    | admin, breeder                   |
-| `api/seasons/`                        | CRUD    | admin, breeder                   |
-| `api/user-profiles/`                  | CRUD    | admin only                       |
-| `api/germplasm/`                      | CRUD    | admin, breeder                   |
-| `api/crosses/`                        | CRUD    | admin, breeder                   |
-| `api/trials/`                         | CRUD    | admin, breeder                   |
-| `api/trials/{id}/create_plots/`       | POST    | admin, breeder                   |
-| `api/plots/`                          | CRUD    | create/delete: admin, breeder    |
-|                                       |         | update: + technician             |
-| `api/observation-variables/`          | CRUD    | admin, breeder                   |
-| `api/observations/`                   | CRUD    | admin, breeder, technician       |
+`RoleBasedPermission` in `apps/core/permissions.py` implements the role rules.
 
-All list endpoints support:
-  - SearchFilter (full-text across configured fields)
-  - OrderingFilter (sortable on configured fields)
-  - PageNumberPagination (100 items per page)
+| Role | Default access |
+|---|---|
+| admin | Full access |
+| breeder | Read access and most domain writes |
+| technician | Read access, observation writes, and plot updates |
+| viewer | Read only |
 
----
+Staff and superusers are treated as admins. Authenticated users without a
+profile are treated as viewers. Viewsets can override write roles per action.
 
-5. Role-Based Access Control
+## 6. Services and Data Exchange
 
-Implemented via `RoleBasedPermission` in `apps/core/permissions.py`.
+`apps/trials/services.py` contains:
 
-| Role        | Read | Write (default)    | Observation Write | Plot Status Update |
-|-------------|------|--------------------|-------------------|--------------------|
-| admin       | ✓    | ✓                  | ✓                 | ✓                  |
-| breeder     | ✓    | ✓                  | ✓                 | ✓                  |
-| technician  | ✓    | ✗                  | ✓                 | ✓                  |
-| viewer      | ✓    | ✗                  | ✗                 | ✗                  |
+- `generate_rcbd_layout`: deterministic RCBD randomization when given a seed.
+- `create_plots_for_trial`: validates preconditions and bulk-creates plots in
+  a transaction.
+- `compute_trial_summary`: calculates per-variable descriptive statistics.
 
-- Superusers and staff users are treated as "admin".
-- Users without a UserProfile default to "viewer".
-- Per-action overrides are supported via `role_action_permissions` on viewsets.
+Management commands provide:
 
----
+- `import_germplasm`
+- `export_trial_data`
+- `export_fieldbook`
+- `import_fieldbook`
 
-6. Services & Business Logic
+Multi-row writes use transactions. Viewsets use `select_related` for foreign
+keys, and plot generation uses `bulk_create`.
 
-6.1 RCBD Plot Generation (`apps/trials/services.py`)
+## 7. Repository Structure
 
-- `generate_rcbd_layout(entries, num_reps, seed)` — creates a randomized
-  complete block design using a seeded RNG for reproducibility.
-- `create_plots_for_trial(trial, entries, seed)` — validates preconditions
-  (entries not empty, num_reps ≥ 1, no existing plots), generates layout,
-  creates Plot objects in an atomic transaction with sequential plot numbers.
-- Exposed via `POST /api/trials/{id}/create_plots/` (accepts optional
-  `germplasm_ids` array and `seed`; defaults to all program germplasm).
-
----
-
-7. Repository Structure
-
-```
+```text
 wheat-breeding-platform/
-├── .env.example
-├── .gitignore
-├── docker-compose.yml
-├── README.md
 ├── docs/
-│   └── architecture.md          ← this document
+│   ├── adr/
+│   ├── architecture.md
+│   ├── deployment.md
+│   └── history.md
 ├── backend/
-│   ├── .env                     ← local overrides (gitignored)
-│   ├── .flake8
-│   ├── pyproject.toml           ← black + isort config
-│   ├── pytest.ini
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   ├── manage.py
-│   ├── config/
-│   │   ├── settings.py
-│   │   ├── urls.py
-│   │   └── wsgi.py
 │   ├── apps/
+│   │   ├── brapi/
 │   │   ├── core/
-│   │   │   ├── models.py
-│   │   │   ├── serializers.py
-│   │   │   ├── viewsets.py
-│   │   │   ├── permissions.py
-│   │   │   ├── urls.py
-│   │   │   ├── admin.py
-│   │   │   └── tests/test_models.py
 │   │   ├── germplasm/
-│   │   │   ├── models.py
-│   │   │   ├── serializers.py
-│   │   │   ├── viewsets.py
-│   │   │   ├── urls.py
-│   │   │   ├── admin.py
-│   │   │   └── tests/test_models.py
 │   │   └── trials/
-│   │       ├── models.py
-│   │       ├── serializers.py
-│   │       ├── viewsets.py
-│   │       ├── services.py      ← RCBD layout + plot creation
-│   │       ├── utils.py          ← re-exports from services
-│   │       ├── urls.py
-│   │       ├── admin.py
-│   │       └── tests/test_models.py
-│   └── tests/                   ← integration / cross-app tests
-│       ├── conftest.py
-│       ├── test_admin.py
-│       ├── test_api_core.py
-│       ├── test_api_germplasm.py
-│       ├── test_api_trials.py
-│       ├── test_core.py
-│       ├── test_germplasm.py
-│       ├── test_plot_constraints.py
-│       └── test_trials.py
+│   ├── config/
+│   ├── requirements/
+│   └── tests/
+├── scripts/backup_db.sh
+├── docker-compose.yml
+└── docker-compose.prod.yml
 ```
 
----
+In-app tests cover models and services. Top-level `backend/tests` covers API,
+admin, schema, integration, and management-command behavior.
 
-8. Configuration & Security
+## 8. Configuration and Security
 
-8.1 Environment Variables
+Important production variables include:
 
-| Variable                | Default (dev)                     | Notes                            |
-|-------------------------|-----------------------------------|----------------------------------|
-| DJANGO_SECRET_KEY       | (none — insecure fallback in DEBUG) | Required for production        |
-| DJANGO_DEBUG            | False                             | Set True for local dev           |
-| DJANGO_ALLOWED_HOSTS    | localhost,127.0.0.1               | Comma-separated                  |
-| USE_SQLITE              | True                              | Set False for Postgres           |
-| DATABASE_URL            | (empty)                           | Postgres connection string       |
-| CORS_ALLOWED_ORIGINS    | http://localhost:3000,...          | Comma-separated origins          |
-| SECURE_SSL_REDIRECT     | False                             | Production HTTPS settings        |
-| SESSION_COOKIE_SECURE   | False                             | (same)                           |
-| CSRF_COOKIE_SECURE      | False                             | (same)                           |
+| Variable | Purpose |
+|---|---|
+| `DJANGO_SECRET_KEY` | Required non-default cryptographic secret |
+| `DJANGO_DEBUG` | Must be `False` in production |
+| `DJANGO_ALLOWED_HOSTS` | Explicit host allowlist |
+| `CORS_ALLOWED_ORIGINS` | Explicit browser-origin allowlist |
+| `USE_SQLITE` | `False` selects the configured production database |
+| `DATABASE_URL` | PostgreSQL connection URL |
+| `SECURE_SSL_REDIRECT` | Enable HTTPS redirects |
+| `SESSION_COOKIE_SECURE` | Restrict session cookies to HTTPS |
+| `CSRF_COOKIE_SECURE` | Restrict CSRF cookies to HTTPS |
+| `REDIS_URL` | Optional Redis cache |
+| `SENTRY_DSN` | Optional Sentry monitoring |
 
-8.2 Security Measures Implemented
+Production starts fail when the secret key is absent or left at its example
+value. Authentication is required by default, passwords use Django's four
+validators with a 12-character minimum, CORS and hosts are allowlisted, API
+errors use a structured handler, and anonymous/authenticated throttles are
+configured.
 
-- SECRET_KEY loaded from env; ValueError raised in production if missing
-- ALLOWED_HOSTS restricted to configured domains (not wildcard)
-- CORS configured with explicit allowed origins (not allow-all)
-- Password validators enabled (similarity, min length 12, common, numeric)
-- Token authentication available at `api/auth/token/`
-- CSRF and session cookie hardening enabled in production mode
-- XSS filter and Content-Security-Policy headers
-- All API endpoints require authentication by default
+## 9. Testing
 
----
+The verified 2026-07-20 baseline is **77 passed and 1 skipped**. The skipped
+test exercises optional Sentry initialization and runs when the production
+Sentry dependency is installed.
 
-9. Testing
+| Area | Collected tests |
+|---|---:|
+| Core, germplasm, and trials model/service tests | 20 |
+| Admin | 4 |
+| Internal API CRUD and RBAC | 17 |
+| Filtering | 8 |
+| BrAPI and health check | 12 |
+| Exception handling | 3 |
+| OpenAPI, throttling, and caching hardening | 5 |
+| Management commands | 7 |
+| Optional Sentry integration | 2 |
+| **Total** | **78** |
 
-34 tests, all passing.
+Run:
 
-| File                       | Tests | Coverage Area                             |
-|----------------------------|-------|-------------------------------------------|
-| core/tests/test_models     | 5     | Model __str__, unique constraints, defaults|
-| germplasm/tests/test_models| 4     | Pedigree links, Cross, unique constraints  |
-| trials/tests/test_models   | 5     | RCBD layout, plot creation, observation validation |
-| tests/test_api_core        | 4     | Auth enforcement, CRUD, RBAC for programs/profiles |
-| tests/test_api_germplasm   | 2     | Germplasm CRUD, technician write block     |
-| tests/test_api_trials      | 7     | create_plots endpoint, RBAC per-action, observation write |
-| tests/test_admin           | 3     | Admin registration, readonly fields, search/filter |
-| tests/test_core            | 1     | Core model integration + timestamps        |
-| tests/test_germplasm       | 1     | Pedigree + cross integration               |
-| tests/test_plot_constraints| 1     | Unique plot_number constraint              |
-| tests/test_trials          | 1     | RCBD generation + timestamps               |
+```powershell
+cd backend
+.\.venv\Scripts\python -m pytest -q
+```
 
----
+## 10. Accepted Decisions and Future Work
 
-10. Open Decisions & Known Issues
+### 10.1 Accepted Architecture Decisions
 
-10.1 Design Decisions Needed
+- [ADR-0001: Germplasm identifier save strategy](adr/0001-germplasm-identifier-save-strategy.md)
+- [ADR-0002: Global ObservationVariable scope](adr/0002-global-observation-variable-scope.md)
 
-- django-filter integration: viewsets have SearchFilter and OrderingFilter
-  but no DjangoFilterBackend with filterset_fields yet (django-filter is in
-  INSTALLED_APPS and requirements but not wired to viewsets)
-- Exception handler: no custom exception handler wired in REST_FRAMEWORK
-  settings (exception_handlers.py mentioned in earlier docs does not exist)
-- ObservationVariable is global (not program-scoped) — could cause naming
-  conflicts across programs
-- Plot.germplasm uses CASCADE — deleting germplasm deletes plots and
-  observations; PROTECT may be safer
-- Trial.location and Trial.season use CASCADE — deletion cascades to trials;
-  PROTECT may be safer
+Earlier issues concerning filtering, exception formatting, foreign-key
+protection, test duplication, deprecated dependencies, container startup,
+Field Book exchange, trial summaries, BrAPI, schema documentation, and
+production hardening are resolved and are no longer an active backlog.
 
-10.2 Technical Debt
+### 10.2 Known Schema Typing Debt
 
-- Germplasm.save() double-save pattern for auto-generated germplasm_db_id
-  (saves once to get PK, then raw update to set ID — bypasses signals)
-- Trial.create_plots() model method duplicates the import path already used
-  by the viewset (viewset imports services.py directly)
-- Duplicate test coverage: plot unique constraint and RCBD layout tests exist
-  in both in-app tests/ and top-level tests/
-- coreapi package in requirements is deprecated
-- Dockerfile has no EXPOSE or CMD (relies on docker-compose)
-- flake_remaining.txt is stale
+Schema generation completes with no errors. It still reports drf-spectacular
+W001 warnings for serializer method fields whose Python return types are not
+annotated. drf-spectacular currently falls back to strings for those fields;
+adding return annotations or `@extend_schema_field` metadata is a future
+schema-precision cleanup.
 
-10.3 Future Phases
+### 10.3 Remaining Product Opportunities
 
-- Field Book integration (CSV export/import management commands)
-- BrAPI v2 endpoint subset
-- Alpha-lattice and augmented design types
-- Per-trial summary statistics (mean, CV, min/max per trait)
-- CSV/Excel data export
-- Genomic data storage (separate project phase)
-- R integration for advanced statistics
+- Custom browser or mobile UI.
+- BrAPI write support.
+- Alpha-lattice and augmented layout-generation services.
+- Spreadsheet formats beyond CSV.
+- Advanced multi-environment and genomic analysis.
 
----
+These are opportunities, not committed roadmap items.
 
-11. Coding Rules
+## 11. Coding Rules
 
-These rules apply when implementing or reviewing code in this repo:
-
-11.1 Structure
-
-- Put shared domain state in `apps/core`.
-- Put germplasm and pedigree logic in `apps/germplasm`.
-- Put trial, plot, and observation logic in `apps/trials`.
-- Put cross-cutting workflow logic in service modules (e.g., `services.py`).
-- Keep serializers responsible for API shape, viewsets for HTTP flow,
-  models for persistence and invariants.
-- Use management commands for bulk imports, exports, and maintenance tasks.
-
-11.2 Best Practices
-
-- Use `select_related()` and `prefetch_related()` for related data access.
-- Use database transactions for multi-row writes.
-- Validate at the right layer: serializer for payloads, model for invariants,
-  service for workflow rules.
-- Avoid hardcoded secrets, hosts, and environment-specific values.
-- Add tests for every behavior change, including failure paths.
-- Keep naming domain-specific and consistent with breeder workflows.
-
-11.3 Review Checklist
-
-- Does the change fit the existing app boundary?
-- Is the business rule in the right layer?
-- Are error cases handled cleanly?
-- Are tests covering the new behavior?
-- Would this still be obvious six months from now?
+- Keep shared state in `apps.core`, pedigree work in `apps.germplasm`, trial
+  work in `apps.trials`, and BrAPI translation in `apps.brapi`.
+- Put cross-model workflows in services and bulk exchange in management
+  commands.
+- Validate payload shape in serializers, domain invariants in models, and
+  workflow preconditions in services.
+- Use `select_related`/`prefetch_related`, transactions, and bulk operations
+  where appropriate.
+- Add success and failure-path tests for behavior changes.
+- Keep secrets and deployment-specific values in environment configuration.

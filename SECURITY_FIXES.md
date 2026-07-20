@@ -1,6 +1,6 @@
 # Security Configuration Status
 
-> Last updated: 2026-07-03
+> Last updated: 2026-07-20
 
 ## Implemented Fixes
 
@@ -33,7 +33,10 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [SessionAuthentication, TokenAuthentication],
     "DEFAULT_PERMISSION_CLASSES": [IsAuthenticated],
     "DEFAULT_PAGINATION_CLASS": PageNumberPagination,  # page_size=100
-    "DEFAULT_FILTER_BACKENDS": [SearchFilter, OrderingFilter],
+    "DEFAULT_FILTER_BACKENDS": [DjangoFilterBackend, SearchFilter, OrderingFilter],
+    "EXCEPTION_HANDLER": "config.exception_handlers.api_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [AnonRateThrottle, UserRateThrottle],
 }
 ```
 
@@ -49,23 +52,32 @@ REST_FRAMEWORK = {
 - `SECURE_BROWSER_XSS_FILTER = True`
 - `SECURE_CONTENT_SECURITY_POLICY` configured.
 - HTTPS cookie settings (`SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`,
-  `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS`) are enabled only when `DEBUG=False`.
+  `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS`) are configurable only when
+  `DEBUG=False`.
 
 ---
 
-## Remaining Work
+## Production Hardening Completed
 
-| # | Item | Notes |
-|---|------|-------|
-| 1 | **WhiteNoise for static files** | `STATIC_URL = '/static/'` is set but WhiteNoise middleware is not installed. Required for serving static files in production without a separate web server. |
-| 2 | **`STATIC_ROOT` not set** | Needs to be configured so `collectstatic` has a target directory. |
-| 3 | **Structured logging** | No `LOGGING` dict configured. Add JSON-formatted logging for production observability. |
-| 4 | **Custom exception handler** | No `EXCEPTION_HANDLER` set in `REST_FRAMEWORK`. API errors currently return Django's default format. |
-| 5 | **Rate limiting** | No `DEFAULT_THROTTLE_CLASSES` or `DEFAULT_THROTTLE_RATES` configured. Token and login endpoints are unprotected against brute-force. |
+- WhiteNoise middleware and compressed manifest storage are configured.
+- `STATIC_ROOT` is configured for `collectstatic`.
+- Production logs are JSON formatted.
+- API errors use the structured exception handler.
+- Anonymous and authenticated API throttles are configured.
+- Gunicorn, public database health checks, optional Sentry monitoring, and
+  PostgreSQL backup guidance are present.
 
 ---
 
 ## Verification
+
+The Django `security.W*` warnings from a local `check --deploy` run are
+development-mode artifacts; a production run clears them with
+`DJANGO_DEBUG=False`, a random 50+ character `DJANGO_SECRET_KEY`,
+`SECURE_SSL_REDIRECT=True`, `SESSION_COOKIE_SECURE=True`,
+`CSRF_COOKIE_SECURE=True`, a nonzero `SECURE_HSTS_SECONDS`, and—once every
+subdomain is HTTPS-ready—`SECURE_HSTS_INCLUDE_SUBDOMAINS=True` and
+`SECURE_HSTS_PRELOAD=True`.
 
 Run these checks to confirm the security configuration is active:
 

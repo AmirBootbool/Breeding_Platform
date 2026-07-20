@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
 from rest_framework.response import Response
 
@@ -132,6 +134,7 @@ class BrapiObservationVariableViewSet(BrapiModelViewSet):
 
 
 class BrapiServerInfoViewSet(viewsets.ViewSet):
+    @extend_schema(responses=OpenApiTypes.OBJECT)
     def list(self, request):
         calls = [
             {

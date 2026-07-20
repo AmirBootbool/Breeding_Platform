@@ -32,6 +32,8 @@ def test_api_schema_endpoint(api_client):
     response = api_client.get("/api/schema/")
     assert response.status_code == status.HTTP_200_OK
     assert b"openapi: 3." in response.content
+    assert b"/api/health/" in response.content
+    assert b"/brapi/v2/serverinfo" in response.content
 
 
 @pytest.mark.django_db

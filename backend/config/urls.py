@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -13,6 +15,12 @@ from django.db import connection
 from django.urls import include, path
 
 
+@extend_schema(
+    responses={
+        200: OpenApiTypes.OBJECT,
+        503: OpenApiTypes.OBJECT,
+    }
+)
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def health_check(request):

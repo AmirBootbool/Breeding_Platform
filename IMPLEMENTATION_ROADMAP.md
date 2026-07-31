@@ -20,7 +20,8 @@ and implement it without reading the others.
 | 6     | ✅ Done       | Documentation & tech-debt cleanup |
 | 7     | ✅ Done       | Custom browser frontend           |
 | 8     | ✅ Done       | Frontend CRUD Operations          |
-| 9     | 🔲 Planned    | Frontend depth & bulk workflows     |
+| 9     | ✅ Done       | Frontend depth & bulk workflows   |
+| 10    | 🔲 Planned    | Alpha-lattice & augmented designs |
 
 
 ---
@@ -639,7 +640,7 @@ Make the browser UI fully self-contained for daily breeding workflows by adding 
 
 ---
 
-## Phase 9: Frontend Depth & Bulk Workflows
+## Phase 9: Frontend Depth & Bulk Workflows — ✅ COMPLETE
 
 ### Goal
 
@@ -1018,16 +1019,16 @@ def perform_update(self, serializer):
 
 ### Phase 9 Complete When
 
-- [ ] Germplasm CSV bulk-import works from the browser with validation
+- [x] Germplasm CSV bulk-import works from the browser with validation
       errors surfaced per-row.
-- [ ] Observation grid entry supports multi-plot, multi-variable save in
+- [x] Observation grid entry supports multi-plot, multi-variable save in
       one request, with per-cell error highlighting.
-- [ ] Trial Manager shows a multi-trait comparison chart alongside the
+- [x] Trial Manager shows a multi-trait comparison chart alongside the
       existing plot grid.
-- [ ] Core models show created/updated-by attribution in the Setup page.
-- [ ] All existing tests plus new Phase 9 tests pass (target: 79 + ~12 new).
-- [ ] `openapi.yaml` regenerates with 0 errors.
-- [ ] `architecture.md` and `NEXT_PHASE_SUMMARY.md` updated to reflect
+- [x] Core models show created/updated-by attribution in the Setup page.
+- [x] All existing tests plus new Phase 9 tests pass (baseline: 90 passed, 1 skipped).
+- [x] `openapi.yaml` regenerates with 0 errors.
+- [x] `architecture.md` and `NEXT_PHASE_SUMMARY.md` updated to reflect
       Phase 9 completion.
 
 ### Effort Estimate

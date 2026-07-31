@@ -78,6 +78,7 @@ export interface Trial {
   season_name: string
   design_type: string
   num_reps: number
+  block_size: number | null
   plot_count: number
   planting_date: string | null
   harvest_date: string | null
@@ -95,6 +96,8 @@ export interface Plot {
   germplasm_name: string
   rep: number
   block: number | null
+  incomplete_block: number | null
+  is_check: boolean
   position: number | null
   plot_number: number
   status: string
@@ -290,7 +293,7 @@ export const trials = {
     apiFetch<Trial>(`/trials/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   destroy: (id: number) =>
     apiFetch<void>(`/trials/${id}/`, { method: 'DELETE' }),
-  createPlots: (id: number, body: { germplasm_ids?: number[]; seed?: number }) =>
+  createPlots: (id: number, body: { germplasm_ids?: number[]; seed?: number; check_germplasm_ids?: number[] }) =>
     apiFetch<{ trial: string; created_count: number; plots: Plot[] }>(
       `/trials/${id}/create_plots/`,
       { method: 'POST', body: JSON.stringify(body) }

@@ -135,6 +135,7 @@ def test_filter_trials(auth_client, program, location, season, trial):
         location=other_loc,
         season=other_season,
         design_type="alpha_lattice",
+        block_size=2,
     )
 
     # Filter by design type

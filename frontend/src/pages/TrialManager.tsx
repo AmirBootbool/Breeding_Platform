@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ErrorBar
 } from 'recharts'
 import {
-  trials, plots, programs, locations, seasons,
-  Trial, Plot, TrialSummaryRow, Program, Location, Season, ApiError
+  trials, plots, programs, locations, seasons, germplasm,
+  Trial, Plot, TrialSummaryRow, Program, Location, Season, ApiError, Germplasm
 } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import TopBar from '../components/TopBar'
@@ -42,26 +42,82 @@ function PlotGrid({ plotList }: { plotList: Plot[] }) {
   const germplasmIds = [...new Set(plotList.map(p => p.germplasm))]
   const colorMap: Record<number, number> = {}
   germplasmIds.forEach((id, idx) => { colorMap[id] = idx })
-  const cols = Math.min(Math.ceil(Math.sqrt(plotList.length)), 10)
+
+  const reps = [...new Set(plotList.map(p => p.rep))].sort((a, b) => a - b)
+  const isAlpha = plotList.some(p => p.incomplete_block !== null && p.incomplete_block !== undefined)
 
   return (
     <div>
-      <div className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
+      <div className="card-title" style={{ marginBottom: 'var(--space-4)' }}>
         Plot Layout — {plotList.length} plots
       </div>
-      <div className="plot-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-        {plotList.map(plot => {
-          const [bg, fg] = colorForIndex(colorMap[plot.germplasm])
-          return (
-            <div key={plot.id} className="plot-cell" style={{ background: bg, color: fg }}
-              title={`Plot ${plot.plot_number} | Rep ${plot.rep} | ${plot.germplasm_name}`}>
-              <span className="plot-num">{plot.plot_number}</span>
-              <span className="plot-germ">{plot.germplasm_name}</span>
-              <StatusBadge status={plot.status} />
+      {reps.map(repNum => {
+        const repPlots = plotList.filter(p => p.rep === repNum).sort((a, b) => a.plot_number - b.plot_number)
+        const blocks = isAlpha 
+          ? [...new Set(repPlots.map(p => p.incomplete_block))].sort((a, b) => (a || 0) - (b || 0))
+          : [null]
+
+        return (
+          <div key={repNum} className="mb-6" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 'var(--space-4)' }}>
+            <div className="text-sm font-semibold mb-3" style={{ color: 'var(--brand-300)' }}>
+              Replication {repNum}
             </div>
-          )
-        })}
-      </div>
+
+            {blocks.map((blockNum, bIdx) => {
+              const blockPlots = isAlpha 
+                ? repPlots.filter(p => p.incomplete_block === blockNum)
+                : repPlots
+              const cols = Math.min(Math.ceil(Math.sqrt(blockPlots.length)), 10)
+
+              return (
+                <div key={bIdx} className="mb-4">
+                  {isAlpha && (
+                    <div className="text-xs text-muted mb-2 font-mono" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Incomplete Block {blockNum}
+                    </div>
+                  )}
+                  <div className="plot-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 'var(--space-2)' }}>
+                    {blockPlots.map(plot => {
+                      const [bg, fg] = colorForIndex(colorMap[plot.germplasm])
+                      const isCheckPlot = plot.is_check
+                      return (
+                        <div
+                          key={plot.id}
+                          className={`plot-cell ${isCheckPlot ? 'check-plot' : ''}`}
+                          style={{
+                            background: isCheckPlot ? 'var(--bg-card)' : bg,
+                            color: isCheckPlot ? 'var(--text-primary)' : fg,
+                            border: isCheckPlot ? '2px dashed var(--amber-500)' : '1px solid var(--border-default)',
+                            borderRadius: '4px',
+                            padding: 'var(--space-2)',
+                            position: 'relative',
+                            minHeight: '60px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                          }}
+                          title={`Plot ${plot.plot_number} | Rep ${plot.rep} | ${plot.germplasm_name}${plot.incomplete_block ? ` | Block ${plot.incomplete_block}` : ''}${isCheckPlot ? ' (Check)' : ''}`}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="plot-num font-mono text-xs" style={{ opacity: 0.8 }}>#{plot.plot_number}</span>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                              <StatusBadge status={plot.status} />
+                              {isCheckPlot && (
+                                <span style={{ fontSize: '9px', background: 'var(--amber-500)', color: '#000', padding: '0 4px', borderRadius: '3px', fontWeight: 600 }}>CHECK</span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="plot-germ font-semibold text-sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{plot.germplasm_name}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
       <div className="flex gap-3 mt-4" style={{ flexWrap: 'wrap' }}>
         {germplasmIds.map((id, idx) => {
           const name = plotList.find(p => p.germplasm === id)?.germplasm_name ?? String(id)
@@ -140,6 +196,7 @@ function SummaryChart({ rows }: { rows: TrialSummaryRow[] }) {
 // ---- Trial detail -----------------------------------------------------------
 function TrialDetail({ trial }: { trial: Trial }) {
   const [tab, setTab] = useState<'layout' | 'summary'>('layout')
+  const [showGenerateLayout, setShowGenerateLayout] = useState(false)
   const qc = useQueryClient()
 
   const { data: plotData, isLoading: plotLoading } = useQuery({
@@ -150,11 +207,6 @@ function TrialDetail({ trial }: { trial: Trial }) {
   const { data: summaryData } = useQuery({
     queryKey: ['trial-summary', trial.id],
     queryFn: () => trials.summary(trial.id),
-  })
-
-  const createPlotsMutation = useMutation({
-    mutationFn: () => trials.createPlots(trial.id, {}),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['plots', trial.id] }),
   })
 
   const plotList = plotData?.results ?? []
@@ -169,6 +221,9 @@ function TrialDetail({ trial }: { trial: Trial }) {
           <div><div className="card-title">Location</div><span className="text-sm">{trial.location_name}</span></div>
           <div><div className="card-title">Season</div><span className="text-sm">{trial.season_name}</span></div>
           <div><div className="card-title">Replications</div><span className="text-sm">{trial.num_reps}</span></div>
+          {trial.design_type === 'alpha_lattice' && (
+            <div><div className="card-title">Block Size</div><span className="text-sm">{trial.block_size}</span></div>
+          )}
           <div><div className="card-title">Plots</div><span className="text-sm">{trial.plot_count}</span></div>
           <div><div className="card-title">Program</div><span className="text-sm">{trial.program_name}</span></div>
           {trial.notes && (
@@ -181,11 +236,8 @@ function TrialDetail({ trial }: { trial: Trial }) {
         {plotList.length === 0 && !plotLoading && (
           <div className="mt-6 flex items-center gap-4">
             <button id="create-plots-btn" className="btn btn-primary"
-              onClick={() => createPlotsMutation.mutate()}
-              disabled={createPlotsMutation.isPending}>
-              {createPlotsMutation.isPending
-                ? <><div className="spinner" /> Generating…</>
-                : '⊞ Generate RCBD Layout'}
+              onClick={() => setShowGenerateLayout(true)}>
+              ⊞ Generate Layout
             </button>
           </div>
         )}
@@ -206,12 +258,206 @@ function TrialDetail({ trial }: { trial: Trial }) {
       {tab === 'summary' && (
         <div className="card"><SummaryChart rows={summaryData?.summary ?? []} /></div>
       )}
+
+      {showGenerateLayout && (
+        <Modal title={`Generate Layout — ${trial.trial_code}`} onClose={() => setShowGenerateLayout(false)} wide>
+          <GenerateLayoutModal
+            trial={trial}
+            onClose={() => setShowGenerateLayout(false)}
+            onSuccess={() => {
+              setShowGenerateLayout(false)
+              qc.invalidateQueries({ queryKey: ['plots', trial.id] })
+              qc.invalidateQueries({ queryKey: ['trials'] })
+            }}
+          />
+        </Modal>
+      )}
     </div>
+  )
+}
+
+// ---- Generate Layout Modal --------------------------------------------------
+interface GenerateLayoutModalProps {
+  trial: Trial
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function GenerateLayoutModal({ trial, onClose, onSuccess }: GenerateLayoutModalProps) {
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [checkIds, setCheckIds] = useState<number[]>([])
+  const [seed, setSeed] = useState<string>('')
+  const [search, setSearch] = useState<string>('')
+  const [error, setError] = useState<string>('')
+
+  const { data: germplasmData, isLoading } = useQuery({
+    queryKey: ['program-germplasm', trial.program],
+    queryFn: () => germplasm.list(`&page_size=500&program=${trial.program}`),
+  })
+
+  const programGermplasm: Germplasm[] = germplasmData?.results ?? []
+
+  useEffect(() => {
+    if (programGermplasm.length > 0 && selectedIds.length === 0) {
+      setSelectedIds(programGermplasm.map((g: Germplasm) => g.id))
+    }
+  }, [programGermplasm])
+
+  const filtered = programGermplasm.filter((g: Germplasm) =>
+    g.name.toLowerCase().includes(search.toLowerCase()) ||
+    g.germplasm_db_id.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const mutation = useMutation({
+    mutationFn: () => trials.createPlots(trial.id, {
+      germplasm_ids: selectedIds,
+      seed: seed ? Number(seed) : undefined,
+      check_germplasm_ids: trial.design_type === 'augmented' ? checkIds : undefined,
+    }),
+    onSuccess: () => {
+      onSuccess()
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? JSON.stringify(err.detail) : (err as Error).message)
+    }
+  })
+
+  const isAlpha = trial.design_type === 'alpha_lattice'
+  const isAugmented = trial.design_type === 'augmented'
+  const blockSize = trial.block_size ?? 1
+
+  const countOk = !isAlpha || (selectedIds.length > 0 && selectedIds.length % blockSize === 0)
+  const remainder = isAlpha && selectedIds.length > 0 ? selectedIds.length % blockSize : 0
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(programGermplasm.map((g: Germplasm) => g.id))
+    } else {
+      setSelectedIds([])
+      setCheckIds([])
+    }
+  }
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      if (prev.includes(id)) {
+        setCheckIds(c => c.filter(cid => cid !== id))
+        return prev.filter(x => x !== id)
+      } else {
+        return [...prev, id]
+      }
+    })
+  }
+
+  const handleToggleCheck = (id: number) => {
+    setCheckIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(x => x !== id)
+      } else {
+        return [...prev, id]
+      }
+    })
+  }
+
+  return (
+    <>
+      {error && <div className="alert alert-error mb-4"><span>⚠</span><span>{error}</span></div>}
+      
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <p className="text-sm text-muted">
+          Design: <strong>{trial.design_type === 'alpha_lattice' ? 'Alpha-Lattice' : trial.design_type === 'augmented' ? 'Augmented' : trial.design_type}</strong>
+          {isAlpha && ` (Block Size: ${blockSize})`}
+          {isAugmented && ` (${trial.num_reps} check replications)`}
+        </p>
+      </div>
+
+      <div className="grid-2 gap-4 mb-4">
+        <div className="form-group">
+          <label className="form-label">Search Germplasm</label>
+          <input className="form-input" placeholder="Search by name or code..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Randomization Seed (Optional)</label>
+          <input className="form-input" type="number" placeholder="e.g. 42" value={seed} onChange={e => setSeed(e.target.value)} />
+        </div>
+      </div>
+
+      {isAlpha && (
+        <div className={`alert ${countOk ? 'alert-success' : 'alert-error'} mb-4`}>
+          <span>ℹ</span>
+          <span>
+            Selected entries: <strong>{selectedIds.length}</strong>.
+            Block Size is <strong>{blockSize}</strong>.
+            {countOk ? ' Divisibility check passed!' : ` Divisibility check failed: Entry count must be divisible by ${blockSize} (current remainder: ${remainder}).`}
+          </span>
+        </div>
+      )}
+
+      <div className="table-container" style={{ maxHeight: '350px', overflowY: 'auto', marginBottom: 'var(--space-4)' }}>
+        {isLoading ? (
+          <div className="loading-spinner"><div className="spinner" /> Loading program germplasm...</div>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state"><p>No germplasm found matching search.</p></div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }}>
+                  <input type="checkbox" checked={selectedIds.length === programGermplasm.length && programGermplasm.length > 0} onChange={handleSelectAll} />
+                </th>
+                <th>Name</th>
+                <th>Code</th>
+                {isAugmented && <th>Is Check?</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((g: Germplasm) => {
+                const isSelected = selectedIds.includes(g.id)
+                const isCheck = checkIds.includes(g.id)
+                return (
+                  <tr key={g.id} className={isSelected ? 'selected-row' : ''}>
+                    <td>
+                      <input type="checkbox" checked={isSelected} onChange={() => handleToggleSelect(g.id)} />
+                    </td>
+                    <td>{g.name}</td>
+                    <td><code className="font-mono">{g.germplasm_db_id}</code></td>
+                    {isAugmented && (
+                      <td>
+                        <input type="checkbox" disabled={!isSelected} checked={isCheck} onChange={() => handleToggleCheck(g.id)} />
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="modal-footer">
+        <button className="btn btn-secondary" onClick={onClose} disabled={mutation.isPending}>Cancel</button>
+        <button
+          className="btn btn-primary"
+          disabled={mutation.isPending || !countOk || selectedIds.length === 0}
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Generating…</> : 'Generate Layout'}
+        </button>
+      </div>
+    </>
   )
 }
 
 // ---- Trial Form ------------------------------------------------------------
 const DESIGN_TYPES = ['RCBD', 'alpha_lattice', 'augmented', 'unreplicated', 'other']
+
+const DESIGN_TYPE_LABELS: Record<string, string> = {
+  RCBD: 'Randomized Complete Block (RCBD)',
+  alpha_lattice: 'Alpha-Lattice',
+  augmented: 'Augmented',
+  unreplicated: 'Unreplicated',
+  other: 'Other',
+}
 
 interface TrialFormProps {
   initial?: Partial<Trial>
@@ -232,6 +478,7 @@ function TrialForm({ initial, programList, locationList, seasonList, onClose, is
     season: initial?.season?.toString() ?? '',
     design_type: initial?.design_type ?? 'RCBD',
     num_reps: initial?.num_reps?.toString() ?? '1',
+    block_size: initial?.block_size?.toString() ?? '',
     planting_date: initial?.planting_date ?? '',
     harvest_date: initial?.harvest_date ?? '',
     notes: initial?.notes ?? '',
@@ -251,6 +498,7 @@ function TrialForm({ initial, programList, locationList, seasonList, onClose, is
         season: Number(form.season),
         design_type: form.design_type,
         num_reps: Number(form.num_reps),
+        block_size: form.design_type === 'alpha_lattice' ? Number(form.block_size) : null,
         notes: form.notes,
       }
       if (form.planting_date) payload.planting_date = form.planting_date
@@ -309,13 +557,19 @@ function TrialForm({ initial, programList, locationList, seasonList, onClose, is
         <div className="form-group">
           <label className="form-label">Design Type</label>
           <select id="trial-design" className="form-input" value={form.design_type} onChange={e => set('design_type', e.target.value)}>
-            {DESIGN_TYPES.map(d => <option key={d} value={d}>{d}</option>)}
+            {DESIGN_TYPES.map(d => <option key={d} value={d}>{DESIGN_TYPE_LABELS[d] || d}</option>)}
           </select>
         </div>
         <div className="form-group">
           <label className="form-label">Replications</label>
           <input id="trial-reps" className="form-input" type="number" min={1} value={form.num_reps} onChange={e => set('num_reps', e.target.value)} />
         </div>
+        {form.design_type === 'alpha_lattice' && (
+          <div className="form-group">
+            <label className="form-label">Block Size <span style={{ color: 'var(--status-danger)' }}>*</span></label>
+            <input id="trial-block-size" className="form-input" type="number" min={2} value={form.block_size} onChange={e => set('block_size', e.target.value)} placeholder="e.g. 4" />
+          </div>
+        )}
         <div className="form-group">
           <label className="form-label">Planting Date</label>
           <input id="trial-planting" className="form-input" type="date" value={form.planting_date} onChange={e => set('planting_date', e.target.value)} />
@@ -339,6 +593,16 @@ function TrialForm({ initial, programList, locationList, seasonList, onClose, is
             if (!form.name || !form.trial_code || !form.program || !form.location || !form.season) {
               setError('Name, Code, Program, Location, and Season are required.')
               return
+            }
+            if (form.design_type === 'alpha_lattice') {
+              if (!form.block_size) {
+                setError('Block Size is required for Alpha-Lattice designs.')
+                return
+              }
+              if (Number(form.block_size) < 2) {
+                setError('Block Size must be at least 2.')
+                return
+              }
             }
             mutation.mutate()
           }}

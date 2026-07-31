@@ -1,6 +1,6 @@
 import pytest
 
-from apps.trials.models import Plot
+from apps.trials.models import Plot, Trial
 
 
 @pytest.mark.django_db
@@ -274,3 +274,100 @@ def test_trial_audit_fields(client_for_role, program, location, season):
     assert trial_obj.updated_by.username == "other_breeder"
     assert response_patch.data["created_by_username"] == "breeder_user"
     assert response_patch.data["updated_by_username"] == "other_breeder"
+
+
+@pytest.mark.django_db
+def test_create_plots_alpha_lattice(client_for_role, program, location, season):
+    client = client_for_role("breeder")
+    from apps.germplasm.models import Germplasm
+
+    # Create 12 germplasms for program
+    germplasms = [
+        Germplasm.objects.create(
+            name=f"Line{i}", germplasm_db_id=f"G{i:03d}", program=program
+        )
+        for i in range(1, 13)
+    ]
+    germplasm_ids = [g.id for g in germplasms]
+
+    # Create Trial with alpha_lattice design
+    trial = Trial.objects.create(
+        name="Alpha Trial API",
+        trial_code="TR-API-ALPHA",
+        program=program,
+        location=location,
+        season=season,
+        design_type="alpha_lattice",
+        num_reps=2,
+        block_size=4,
+    )
+
+    # 1. Success path
+    response = client.post(
+        f"/api/trials/{trial.id}/create_plots/",
+        {"germplasm_ids": germplasm_ids, "seed": 42},
+        format="json",
+    )
+    assert response.status_code == 201
+    assert response.data["created_count"] == 24
+    assert len(response.data["plots"]) == 24
+    assert all(p["incomplete_block"] is not None for p in response.data["plots"])
+
+    # 2. Non-divisible entry count
+    trial2 = Trial.objects.create(
+        name="Alpha Trial API Fail",
+        trial_code="TR-API-ALPHA-FAIL",
+        program=program,
+        location=location,
+        season=season,
+        design_type="alpha_lattice",
+        num_reps=2,
+        block_size=5, # 12 % 5 != 0
+    )
+    response_fail = client.post(
+        f"/api/trials/{trial2.id}/create_plots/",
+        {"germplasm_ids": germplasm_ids, "seed": 42},
+        format="json",
+    )
+    assert response_fail.status_code == 400
+
+
+@pytest.mark.django_db
+def test_create_plots_augmented(client_for_role, program, location, season):
+    client = client_for_role("breeder")
+    from apps.germplasm.models import Germplasm
+
+    # Create 12 germplasms
+    germplasms = [
+        Germplasm.objects.create(
+            name=f"Line{i}", germplasm_db_id=f"G{i:03d}", program=program
+        )
+        for i in range(1, 13)
+    ]
+    germplasm_ids = [g.id for g in germplasms]
+    check_ids = germplasm_ids[:3] # first 3 are checks
+
+    trial = Trial.objects.create(
+        name="Aug Trial API",
+        trial_code="TR-API-AUG",
+        program=program,
+        location=location,
+        season=season,
+        design_type="augmented",
+        num_reps=3,
+    )
+
+    response = client.post(
+        f"/api/trials/{trial.id}/create_plots/",
+        {
+            "germplasm_ids": germplasm_ids,
+            "check_germplasm_ids": check_ids,
+            "seed": 42,
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    assert response.data["created_count"] == 18 # 3 checks * 3 reps + 9 tests = 18 plots
+    # Check checks count
+    checks_marked = [p for p in response.data["plots"] if p["is_check"]]
+    assert len(checks_marked) == 9

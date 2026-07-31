@@ -3804,6 +3804,14 @@ components:
           maximum: 9223372036854775807
           minimum: -9223372036854775808
           format: int64
+        incomplete_block:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        is_check:
+          type: boolean
         row:
           type: integer
           maximum: 9223372036854775807
@@ -3904,6 +3912,13 @@ components:
           maximum: 9223372036854775807
           minimum: -9223372036854775808
           format: int64
+        block_size:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Incomplete block size for alpha-lattice designs.
         planting_date:
           type: string
           format: date
@@ -3993,6 +4008,14 @@ components:
           maximum: 9223372036854775807
           minimum: -9223372036854775808
           format: int64
+        incomplete_block:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        is_check:
+          type: boolean
         row:
           type: integer
           maximum: 9223372036854775807
@@ -4139,6 +4162,13 @@ components:
           maximum: 9223372036854775807
           minimum: -9223372036854775808
           format: int64
+        block_size:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Incomplete block size for alpha-lattice designs.
         planting_date:
           type: string
           format: date

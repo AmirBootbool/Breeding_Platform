@@ -27,6 +27,7 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "season_name",
             "design_type",
             "num_reps",
+            "block_size",
             "planting_date",
             "harvest_date",
             "notes",
@@ -48,6 +49,20 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "updated_by_username",
         ]
 
+    def validate(self, attrs):
+        design_type = attrs.get("design_type", getattr(self.instance, "design_type", "RCBD") if self.instance else "RCBD")
+        block_size = attrs.get("block_size", getattr(self.instance, "block_size", None) if self.instance else None)
+        if design_type == "alpha_lattice":
+            if block_size is None:
+                raise serializers.ValidationError(
+                    {"block_size": "block_size is required for alpha-lattice trials."}
+                )
+            if block_size < 2:
+                raise serializers.ValidationError(
+                    {"block_size": "block_size must be at least 2."}
+                )
+        return attrs
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_plot_count(self, obj) -> int:
         return getattr(obj, "plot_count", obj.plots.count())
@@ -68,6 +83,8 @@ class PlotSerializer(serializers.ModelSerializer):
             "rep",
             "block",
             "plot_number",
+            "incomplete_block",
+            "is_check",
             "row",
             "column",
             "status",

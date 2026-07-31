@@ -24,6 +24,11 @@ class Trial(models.Model):
         max_length=32, choices=DESIGN_CHOICES, default="RCBD"
     )
     num_reps = models.IntegerField(default=1)
+    block_size = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Incomplete block size for alpha-lattice designs.",
+    )
     planting_date = models.DateField(null=True, blank=True)
     harvest_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
@@ -54,6 +59,15 @@ class Trial(models.Model):
             raise ValidationError(
                 {"num_reps": "Trial must have at least one replication."}
             )
+        if self.design_type == "alpha_lattice":
+            if self.block_size is None:
+                raise ValidationError(
+                    {"block_size": "block_size is required for alpha-lattice trials."}
+                )
+            if self.block_size < 2:
+                raise ValidationError(
+                    {"block_size": "block_size must be at least 2."}
+                )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -83,6 +97,8 @@ class Plot(models.Model):
     plot_number = models.IntegerField()
     row = models.IntegerField(null=True, blank=True)
     column = models.IntegerField(null=True, blank=True)
+    incomplete_block = models.PositiveIntegerField(null=True, blank=True)
+    is_check = models.BooleanField(default=False)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default="planned")
 
     class Meta:

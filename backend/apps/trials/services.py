@@ -29,14 +29,81 @@ def generate_rcbd_layout(
     return layouts
 
 
+def generate_alpha_lattice_layout(
+    entries: Sequence[Germplasm],
+    num_reps: int,
+    block_size: int,
+    seed: int | None = None,
+) -> list[dict]:
+    if len(entries) % block_size != 0:
+        raise ValidationError(
+            f"Entry count ({len(entries)}) must be evenly divisible by block_size ({block_size})."
+        )
+    if block_size < 2:
+        raise ValidationError("block_size must be at least 2.")
+
+    rng = random.Random(seed)
+    blocks_per_rep = len(entries) // block_size
+    layout = []
+
+    for rep in range(1, num_reps + 1):
+        shuffled = list(entries)
+        rng.shuffle(shuffled)
+        position = 1
+        for block_num in range(1, blocks_per_rep + 1):
+            block_entries = shuffled[(block_num - 1) * block_size : block_num * block_size]
+            for germplasm in block_entries:
+                layout.append({
+                    "germplasm": germplasm,
+                    "rep": rep,
+                    "incomplete_block": block_num,
+                    "position": position,
+                })
+                position += 1
+    return layout
+
+
+def generate_augmented_layout(
+    entries: Sequence[Germplasm],
+    check_entries: Sequence[Germplasm],
+    num_reps: int,
+    seed: int | None = None,
+) -> list[dict]:
+    rng = random.Random(seed)
+    check_set = set(check_entries)
+    test_entries = [e for e in entries if e not in check_set]
+
+    rng.shuffle(test_entries)
+    buckets = [[] for _ in range(num_reps)]
+    for i, entry in enumerate(test_entries):
+        buckets[i % num_reps].append(entry)
+
+    layout = []
+    for rep in range(1, num_reps + 1):
+        rep_entries = list(check_entries) + buckets[rep - 1]
+        rng.shuffle(rep_entries)
+        for position, germplasm in enumerate(rep_entries, start=1):
+            layout.append({
+                "germplasm": germplasm,
+                "rep": rep,
+                "incomplete_block": None,
+                "position": position,
+                "is_check": germplasm in check_set,
+            })
+    return layout
+
+
 def create_plots_for_trial(
-    trial: Trial, entries: Sequence[Germplasm], seed: int | None = None
+    trial: Trial,
+    entries: Sequence[Germplasm],
+    seed: int | None = None,
+    check_entries: Sequence[Germplasm] | None = None,
 ) -> list[Plot]:
     entries = list(entries)
     logger.info(
-        "Creating %d plots for trial %s (replications: %d, seed: %s)",
-        len(entries) * trial.num_reps,
+        "Creating plots for trial %s (design: %s, replications: %d, seed: %s)",
         trial.trial_code,
+        trial.design_type,
         trial.num_reps,
         seed,
     )
@@ -48,21 +115,59 @@ def create_plots_for_trial(
     if Plot.objects.filter(trial=trial).exists():
         raise ValidationError({"trial": "Plots already exist for this trial."})
 
-    layouts = generate_rcbd_layout(entries, trial.num_reps, seed=seed)
     plots_to_create = []
-    plot_number = 1
-
-    for rep, entry_list in layouts:
-        for germplasm in entry_list:
+    if trial.design_type == "RCBD":
+        layouts = generate_rcbd_layout(entries, trial.num_reps, seed=seed)
+        plot_number = 1
+        for rep, entry_list in layouts:
+            for germplasm in entry_list:
+                plots_to_create.append(
+                    Plot(
+                        trial=trial,
+                        germplasm=germplasm,
+                        rep=rep,
+                        plot_number=plot_number,
+                    )
+                )
+                plot_number += 1
+    elif trial.design_type == "alpha_lattice":
+        if trial.block_size is None:
+            raise ValidationError({"block_size": "block_size is required for alpha-lattice trials."})
+        layout = generate_alpha_lattice_layout(
+            entries, trial.num_reps, trial.block_size, seed=seed
+        )
+        plot_number = 1
+        for row in layout:
             plots_to_create.append(
                 Plot(
                     trial=trial,
-                    germplasm=germplasm,
-                    rep=rep,
+                    germplasm=row["germplasm"],
+                    rep=row["rep"],
+                    incomplete_block=row["incomplete_block"],
                     plot_number=plot_number,
                 )
             )
             plot_number += 1
+    elif trial.design_type == "augmented":
+        checks = list(check_entries) if check_entries else []
+        layout = generate_augmented_layout(
+            entries, checks, trial.num_reps, seed=seed
+        )
+        plot_number = 1
+        for row in layout:
+            plots_to_create.append(
+                Plot(
+                    trial=trial,
+                    germplasm=row["germplasm"],
+                    rep=row["rep"],
+                    incomplete_block=None,
+                    is_check=row["is_check"],
+                    plot_number=plot_number,
+                )
+            )
+            plot_number += 1
+    else:
+        raise ValidationError({"design_type": f"Unsupported design type: {trial.design_type}"})
 
     with transaction.atomic():
         created = Plot.objects.bulk_create(plots_to_create)

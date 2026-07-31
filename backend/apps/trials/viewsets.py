@@ -46,6 +46,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def create_plots(self, request, pk=None):
         trial = self.get_object()
         germplasm_ids = request.data.get("germplasm_ids")
+        check_germplasm_ids = request.data.get("check_germplasm_ids")
         seed = request.data.get("seed")
 
         if germplasm_ids is None:
@@ -70,7 +71,17 @@ class TrialViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-        created = create_plots_for_trial(trial, germplasm_qs, seed=seed)
+        check_entries = None
+        if check_germplasm_ids is not None:
+            if not isinstance(check_germplasm_ids, (list, tuple)):
+                check_germplasm_ids = [check_germplasm_ids]
+            check_entries = list(trial.program.germplasm.filter(
+                id__in=check_germplasm_ids
+            ))
+
+        created = create_plots_for_trial(
+            trial, germplasm_qs, seed=seed, check_entries=check_entries
+        )
 
         serializer = PlotSerializer(
             created, many=True, context=self.get_serializer_context()

@@ -217,3 +217,52 @@ def test_deleting_season_with_trials_raises():
 
     with pytest.raises(ProtectedError):
         season.delete()
+
+
+@pytest.mark.django_db
+def test_trial_alpha_lattice_validation():
+    program = Program.objects.create(name="Trial Program")
+    location = Location.objects.create(name="Field")
+    season = Season.objects.create(name="2026 Season", year=2026, program=program)
+
+    # Missing block_size for alpha_lattice
+    t1 = Trial(
+        name="Alpha Lattice Missing Block",
+        trial_code="TR-A1",
+        program=program,
+        location=location,
+        season=season,
+        design_type="alpha_lattice",
+        num_reps=2,
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        t1.clean()
+    assert "block_size" in exc_info.value.message_dict
+
+    # block_size < 2 for alpha_lattice
+    t2 = Trial(
+        name="Alpha Lattice Small Block",
+        trial_code="TR-A2",
+        program=program,
+        location=location,
+        season=season,
+        design_type="alpha_lattice",
+        num_reps=2,
+        block_size=1,
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        t2.clean()
+    assert "block_size" in exc_info.value.message_dict
+
+    # Valid alpha_lattice trial
+    t3 = Trial(
+        name="Alpha Lattice Valid",
+        trial_code="TR-A3",
+        program=program,
+        location=location,
+        season=season,
+        design_type="alpha_lattice",
+        num_reps=2,
+        block_size=3,
+    )
+    t3.clean()  # Should not raise validation error

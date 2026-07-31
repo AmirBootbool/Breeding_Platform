@@ -1,0 +1,112 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+/* Ambient blobs */
+.login-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.18;
+  animation: blobPulse 8s ease-in-out infinite alternate;
+}
+
+.blob-1 {
+  width: 500px;
+  height: 500px;
+  background: hsl(var(--hue-brand), 52%, 40%);
+  top: -150px;
+  right: -100px;
+  animation-delay: 0s;
+}
+
+.blob-2 {
+  width: 350px;
+  height: 350px;
+  background: hsl(var(--hue-accent), 88%, 50%);
+  bottom: -100px;
+  left: -80px;
+  animation-delay: 2.5s;
+}
+
+.blob-3 {
+  width: 280px;
+  height: 280px;
+  background: hsl(210, 72%, 52%);
+  bottom: 30%;
+  right: 15%;
+  animation-delay: 5s;
+}
+
+@keyframes blobPulse {
+  from { transform: scale(1) translate(0, 0); }
+  to   { transform: scale(1.15) translate(20px, -20px); }
+}
+
+/* Card */
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  position: relative;
+  z-index: 1;
+  padding: var(--space-10) var(--space-8);
+}
+
+/* Header */
+.login-header {
+  text-align: center;
+}
+
+.login-logo {
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+  filter: drop-shadow(0 0 16px hsla(142, 60%, 50%, 0.6));
+  animation: logoGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes logoGlow {
+  from { filter: drop-shadow(0 0 12px hsla(142, 60%, 50%, 0.4)); }
+  to   { filter: drop-shadow(0 0 24px hsla(142, 60%, 50%, 0.8)); }
+}
+
+.login-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--brand-300) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--space-2);
+}
+
+.login-subtitle {
+  font-size: 0.875rem;
+}
+
+/* Form */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.login-footer {
+  text-align: center;
+  line-height: 1.8;
+}

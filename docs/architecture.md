@@ -1,6 +1,6 @@
 # Wheat Breeding Platform — Architecture & Engineering Reference
 
-Last updated: 2026-07-20
+Last updated: 2026-07-31
 
 ## 1. Project Overview
 
@@ -39,7 +39,6 @@ The following capabilities are implemented:
 
 ### 1.3 Out of Scope
 
-- A custom browser or mobile frontend; Django Admin is the current UI.
 - Genomic data storage and analysis.
 - Drone or image-based phenotyping.
 - Multi-environment models such as heritability and genotype-by-environment
@@ -75,6 +74,8 @@ The following capabilities are implemented:
 | pytest + pytest-django | Unit and integration tests |
 | black, isort, flake8 | Formatting and linting |
 | python-decouple | Environment configuration |
+| **Vite + React 18 + TypeScript** | **Custom browser frontend SPA** |
+| **React Query + Zustand + Recharts** | **Frontend data, state, and charts** |
 
 The platform is designed to run locally on a laptop without a GPU.
 
@@ -233,6 +234,17 @@ wheat-breeding-platform/
 │   ├── config/
 │   ├── requirements/
 │   └── tests/
+├── frontend/
+│   ├── src/
+│   │   ├── api/          ← typed API client
+│   │   ├── components/   ← Sidebar, TopBar
+│   │   ├── pages/        ← Login, Dashboard, GermplasmBrowser, TrialManager,
+│   │   │                    ObservationEntry, DataExport
+│   │   └── store/        ← Zustand auth store
+│   ├── Dockerfile
+│   ├── index.html
+│   ├── vite.config.ts
+│   └── package.json
 ├── scripts/backup_db.sh
 ├── docker-compose.yml
 └── docker-compose.prod.yml
@@ -267,7 +279,7 @@ configured.
 
 ## 9. Testing
 
-The verified 2026-07-20 baseline is **77 passed and 1 skipped**. The skipped
+The verified 2026-07-25 baseline is **79 passed and 1 skipped**. The skipped
 test exercises optional Sentry initialization and runs when the production
 Sentry dependency is installed.
 
@@ -303,17 +315,12 @@ protection, test duplication, deprecated dependencies, container startup,
 Field Book exchange, trial summaries, BrAPI, schema documentation, and
 production hardening are resolved and are no longer an active backlog.
 
-### 10.2 Known Schema Typing Debt
+### 10.2 Resolved Schema Typing Debt
 
-Schema generation completes with no errors. It still reports drf-spectacular
-W001 warnings for serializer method fields whose Python return types are not
-annotated. drf-spectacular currently falls back to strings for those fields;
-adding return annotations or `@extend_schema_field` metadata is a future
-schema-precision cleanup.
+Schema generation completes with 0 errors. W001 warnings from drf-spectacular for serializer method fields have been resolved by adding explicit `@extend_schema_field` metadata and Python type annotations. The only remaining warnings stem from the read-only BrAPI v2 endpoints, which do not impact internal frontend generation.
 
 ### 10.3 Remaining Product Opportunities
 
-- Custom browser or mobile UI.
 - BrAPI write support.
 - Alpha-lattice and augmented layout-generation services.
 - Spreadsheet formats beyond CSV.

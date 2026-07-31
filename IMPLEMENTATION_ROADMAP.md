@@ -10,14 +10,17 @@ and implement it without reading the others.
 
 ## Phase Summary
 
-| Phase | Status   | Description                       |
-|-------|----------|-----------------------------------|
-| 1     | ✅ Done  | Security hardening                |
-| 2     | ✅ Done  | REST API implementation           |
-| 3     | ✅ Done  | Database optimization             |
-| 4     | ✅ Done  | Feature completeness & quality    |
-| 5     | ✅ Done  | Production readiness              |
-| 6     | ✅ Done  | Documentation & tech-debt cleanup |
+| Phase | Status        | Description                       |
+|-------|---------------|-----------------------------------|
+| 1     | ✅ Done       | Security hardening                |
+| 2     | ✅ Done       | REST API implementation           |
+| 3     | ✅ Done       | Database optimization             |
+| 4     | ✅ Done       | Feature completeness & quality    |
+| 5     | ✅ Done       | Production readiness              |
+| 6     | ✅ Done       | Documentation & tech-debt cleanup |
+| 7     | ✅ Done       | Custom browser frontend           |
+| 8     | ✅ Done       | Frontend CRUD Operations          |
+| 9     | 🔲 Planned    | Frontend depth & bulk workflows     |
 
 
 ---
@@ -520,6 +523,52 @@ def summary(self, request, pk=None):
 
 ---
 
+## Phase 7: Custom Browser Frontend — ✅ COMPLETE
+
+### Goal
+
+Build a Vite + React + TypeScript SPA that makes the platform usable for daily
+breeder workflows without requiring Django Admin or CLI access.
+
+### Stack
+
+- **Vite + React 18 + TypeScript** — SPA served separately from Django.
+- **React Query (`@tanstack/react-query`)** — data fetching and caching.
+- **Zustand** — persisted auth token and role state.
+- **Recharts** — trial summary charts.
+- **Vite dev-server proxy** — forwards `/api/` to Django at `:8000`.
+
+### Backend additions
+
+- [x] `GET /api/trials/{id}/export_csv/` — streaming observations CSV download.
+- [x] `GET /api/trials/{id}/export_fieldbook/` — streaming Field Book CSV download.
+- [x] Tests for both new actions (79 passing, 1 skipped).
+
+### Frontend pages
+
+- [x] Login (token auth form, Zustand persist, redirect on success)
+- [x] Dashboard (stat cards, program grid, recent observations table)
+- [x] Germplasm Browser (search, cross-type filter, pedigree panel)
+- [x] Trial Manager (list, plot grid colored by entry, create-plots button, summary chart)
+- [x] Observation Entry (trial → plot → traits form with inline type/range validation)
+- [x] Data Export (one-click authenticated CSV and Field Book downloads)
+
+### Infrastructure
+
+- [x] `frontend/Dockerfile` (Node 20 Alpine, Vite dev server)
+- [x] `frontend` service added to `docker-compose.yml`
+
+### Phase 7 Complete When
+
+- [x] `npm install && npm run dev` starts successfully (requires Node ≥ 18).
+- [x] All five screens render and connect to the Django API.
+- [x] Observation entry creates records visible in the API.
+- [x] CSV and Field Book exports download from the browser.
+- [x] All 79+ backend tests still pass.
+- [x] Architecture and NEXT_PHASE_SUMMARY docs updated.
+
+---
+
 ## Effort Estimates
 
 | Phase | Estimated Hours | Priority |
@@ -560,3 +609,433 @@ def summary(self, request, pk=None):
 - Germplasm identifier and trait-scope decisions are recorded as ADRs
 - Historical review documents are consolidated
 - Tests and deployment security settings are verified
+
+---
+
+## Phase 8: Frontend CRUD Operations — ✅ COMPLETE
+
+### Goal
+Make the browser UI fully self-contained for daily breeding workflows by adding create, edit, and delete modals to every main screen, removing the need for Django Admin or CLI access for core operations.
+
+### Backend Additions
+- [x] `@extend_schema_field` metadata and Python type hints to eliminate drf-spectacular W001 warnings for `plot_count` and other read-only serializer method fields.
+
+### Shared UI Infrastructure
+- [x] Global CSS additions for `.modal` and overlay.
+- [x] `Modal.tsx` generic React portal component with Escape-to-close behavior.
+- [x] `ConfirmDialog.tsx` reusable component for cascade-aware destructive actions.
+- [x] Expanded API Client (`src/api/client.ts`) covering `create`, `update`, and `destroy` for all relevant namespaces.
+
+### Frontend Pages
+- [x] **Germplasm Browser:** Added `+ Add Germplasm` button (role-gated), 9-field create/edit form, and inline edit/delete buttons per row.
+- [x] **Trial Manager:** Added `+ New Trial` button, dependent season dropdown (filters seasons by program), and inline edit/delete.
+- [x] **New `/setup` Page:** Tabbed interface for Programs, Locations, Seasons, and Observation Variables. Each tab has full Create, Edit, and Delete tables.
+
+### Phase 8 Complete When
+- [x] Tests continue to pass with 0 regressions.
+- [x] drf-spectacular schema validates with 0 errors.
+- [x] Forms enforce required fields and constraints.
+- [x] Users can perform complete CRUD lifecycle via UI for Programs, Locations, Seasons, Germplasm, Trials, and Observation Variables.
+
+---
+
+## Phase 9: Frontend Depth & Bulk Workflows
+
+### Goal
+
+Close the gap between the CLI/Admin power tools and the browser UI so daily
+breeder workflows (bulk data entry, multi-trait review, change history) no
+longer require dropping back to `manage.py` or Django Admin.
+
+### Prerequisites
+
+- Phases 1–8 complete (verified: 79 passed, 1 skipped).
+- `import_germplasm` management command exists at
+  `apps/germplasm/management/commands/import_germplasm.py`.
+
+---
+
+### 9.1 CSV Bulk-Import Endpoint + UI (3–4 hours)
+
+**Goal:** Let a breeder upload a germplasm CSV from the browser instead of
+running the management command by hand.
+
+**Context:** `import_germplasm` already contains the parsing/validation
+logic. Reuse it rather than duplicating parsing in the view.
+
+**Step-by-step implementation:**
+
+1. Refactor the reusable part of the command into a service function in
+   `apps/germplasm/services.py` (this file does not exist yet — create it):
+
+```python
+import csv
+import io
+
+from django.core.exceptions import ValidationError
+from django.db import transaction
+
+from apps.core.models import Program
+from apps.germplasm.models import Germplasm
+
+
+def import_germplasm_csv(file_obj, program_name, dry_run=False):
+    """Parse and optionally persist germplasm rows from an uploaded CSV.
+
+    Returns a dict: {"created": int, "skipped": int,
+                     "errors": [{"row": int, "detail": str}]}
+    """
+    try:
+        program = Program.objects.get(name=program_name)
+    except Program.DoesNotExist as exc:
+        raise ValidationError(f"Unknown program: {program_name}") from exc
+
+    text_stream = io.TextIOWrapper(file_obj, encoding="utf-8")
+    reader = csv.DictReader(text_stream)
+
+    # Header validation — must contain at least "name"
+    if not reader.fieldnames or "name" not in reader.fieldnames:
+        raise ValidationError(
+            f"CSV is missing the required 'name' header. "
+            f"Found: {reader.fieldnames}"
+        )
+
+    created = 0
+    skipped = 0
+    errors = []
+    with transaction.atomic():
+        for i, row in enumerate(reader, start=2):  # header is row 1
+            name = row.get("name", "").strip()
+            if not name:
+                errors.append({"row": i, "detail": "Missing required field: name"})
+                continue
+
+            # Skip duplicates within the same program (matches CLI behavior)
+            if Germplasm.objects.filter(program=program, name=name).exists():
+                skipped += 1
+                continue
+
+            try:
+                germplasm = Germplasm(
+                    name=name,
+                    species=row.get("species", "").strip() or "Triticum aestivum",
+                    program=program,
+                    pedigree_string=row.get("pedigree_string", "").strip(),
+                    cross_type=row.get("cross_type", "").strip() or "unknown",
+                    year_developed=int(row["year_developed"]) if row.get("year_developed", "").strip() else None,
+                    notes=row.get("notes", "").strip(),
+                )
+                germplasm.full_clean()
+                if not dry_run:
+                    germplasm.save()
+                created += 1
+            except (ValidationError, KeyError, ValueError) as exc:
+                errors.append({"row": i, "detail": str(exc)})
+
+        if dry_run or errors:
+            transaction.set_rollback(True)
+
+    return {
+        "created": 0 if (dry_run or errors) else created,
+        "skipped": skipped,
+        "errors": errors,
+    }
+```
+
+   **Important:** The field names match the actual `Germplasm` model:
+   `pedigree_string` (not `pedigree`), `year_developed` (not
+   `development_year`). The service also replicates the CLI command's
+   header validation, duplicate-skipping, and default-species logic so
+   both entry points behave identically.
+
+2. Update `import_germplasm.py` to call this service instead of
+   duplicating logic (keeps CLI and API behavior identical).
+
+3. Add an API endpoint in `apps/germplasm/viewsets.py`:
+
+```python
+from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
+from rest_framework.response import Response
+
+class GermplasmViewSet(viewsets.ModelViewSet):
+    ...
+
+    @action(
+        detail=False,
+        methods=["post"],
+        parser_classes=[MultiPartParser],
+        url_path="bulk_import",
+    )
+    def bulk_import(self, request):
+        file_obj = request.FILES.get("file")
+        program_name = request.data.get("program")
+        dry_run = request.data.get("dry_run") in ("true", "True", "1")
+
+        if not file_obj or not program_name:
+            return Response(
+                {"errors": [{"row": 0, "detail": "file and program are required"}]},
+                status=400,
+            )
+
+        result = import_germplasm_csv(file_obj.file, program_name, dry_run=dry_run)
+        status_code = 201 if not result["errors"] else 400
+        return Response(result, status=status_code)
+```
+
+   Route: `POST /api/germplasm/bulk_import/`. Gate write access with the
+   existing `RoleBasedPermission` (breeder/admin only — override
+   `get_permissions` for this action if the default already covers writes,
+   no change needed).
+
+4. **Frontend** — `frontend/src/pages/GermplasmBrowser.tsx`:
+   - Add a "Bulk Import" button next to "+ Add Germplasm" (role-gated the
+     same way).
+   - New modal: file input (`.csv`), program dropdown (reuse the existing
+     program list from React Query), a "Validate only" checkbox mapped to
+     `dry_run`.
+   - On submit, `POST` via `FormData` to `/api/germplasm/bulk_import/`.
+     Add a `bulkImportGermplasm` function in `client.ts`.
+     **Important:** The existing `apiFetch` helper hard-codes
+     `Content-Type: application/json` which breaks `FormData` uploads.
+     The new function must use raw `fetch` (not `apiFetch`) so the
+     browser can auto-set `Content-Type: multipart/form-data` with the
+     correct boundary. Copy the auth-token logic from `apiFetch`.
+   - Render `created` count, `skipped` count, and a table of `errors`
+     (row + detail) in the modal on response; keep the modal open on
+     error so the user can fix and re-upload.
+
+5. **Tests to add** (`backend/tests/test_api_germplasm_bulk_import.py`):
+   - Valid CSV with 3 rows → `created: 3`, 201.
+   - CSV with one bad row (missing `name`) → 400, `errors` has one entry,
+     zero rows persisted (whole-file rollback).
+   - `dry_run=true` on a valid CSV → 200/201 with `created: 0` reported but
+     no rows actually persisted (assert `Germplasm.objects.count()`
+     unchanged).
+   - Viewer role → 403.
+
+6. **Verify**:
+   ```powershell
+   cd backend
+   .\.venv\Scripts\python -m pytest -q
+   cd ..\frontend
+   npx tsc --noEmit
+   ```
+
+---
+
+### 9.2 Bulk Observation Entry Grid (4–5 hours)
+
+**Goal:** Replace one-plot-at-a-time observation entry with a spreadsheet
+grid: rows = plots, columns = trial's observation variables.
+
+**Context:** `Observation` already validates type/range in `full_clean()`.
+The existing `POST /api/observations/` endpoint is unchanged; this phase
+adds a bulk-create action plus a grid UI.
+
+**Step-by-step implementation:**
+
+1. Add a bulk-create action in `apps/trials/viewsets.py`:
+
+```python
+from django.db import transaction
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+class ObservationViewSet(viewsets.ModelViewSet):
+    ...
+
+    @action(detail=False, methods=["post"], url_path="bulk_create")
+    def bulk_create(self, request):
+        rows = request.data.get("observations", [])
+        created = []
+        errors = []
+
+        with transaction.atomic():
+            for i, row in enumerate(rows):
+                serializer = self.get_serializer(data=row)
+                if serializer.is_valid():
+                    try:
+                        serializer.save()
+                        created.append(serializer.data)
+                    except (ValidationError, DjangoValidationError) as exc:
+                        # Observation.save() calls full_clean() which may
+                        # raise model-level errors (range, type, etc.)
+                        detail = exc.message_dict if hasattr(exc, "message_dict") else str(exc)
+                        errors.append({"index": i, "detail": detail})
+                else:
+                    errors.append({"index": i, "detail": serializer.errors})
+
+            if errors:
+                transaction.set_rollback(True)
+
+        status_code = 201 if not errors else 400
+        return Response({"created": created if not errors else [], "errors": errors}, status=status_code)
+```
+
+   Route: `POST /api/observations/bulk_create/`, body:
+   `{"observations": [{"plot": 1, "variable": 2, "value_numeric": 3.4}, ...]}`.
+   Whole-batch rollback matches the 9.1 import behavior for consistency.
+
+   **Note:** Import `ValidationError` from `rest_framework.exceptions` and
+   `ValidationError as DjangoValidationError` from `django.core.exceptions`
+   at the top of the file. The try/except around `serializer.save()` is
+   necessary because `Observation.save()` calls `self.full_clean()`, which
+   enforces model-level constraints (numeric range, data type) that the
+   serializer alone does not check.
+
+2. **Frontend** — new component `frontend/src/components/ObservationGrid.tsx`:
+   - Fetch the trial's plots (`GET /api/plots/?trial={id}`) and the trial's
+     observation variables (reuse the existing variable list, filtered to
+     ones relevant to the trial if that concept exists, otherwise show all).
+   - Render an editable HTML table: rows = plots (sorted by rep/block/
+     position), columns = variables. Each cell is a typed input matching
+     the variable's `data_type` (numeric input, text input, or a
+     restricted select if the variable defines categories).
+   - Track dirty cells in local component state; a "Save All" button
+     collects only changed cells into the `observations` payload and posts
+     to `bulk_create`.
+   - On validation errors, highlight the offending cells inline using the
+     `index` in the error response mapped back to (plot, variable).
+
+3. Update `frontend/src/pages/ObservationEntry.tsx` to offer a toggle
+   between "Single Entry" (existing form) and "Grid Entry" (new
+   `ObservationGrid`), both scoped to a selected trial.
+
+4. **Tests to add** (`backend/tests/test_api_observations_bulk.py`):
+   - 5 valid rows across 2 plots/3 variables → 201, 5 created.
+   - One invalid row (out-of-range value) → 400, no rows persisted.
+   - Technician role → allowed (matches existing observation-write rule).
+   - Viewer role → 403.
+
+5. **Verify**: same as 9.1.
+
+---
+
+### 9.3 Multi-Trait Trial Summary View (2–3 hours)
+
+**Goal:** Extend the existing single-variable summary chart into a
+per-trait comparison view.
+
+**Step-by-step implementation:**
+
+1. **No backend changes needed.** `compute_trial_summary` in
+   `apps/trials/services.py` already accepts only a `trial` parameter and
+   returns a `list[dict]` containing stats for *all* variables with numeric
+   observations in that trial. The summary viewset action at
+   `GET /api/trials/{id}/summary/` calls it and returns
+   `{"trial": "...", "summary": [...]}`.
+
+2. Frontend — `frontend/src/pages/TrialManager.tsx`:
+   - Add a "Compare Traits" panel using Recharts `BarChart` (mean per
+     variable, one bar per variable) and a small stats table (count,
+     mean, min, max, std dev, CV per variable) below the existing plot
+     grid.
+   - Use the existing `trials.summary(id)` client function which already
+     returns the full multi-variable response. No new backend route or
+     query parameter is needed.
+
+3. **Tests to add**: extend `backend/tests/test_api_trials.py` — add a
+   confirmation test that the summary endpoint returns stats for *all*
+   trial variables (not just one) when multiple variables have observations.
+   This validates the existing behavior rather than testing new code.
+
+4. **Verify**: same as 9.1.
+
+---
+
+### 9.4 Audit Trail (`created_by` / `updated_by`) (2 hours)
+
+**Goal:** Track who created/modified core records, surfaced in the Setup
+page — no separate audit-log model, just attribution fields plus existing
+`created_at`/`updated_at`.
+
+**Step-by-step implementation:**
+
+1. Add nullable FK fields to `Program`, `Location`, `Season`, `Germplasm`,
+   `Trial`, `ObservationVariable` (skip high-volume models like
+   `Observation`/`Plot` to avoid write overhead on bulk operations):
+
+```python
+created_by = models.ForeignKey(
+    settings.AUTH_USER_MODEL, null=True, blank=True,
+    on_delete=models.SET_NULL, related_name="+",
+)
+updated_by = models.ForeignKey(
+    settings.AUTH_USER_MODEL, null=True, blank=True,
+    on_delete=models.SET_NULL, related_name="+",
+)
+```
+
+   **Missing timestamp fields:** `Location` currently has no `created_at`
+   or `updated_at` fields, and `ObservationVariable` has `created_at` but
+   no `updated_at`. Add these in the same migration:
+
+   - `Location`: add `created_at = models.DateTimeField(auto_now_add=True)`
+     and `updated_at = models.DateTimeField(auto_now=True)`.
+   - `ObservationVariable`: add `updated_at = models.DateTimeField(auto_now=True)`.
+
+   Generate and run migrations for each affected app (`core`, `germplasm`,
+   `trials`).
+
+   The viewsets that need `perform_create`/`perform_update` overrides are
+   in three files:
+   - `apps/core/viewsets.py` — `ProgramViewSet`, `LocationViewSet`,
+     `SeasonViewSet`
+   - `apps/germplasm/viewsets.py` — `GermplasmViewSet`
+   - `apps/trials/viewsets.py` — `TrialViewSet`,
+     `ObservationVariableViewSet`
+
+2. Set these fields in the relevant viewsets by overriding
+   `perform_create`/`perform_update`:
+
+```python
+def perform_create(self, serializer):
+    serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+def perform_update(self, serializer):
+    serializer.save(updated_by=self.request.user)
+```
+
+3. Expose `created_by_username` / `updated_by_username` as read-only
+   `SerializerMethodField`s (with `@extend_schema_field(str)` to keep
+   drf-spectacular clean, matching the Phase 8 pattern for `plot_count`).
+
+4. Frontend — Setup page tables: add "Created by" / "Last updated by"
+   columns (username + relative `updated_at` timestamp) to each tab's
+   table.
+
+5. **Tests to add**: for one representative model (e.g. `Trial`), assert
+   `created_by`/`updated_by` are set correctly on create and update, and
+   `null` when created via a management command (no request user).
+
+6. **Verify**: same as 9.1, plus:
+   ```powershell
+   .\.venv\Scripts\python manage.py spectacular --file openapi.yaml --validate
+   ```
+
+---
+
+### Phase 9 Complete When
+
+- [ ] Germplasm CSV bulk-import works from the browser with validation
+      errors surfaced per-row.
+- [ ] Observation grid entry supports multi-plot, multi-variable save in
+      one request, with per-cell error highlighting.
+- [ ] Trial Manager shows a multi-trait comparison chart alongside the
+      existing plot grid.
+- [ ] Core models show created/updated-by attribution in the Setup page.
+- [ ] All existing tests plus new Phase 9 tests pass (target: 79 + ~12 new).
+- [ ] `openapi.yaml` regenerates with 0 errors.
+- [ ] `architecture.md` and `NEXT_PHASE_SUMMARY.md` updated to reflect
+      Phase 9 completion.
+
+### Effort Estimate
+
+| Section | Estimated Hours |
+|---|---:|
+| 9.1 Bulk germplasm import | 3–4 h |
+| 9.2 Bulk observation grid | 4–5 h |
+| 9.3 Multi-trait summary | 2–3 h |
+| 9.4 Audit trail | 2 h |
+| **Phase 9 total** | **~12–14 h** |

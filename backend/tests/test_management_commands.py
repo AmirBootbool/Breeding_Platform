@@ -57,10 +57,14 @@ def test_import_germplasm_command(program, temp_csv_file):
     assert nl1.cross_type == "biparental"
     assert nl1.year_developed == 2024
     assert nl1.notes == "High yielding line"
+    assert nl1.created_by is None
+    assert nl1.updated_by is None
 
     assert Germplasm.objects.filter(name="New Line 2", program=program).exists()
     nl2 = Germplasm.objects.get(name="New Line 2")
     assert nl2.year_developed is None
+    assert nl2.created_by is None
+    assert nl2.updated_by is None
 
 
 @pytest.mark.django_db

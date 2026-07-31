@@ -1,0 +1,4231 @@
+openapi: 3.0.3
+info:
+  title: Wheat Breeding Platform API
+  version: 1.0.0
+  description: API for managing wheat breeding germplasm, trials, and observations.
+paths:
+  /api/auth/token/:
+    post:
+      operationId: api_auth_token_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AuthToken'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AuthToken'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthToken'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
+          description: ''
+  /api/crosses/:
+    get:
+      operationId: api_crosses_list
+      parameters:
+      - in: query
+        name: female_parent
+        schema:
+          type: integer
+      - in: query
+        name: location
+        schema:
+          type: integer
+      - in: query
+        name: male_parent
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCrossList'
+          description: ''
+    post:
+      operationId: api_crosses_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cross'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cross'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cross'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cross'
+          description: ''
+  /api/crosses/{id}/:
+    get:
+      operationId: api_crosses_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cross.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cross'
+          description: ''
+    put:
+      operationId: api_crosses_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cross.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cross'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Cross'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Cross'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cross'
+          description: ''
+    patch:
+      operationId: api_crosses_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cross.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCross'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCross'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCross'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cross'
+          description: ''
+    delete:
+      operationId: api_crosses_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cross.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/germplasm/:
+    get:
+      operationId: api_germplasm_list
+      parameters:
+      - in: query
+        name: cross_type
+        schema:
+          type: string
+          enum:
+          - backcross
+          - biparental
+          - doubled_haploid
+          - other
+          - self
+          - unknown
+        description: |-
+          * `biparental` - Biparental cross
+          * `self` - Self-pollinated
+          * `backcross` - Backcross
+          * `doubled_haploid` - Doubled haploid
+          * `other` - Other
+          * `unknown` - Unknown
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: species
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGermplasmList'
+          description: ''
+    post:
+      operationId: api_germplasm_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+  /api/germplasm/{id}/:
+    get:
+      operationId: api_germplasm_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this germplasm.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+    put:
+      operationId: api_germplasm_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this germplasm.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+    patch:
+      operationId: api_germplasm_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this germplasm.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGermplasm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGermplasm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGermplasm'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+    delete:
+      operationId: api_germplasm_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this germplasm.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/germplasm/bulk_import/:
+    post:
+      operationId: api_germplasm_bulk_import_create
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+  /api/health/:
+    get:
+      operationId: api_health_retrieve
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/locations/:
+    get:
+      operationId: api_locations_list
+      parameters:
+      - in: query
+        name: country
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: region
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLocationList'
+          description: ''
+    post:
+      operationId: api_locations_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Location'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Location'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+          description: ''
+  /api/locations/{id}/:
+    get:
+      operationId: api_locations_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this location.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+          description: ''
+    put:
+      operationId: api_locations_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this location.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Location'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Location'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Location'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+          description: ''
+    patch:
+      operationId: api_locations_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this location.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLocation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLocation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLocation'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+          description: ''
+    delete:
+      operationId: api_locations_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this location.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/observation-variables/:
+    get:
+      operationId: api_observation_variables_list
+      parameters:
+      - in: query
+        name: data_type
+        schema:
+          type: string
+          enum:
+          - categorical
+          - date
+          - integer
+          - numeric
+          - text
+        description: |-
+          * `numeric` - Numeric
+          * `integer` - Integer
+          * `categorical` - Categorical
+          * `text` - Text
+          * `date` - Date
+      - in: query
+        name: is_required
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedObservationVariableList'
+          description: ''
+    post:
+      operationId: api_observation_variables_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservationVariable'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ObservationVariable'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ObservationVariable'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationVariable'
+          description: ''
+  /api/observation-variables/{id}/:
+    get:
+      operationId: api_observation_variables_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation variable.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationVariable'
+          description: ''
+    put:
+      operationId: api_observation_variables_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation variable.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservationVariable'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ObservationVariable'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ObservationVariable'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationVariable'
+          description: ''
+    patch:
+      operationId: api_observation_variables_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation variable.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedObservationVariable'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedObservationVariable'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedObservationVariable'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationVariable'
+          description: ''
+    delete:
+      operationId: api_observation_variables_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation variable.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/observations/:
+    get:
+      operationId: api_observations_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: plot
+        schema:
+          type: integer
+      - in: query
+        name: plot__trial
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: variable
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedObservationList'
+          description: ''
+    post:
+      operationId: api_observations_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Observation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Observation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Observation'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+          description: ''
+  /api/observations/{id}/:
+    get:
+      operationId: api_observations_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+          description: ''
+    put:
+      operationId: api_observations_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Observation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Observation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Observation'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+          description: ''
+    patch:
+      operationId: api_observations_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedObservation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedObservation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedObservation'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+          description: ''
+    delete:
+      operationId: api_observations_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/observations/bulk_create/:
+    post:
+      operationId: api_observations_bulk_create_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Observation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Observation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Observation'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Observation'
+          description: ''
+  /api/plots/:
+    get:
+      operationId: api_plots_list
+      parameters:
+      - in: query
+        name: germplasm
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: rep
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - discarded
+          - harvested
+          - planned
+          - planted
+        description: |-
+          * `planned` - Planned
+          * `planted` - Planted
+          * `harvested` - Harvested
+          * `discarded` - Discarded
+      - in: query
+        name: trial
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPlotList'
+          description: ''
+    post:
+      operationId: api_plots_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Plot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Plot'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plot'
+          description: ''
+  /api/plots/{id}/:
+    get:
+      operationId: api_plots_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plot.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plot'
+          description: ''
+    put:
+      operationId: api_plots_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plot.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Plot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Plot'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plot'
+          description: ''
+    patch:
+      operationId: api_plots_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plot.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlot'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plot'
+          description: ''
+    delete:
+      operationId: api_plots_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plot.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/programs/:
+    get:
+      operationId: api_programs_list
+      parameters:
+      - in: query
+        name: crop
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProgramList'
+          description: ''
+    post:
+      operationId: api_programs_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Program'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Program'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Program'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+  /api/programs/{id}/:
+    get:
+      operationId: api_programs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this program.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+    put:
+      operationId: api_programs_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this program.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Program'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Program'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Program'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+    patch:
+      operationId: api_programs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this program.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProgram'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProgram'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProgram'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+    delete:
+      operationId: api_programs_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this program.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/seasons/:
+    get:
+      operationId: api_seasons_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: year
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSeasonList'
+          description: ''
+    post:
+      operationId: api_seasons_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Season'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Season'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Season'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Season'
+          description: ''
+  /api/seasons/{id}/:
+    get:
+      operationId: api_seasons_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this season.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Season'
+          description: ''
+    put:
+      operationId: api_seasons_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this season.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Season'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Season'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Season'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Season'
+          description: ''
+    patch:
+      operationId: api_seasons_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this season.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSeason'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSeason'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSeason'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Season'
+          description: ''
+    delete:
+      operationId: api_seasons_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this season.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/trials/:
+    get:
+      operationId: api_trials_list
+      parameters:
+      - in: query
+        name: design_type
+        schema:
+          type: string
+          enum:
+          - RCBD
+          - alpha_lattice
+          - augmented
+          - other
+          - unreplicated
+        description: |-
+          * `RCBD` - RCBD
+          * `alpha_lattice` - Alpha-lattice
+          * `augmented` - Augmented
+          * `unreplicated` - Unreplicated
+          * `other` - Other
+      - in: query
+        name: location
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: season
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTrialList'
+          description: ''
+    post:
+      operationId: api_trials_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Trial'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/:
+    get:
+      operationId: api_trials_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+    put:
+      operationId: api_trials_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Trial'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+    patch:
+      operationId: api_trials_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTrial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTrial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTrial'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+    delete:
+      operationId: api_trials_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/trials/{id}/create_plots/:
+    post:
+      operationId: api_trials_create_plots_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Trial'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/export_csv/:
+    get:
+      operationId: api_trials_export_csv_retrieve
+      description: Stream trial observations as a CSV download.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/export_fieldbook/:
+    get:
+      operationId: api_trials_export_fieldbook_retrieve
+      description: Stream a Field Book compatible CSV download for this trial.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/summary/:
+    get:
+      operationId: api_trials_summary_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/user-profiles/:
+    get:
+      operationId: api_user_profiles_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - breeder
+          - technician
+          - viewer
+        description: |-
+          * `admin` - Admin
+          * `breeder` - Breeder
+          * `technician` - Technician
+          * `viewer` - Viewer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserProfileList'
+          description: ''
+    post:
+      operationId: api_user_profiles_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+  /api/user-profiles/{id}/:
+    get:
+      operationId: api_user_profiles_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user profile.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    put:
+      operationId: api_user_profiles_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user profile.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    patch:
+      operationId: api_user_profiles_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user profile.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfile'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfile'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfile'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+          description: ''
+    delete:
+      operationId: api_user_profiles_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user profile.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /brapi/v2/germplasm:
+    get:
+      operationId: brapi_v2_germplasm_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiGermplasmList'
+          description: ''
+  /brapi/v2/germplasm/{id}:
+    get:
+      operationId: brapi_v2_germplasm_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this germplasm.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiGermplasm'
+          description: ''
+  /brapi/v2/locations:
+    get:
+      operationId: brapi_v2_locations_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiLocationList'
+          description: ''
+  /brapi/v2/locations/{id}:
+    get:
+      operationId: brapi_v2_locations_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this location.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiLocation'
+          description: ''
+  /brapi/v2/observations:
+    get:
+      operationId: brapi_v2_observations_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiObservationList'
+          description: ''
+  /brapi/v2/observations/{id}:
+    get:
+      operationId: brapi_v2_observations_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservation'
+          description: ''
+  /brapi/v2/observationunits:
+    get:
+      operationId: brapi_v2_observationunits_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiObservationUnitList'
+          description: ''
+  /brapi/v2/observationunits/{id}:
+    get:
+      operationId: brapi_v2_observationunits_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plot.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationUnit'
+          description: ''
+  /brapi/v2/observationvariables:
+    get:
+      operationId: brapi_v2_observationvariables_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiObservationVariableList'
+          description: ''
+  /brapi/v2/observationvariables/{id}:
+    get:
+      operationId: brapi_v2_observationvariables_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation variable.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationVariable'
+          description: ''
+  /brapi/v2/programs:
+    get:
+      operationId: brapi_v2_programs_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiProgramList'
+          description: ''
+  /brapi/v2/programs/{id}:
+    get:
+      operationId: brapi_v2_programs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this program.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiProgram'
+          description: ''
+  /brapi/v2/serverinfo:
+    get:
+      operationId: brapi_v2_serverinfo_retrieve
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /brapi/v2/studies:
+    get:
+      operationId: brapi_v2_studies_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiStudyList'
+          description: ''
+  /brapi/v2/studies/{id}:
+    get:
+      operationId: brapi_v2_studies_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiStudy'
+          description: ''
+  /brapi/v2/variables:
+    get:
+      operationId: brapi_v2_variables_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: pageSize
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrapiObservationVariableList'
+          description: ''
+  /brapi/v2/variables/{id}:
+    get:
+      operationId: brapi_v2_variables_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation variable.
+        required: true
+      tags:
+      - brapi
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationVariable'
+          description: ''
+components:
+  schemas:
+    AuthToken:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        token:
+          type: string
+          readOnly: true
+      required:
+      - password
+      - token
+      - username
+    BrapiGermplasm:
+      type: object
+      properties:
+        germplasmDbId:
+          type: string
+          readOnly: true
+        germplasmName:
+          type: string
+          readOnly: true
+        defaultDisplayName:
+          type: string
+          readOnly: true
+        accessionNumber:
+          type: string
+          readOnly: true
+        pedigree:
+          type: string
+          readOnly: true
+        species:
+          type: string
+          readOnly: true
+        genus:
+          type: string
+          readOnly: true
+        commonCropName:
+          type: string
+          readOnly: true
+        breedingMethod:
+          type: string
+          readOnly: true
+        yearOfDevelopment:
+          type: integer
+          readOnly: true
+        programDbId:
+          type: string
+          readOnly: true
+        programName:
+          type: string
+          readOnly: true
+        additionalInfo:
+          type: string
+          readOnly: true
+      required:
+      - accessionNumber
+      - additionalInfo
+      - breedingMethod
+      - commonCropName
+      - defaultDisplayName
+      - genus
+      - germplasmDbId
+      - germplasmName
+      - pedigree
+      - programDbId
+      - programName
+      - species
+      - yearOfDevelopment
+    BrapiLocation:
+      type: object
+      properties:
+        locationDbId:
+          type: string
+          readOnly: true
+        locationName:
+          type: string
+          readOnly: true
+        latitude:
+          type: number
+          format: double
+          readOnly: true
+        longitude:
+          type: number
+          format: double
+          readOnly: true
+        countryName:
+          type: string
+          readOnly: true
+        countryCode:
+          type: string
+          readOnly: true
+        additionalInfo:
+          type: string
+          readOnly: true
+      required:
+      - additionalInfo
+      - countryCode
+      - countryName
+      - latitude
+      - locationDbId
+      - locationName
+      - longitude
+    BrapiObservation:
+      type: object
+      properties:
+        observationDbId:
+          type: string
+          readOnly: true
+        observationUnitDbId:
+          type: string
+          readOnly: true
+        observationUnitName:
+          type: string
+          readOnly: true
+        observationVariableDbId:
+          type: string
+          readOnly: true
+        observationVariableName:
+          type: string
+          readOnly: true
+        studyDbId:
+          type: string
+          readOnly: true
+        studyName:
+          type: string
+          readOnly: true
+        germplasmDbId:
+          type: string
+          readOnly: true
+        germplasmName:
+          type: string
+          readOnly: true
+        value:
+          type: string
+          readOnly: true
+        observationTimeStamp:
+          type: string
+          format: date-time
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        additionalInfo:
+          type: string
+          readOnly: true
+      required:
+      - additionalInfo
+      - germplasmDbId
+      - germplasmName
+      - notes
+      - observationDbId
+      - observationTimeStamp
+      - observationUnitDbId
+      - observationUnitName
+      - observationVariableDbId
+      - observationVariableName
+      - studyDbId
+      - studyName
+      - value
+    BrapiObservationUnit:
+      type: object
+      properties:
+        observationUnitDbId:
+          type: string
+          readOnly: true
+        observationUnitName:
+          type: string
+          readOnly: true
+        studyDbId:
+          type: string
+          readOnly: true
+        studyName:
+          type: string
+          readOnly: true
+        germplasmDbId:
+          type: string
+          readOnly: true
+        germplasmName:
+          type: string
+          readOnly: true
+        observationUnitPosition:
+          type: string
+          readOnly: true
+        additionalInfo:
+          type: string
+          readOnly: true
+      required:
+      - additionalInfo
+      - germplasmDbId
+      - germplasmName
+      - observationUnitDbId
+      - observationUnitName
+      - observationUnitPosition
+      - studyDbId
+      - studyName
+    BrapiObservationVariable:
+      type: object
+      properties:
+        observationVariableDbId:
+          type: string
+          readOnly: true
+        observationVariableName:
+          type: string
+          readOnly: true
+        observationVariableCode:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        defaultValue:
+          type: string
+          readOnly: true
+        scale:
+          type: string
+          readOnly: true
+        method:
+          type: string
+          readOnly: true
+        trait:
+          type: string
+          readOnly: true
+      required:
+      - defaultValue
+      - description
+      - method
+      - observationVariableCode
+      - observationVariableDbId
+      - observationVariableName
+      - scale
+      - trait
+    BrapiProgram:
+      type: object
+      properties:
+        programDbId:
+          type: string
+          readOnly: true
+        programName:
+          type: string
+          readOnly: true
+        commonCropName:
+          type: string
+          readOnly: true
+        objective:
+          type: string
+          readOnly: true
+        abbreviation:
+          type: string
+          readOnly: true
+        additionalInfo:
+          type: string
+          readOnly: true
+      required:
+      - abbreviation
+      - additionalInfo
+      - commonCropName
+      - objective
+      - programDbId
+      - programName
+    BrapiStudy:
+      type: object
+      properties:
+        studyDbId:
+          type: string
+          readOnly: true
+        studyName:
+          type: string
+          readOnly: true
+        studyCode:
+          type: string
+          readOnly: true
+        trialDbId:
+          type: string
+          readOnly: true
+        trialName:
+          type: string
+          readOnly: true
+        programDbId:
+          type: string
+          readOnly: true
+        programName:
+          type: string
+          readOnly: true
+        commonCropName:
+          type: string
+          readOnly: true
+        active:
+          type: boolean
+          readOnly: true
+          default: true
+        experimentalDesign:
+          type: string
+          readOnly: true
+        locationDbId:
+          type: string
+          readOnly: true
+        locationName:
+          type: string
+          readOnly: true
+        seasons:
+          type: string
+          readOnly: true
+        startDate:
+          type: string
+          format: date
+          readOnly: true
+        endDate:
+          type: string
+          format: date
+          readOnly: true
+        additionalInfo:
+          type: string
+          readOnly: true
+      required:
+      - active
+      - additionalInfo
+      - commonCropName
+      - endDate
+      - experimentalDesign
+      - locationDbId
+      - locationName
+      - programDbId
+      - programName
+      - seasons
+      - startDate
+      - studyCode
+      - studyDbId
+      - studyName
+      - trialDbId
+      - trialName
+    Cross:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cross_code:
+          type: string
+          maxLength: 100
+        female_parent:
+          type: integer
+        female_parent_name:
+          type: string
+          readOnly: true
+        male_parent:
+          type: integer
+        male_parent_name:
+          type: string
+          readOnly: true
+        cross_date:
+          type: string
+          format: date
+        location:
+          type: integer
+          nullable: true
+        location_name:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - cross_code
+      - cross_date
+      - female_parent
+      - female_parent_name
+      - id
+      - location_name
+      - male_parent
+      - male_parent_name
+      - updated_at
+    CrossTypeEnum:
+      enum:
+      - biparental
+      - self
+      - backcross
+      - doubled_haploid
+      - other
+      - unknown
+      type: string
+      description: |-
+        * `biparental` - Biparental cross
+        * `self` - Self-pollinated
+        * `backcross` - Backcross
+        * `doubled_haploid` - Doubled haploid
+        * `other` - Other
+        * `unknown` - Unknown
+    DataTypeEnum:
+      enum:
+      - numeric
+      - integer
+      - categorical
+      - text
+      - date
+      type: string
+      description: |-
+        * `numeric` - Numeric
+        * `integer` - Integer
+        * `categorical` - Categorical
+        * `text` - Text
+        * `date` - Date
+    DesignTypeEnum:
+      enum:
+      - RCBD
+      - alpha_lattice
+      - augmented
+      - unreplicated
+      - other
+      type: string
+      description: |-
+        * `RCBD` - RCBD
+        * `alpha_lattice` - Alpha-lattice
+        * `augmented` - Augmented
+        * `unreplicated` - Unreplicated
+        * `other` - Other
+    Germplasm:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 300
+        germplasm_db_id:
+          type: string
+          maxLength: 100
+        species:
+          type: string
+          maxLength: 100
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        parent_female:
+          type: integer
+          nullable: true
+          description: Female (seed) parent
+        parent_female_name:
+          type: string
+          readOnly: true
+        parent_male:
+          type: integer
+          nullable: true
+          description: Male (pollen) parent
+        parent_male_name:
+          type: string
+          readOnly: true
+        pedigree_string:
+          type: string
+          description: Free-text pedigree notation, e.g. "KAUZ/PASTOR".
+          maxLength: 500
+        cross_type:
+          $ref: '#/components/schemas/CrossTypeEnum'
+        year_developed:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - id
+      - name
+      - parent_female_name
+      - parent_male_name
+      - program
+      - program_name
+      - updated_at
+      - updated_by_username
+    Location:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        country:
+          type: string
+          maxLength: 255
+        region:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - id
+      - name
+      - updated_at
+      - updated_by_username
+    Observation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        plot:
+          type: integer
+        trial_code:
+          type: string
+          readOnly: true
+        germplasm_name:
+          type: string
+          readOnly: true
+        variable:
+          type: integer
+        variable_name:
+          type: string
+          readOnly: true
+        observation_time:
+          type: string
+          format: date-time
+          nullable: true
+        value_text:
+          type: string
+        value_numeric:
+          type: number
+          format: double
+          nullable: true
+        value_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - germplasm_name
+      - id
+      - plot
+      - trial_code
+      - variable
+      - variable_name
+    ObservationVariable:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        variable_code:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        unit:
+          type: string
+          maxLength: 64
+        data_type:
+          $ref: '#/components/schemas/DataTypeEnum'
+        min_value:
+          type: number
+          format: double
+          nullable: true
+        max_value:
+          type: number
+          format: double
+          nullable: true
+        is_required:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - id
+      - name
+      - updated_at
+      - updated_by_username
+    PaginatedBrapiGermplasmList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrapiGermplasm'
+    PaginatedBrapiLocationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrapiLocation'
+    PaginatedBrapiObservationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrapiObservation'
+    PaginatedBrapiObservationUnitList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrapiObservationUnit'
+    PaginatedBrapiObservationVariableList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrapiObservationVariable'
+    PaginatedBrapiProgramList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrapiProgram'
+    PaginatedBrapiStudyList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrapiStudy'
+    PaginatedCrossList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cross'
+    PaginatedGermplasmList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Germplasm'
+    PaginatedLocationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+    PaginatedObservationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
+    PaginatedObservationVariableList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationVariable'
+    PaginatedPlotList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plot'
+    PaginatedProgramList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Program'
+    PaginatedSeasonList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Season'
+    PaginatedTrialList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trial'
+    PaginatedUserProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserProfile'
+    PatchedCross:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cross_code:
+          type: string
+          maxLength: 100
+        female_parent:
+          type: integer
+        female_parent_name:
+          type: string
+          readOnly: true
+        male_parent:
+          type: integer
+        male_parent_name:
+          type: string
+          readOnly: true
+        cross_date:
+          type: string
+          format: date
+        location:
+          type: integer
+          nullable: true
+        location_name:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedGermplasm:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 300
+        germplasm_db_id:
+          type: string
+          maxLength: 100
+        species:
+          type: string
+          maxLength: 100
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        parent_female:
+          type: integer
+          nullable: true
+          description: Female (seed) parent
+        parent_female_name:
+          type: string
+          readOnly: true
+        parent_male:
+          type: integer
+          nullable: true
+          description: Male (pollen) parent
+        parent_male_name:
+          type: string
+          readOnly: true
+        pedigree_string:
+          type: string
+          description: Free-text pedigree notation, e.g. "KAUZ/PASTOR".
+          maxLength: 500
+        cross_type:
+          $ref: '#/components/schemas/CrossTypeEnum'
+        year_developed:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+    PatchedLocation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        country:
+          type: string
+          maxLength: 255
+        region:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+    PatchedObservation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        plot:
+          type: integer
+        trial_code:
+          type: string
+          readOnly: true
+        germplasm_name:
+          type: string
+          readOnly: true
+        variable:
+          type: integer
+        variable_name:
+          type: string
+          readOnly: true
+        observation_time:
+          type: string
+          format: date-time
+          nullable: true
+        value_text:
+          type: string
+        value_numeric:
+          type: number
+          format: double
+          nullable: true
+        value_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedObservationVariable:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        variable_code:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        unit:
+          type: string
+          maxLength: 64
+        data_type:
+          $ref: '#/components/schemas/DataTypeEnum'
+        min_value:
+          type: number
+          format: double
+          nullable: true
+        max_value:
+          type: number
+          format: double
+          nullable: true
+        is_required:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+    PatchedPlot:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        trial:
+          type: integer
+        trial_code:
+          type: string
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        rep:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        block:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        plot_number:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        row:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        column:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+    PatchedProgram:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        crop:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+    PatchedSeason:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+    PatchedTrial:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        trial_code:
+          type: string
+          maxLength: 255
+        brapi_study_db_id:
+          type: string
+          maxLength: 255
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        location:
+          type: integer
+        location_name:
+          type: string
+          readOnly: true
+        season:
+          type: integer
+        season_name:
+          type: string
+          readOnly: true
+        design_type:
+          $ref: '#/components/schemas/DesignTypeEnum'
+        num_reps:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        planting_date:
+          type: string
+          format: date
+          nullable: true
+        harvest_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+        plot_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+    PatchedUserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+        username:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          readOnly: true
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        program:
+          type: integer
+          nullable: true
+        program_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    Plot:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        trial:
+          type: integer
+        trial_code:
+          type: string
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        rep:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        block:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        plot_number:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        row:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        column:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+      required:
+      - germplasm
+      - germplasm_name
+      - id
+      - plot_number
+      - rep
+      - trial
+      - trial_code
+    Program:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        crop:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - id
+      - name
+      - updated_by_username
+    RoleEnum:
+      enum:
+      - admin
+      - breeder
+      - technician
+      - viewer
+      type: string
+      description: |-
+        * `admin` - Admin
+        * `breeder` - Breeder
+        * `technician` - Technician
+        * `viewer` - Viewer
+    Season:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_by_username
+      - id
+      - name
+      - program
+      - program_name
+      - updated_by_username
+      - year
+    StatusEnum:
+      enum:
+      - planned
+      - planted
+      - harvested
+      - discarded
+      type: string
+      description: |-
+        * `planned` - Planned
+        * `planted` - Planted
+        * `harvested` - Harvested
+        * `discarded` - Discarded
+    Trial:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        trial_code:
+          type: string
+          maxLength: 255
+        brapi_study_db_id:
+          type: string
+          maxLength: 255
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        location:
+          type: integer
+        location_name:
+          type: string
+          readOnly: true
+        season:
+          type: integer
+        season_name:
+          type: string
+          readOnly: true
+        design_type:
+          $ref: '#/components/schemas/DesignTypeEnum'
+        num_reps:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        planting_date:
+          type: string
+          format: date
+          nullable: true
+        harvest_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+        plot_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        updated_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - id
+      - location
+      - location_name
+      - name
+      - plot_count
+      - program
+      - program_name
+      - season
+      - season_name
+      - trial_code
+      - updated_at
+      - updated_by_username
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: integer
+        username:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          readOnly: true
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        program:
+          type: integer
+          nullable: true
+        program_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - id
+      - program_name
+      - updated_at
+      - user
+      - username
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"

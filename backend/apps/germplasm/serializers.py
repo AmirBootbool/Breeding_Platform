@@ -1,9 +1,10 @@
 from rest_framework import serializers
+from apps.core.serializers import AuditSerializerMixin
 
 from .models import Cross, Germplasm
 
 
-class GermplasmSerializer(serializers.ModelSerializer):
+class GermplasmSerializer(AuditSerializerMixin, serializers.ModelSerializer):
     program_name = serializers.CharField(source="program.name", read_only=True)
     parent_female_name = serializers.CharField(
         source="parent_female.name", read_only=True
@@ -29,6 +30,8 @@ class GermplasmSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
             "updated_at",
+            "created_by_username",
+            "updated_by_username",
         ]
         read_only_fields = [
             "id",
@@ -37,6 +40,8 @@ class GermplasmSerializer(serializers.ModelSerializer):
             "parent_male_name",
             "created_at",
             "updated_at",
+            "created_by_username",
+            "updated_by_username",
         ]
 
 

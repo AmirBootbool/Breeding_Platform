@@ -166,3 +166,111 @@ def test_trial_summary_without_observations(auth_client, trial):
     assert response.status_code == 200
     assert response.data["trial"] == trial.trial_code
     assert response.data["summary"] == []
+
+
+@pytest.mark.django_db
+def test_export_csv_returns_csv_download(auth_client, trial, plot, observation_variable):
+    from apps.trials.models import Observation
+
+    Observation.objects.create(
+        plot=plot, variable=observation_variable, value_numeric=42.5
+    )
+
+    response = auth_client.get(f"/api/trials/{trial.id}/export_csv/")
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/csv"
+    assert "attachment" in response["Content-Disposition"]
+    assert f"{trial.trial_code}_observations.csv" in response["Content-Disposition"]
+
+    content = b"".join(response.streaming_content).decode("utf-8")
+    assert "plot_number" in content
+    assert "germplasm_name" in content
+    assert "42.5" in content
+
+
+@pytest.mark.django_db
+def test_export_fieldbook_returns_csv_download(
+    auth_client, trial, plot, observation_variable
+):
+    response = auth_client.get(f"/api/trials/{trial.id}/export_fieldbook/")
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/csv"
+    assert "attachment" in response["Content-Disposition"]
+    assert f"{trial.trial_code}_fieldbook.csv" in response["Content-Disposition"]
+
+    content = b"".join(response.streaming_content).decode("utf-8")
+    assert "plot_id" in content
+    assert "range" in content
+    assert "entry" in content
+    assert plot.germplasm.name in content
+
+
+@pytest.mark.django_db
+def test_trial_summary_multiple_variables(
+    auth_client, trial, plot, observation_variable
+):
+    from apps.trials.models import Observation, ObservationVariable
+
+    sec_var = ObservationVariable.objects.create(
+        name="Grain yield", variable_code="GY", data_type="numeric"
+    )
+
+    Observation.objects.create(
+        plot=plot, variable=observation_variable, value_numeric=15.0
+    )
+    Observation.objects.create(
+        plot=plot, variable=sec_var, value_numeric=50.0
+    )
+
+    response = auth_client.get(f"/api/trials/{trial.id}/summary/")
+    assert response.status_code == 200
+
+    summary = response.data["summary"]
+    assert len(summary) == 2
+
+    names = [s["variable"] for s in summary]
+    assert observation_variable.name in names
+    assert sec_var.name in names
+
+
+@pytest.mark.django_db
+def test_trial_audit_fields(client_for_role, program, location, season):
+    client = client_for_role("breeder")
+
+    # Create Trial via API
+    response = client.post(
+        "/api/trials/",
+        {
+            "name": "Audit Trial",
+            "trial_code": "TR-AUDIT",
+            "program": program.id,
+            "location": location.id,
+            "season": season.id,
+            "design_type": "RCBD",
+            "num_reps": 1,
+        },
+        format="json"
+    )
+    assert response.status_code == 201
+
+    from apps.trials.models import Trial
+    trial_obj = Trial.objects.get(trial_code="TR-AUDIT")
+    assert trial_obj.created_by is not None
+    assert trial_obj.created_by.username == "breeder_user"
+    assert trial_obj.updated_by == trial_obj.created_by
+    assert response.data["created_by_username"] == "breeder_user"
+    assert response.data["updated_by_username"] == "breeder_user"
+
+    # Update Trial via API
+    other_client = client_for_role("breeder", username="other_breeder")
+    response_patch = other_client.patch(
+        f"/api/trials/{trial_obj.id}/",
+        {"name": "Audit Trial Updated"},
+        format="json"
+    )
+    assert response_patch.status_code == 200
+    trial_obj.refresh_from_db()
+    assert trial_obj.created_by.username == "breeder_user"
+    assert trial_obj.updated_by.username == "other_breeder"
+    assert response_patch.data["created_by_username"] == "breeder_user"
+    assert response_patch.data["updated_by_username"] == "other_breeder"

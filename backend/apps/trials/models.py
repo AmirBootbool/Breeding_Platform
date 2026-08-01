@@ -241,6 +241,33 @@ class Observation(models.Model):
                 {"value_date": "Date observation requires a date value."}
             )
 
+    def set_typed_value(self, raw_value):
+        if raw_value is None:
+            self.value_numeric = None
+            self.value_text = ""
+            self.value_date = None
+            return
+
+        if self.variable.data_type in ("numeric", "integer"):
+            try:
+                self.value_numeric = float(raw_value)
+            except (ValueError, TypeError):
+                self.value_numeric = None
+            self.value_text = ""
+            self.value_date = None
+        elif self.variable.data_type in ("text", "categorical"):
+            self.value_text = str(raw_value)
+            self.value_numeric = None
+            self.value_date = None
+        elif self.variable.data_type == "date":
+            from django.utils.dateparse import parse_date
+            if isinstance(raw_value, str):
+                self.value_date = parse_date(raw_value)
+            else:
+                self.value_date = raw_value
+            self.value_numeric = None
+            self.value_text = ""
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)

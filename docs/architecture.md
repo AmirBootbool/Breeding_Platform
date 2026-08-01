@@ -25,7 +25,7 @@ The following capabilities are implemented:
   roles.
 - Full internal REST API with searching, ordering, field filtering, structured
   error responses, and throttling.
-- Read-only BrAPI v2 resources for server information, studies, germplasm,
+- BrAPI v2 compatibility endpoints for server information, studies, germplasm,
   observations, observation variables, locations, programs, and observation
   units.
 - OpenAPI 3 schema generation through drf-spectacular, with Swagger UI and
@@ -34,7 +34,7 @@ The following capabilities are implemented:
   health checks, optional Redis caching and Sentry integration, and PostgreSQL
   backup guidance.
 - SQLite development and PostgreSQL production database paths.
-- 77 passing tests, plus one optional Sentry test skipped when the production
+- 104 passing tests, plus one optional Sentry test skipped when the production
   dependency is absent.
 
 ### 1.3 Out of Scope
@@ -44,7 +44,6 @@ The following capabilities are implemented:
 - Multi-environment models such as heritability and genotype-by-environment
   analysis.
 - Multi-institution data federation.
-- BrAPI write operations.
 
 ### 1.4 Design Principles
 
@@ -65,7 +64,7 @@ The following capabilities are implemented:
 | `apps.core` | Programs, locations, seasons, profiles, and RBAC |
 | `apps.germplasm` | Germplasm, pedigrees, crosses, and CSV import |
 | `apps.trials` | Trials, plots, observations, statistics, and Field Book workflows |
-| `apps.brapi` | Read-only BrAPI v2 serializers, pagination, routes, and views |
+| `apps.brapi` | BrAPI v2 compatibility serializers, pagination, routes, and views |
 | drf-spectacular | OpenAPI 3 schema, Swagger UI, and ReDoc |
 | django-filter | Field-level query-parameter filtering |
 | SQLite / PostgreSQL 16 | Development / production persistence |
@@ -168,20 +167,20 @@ List viewsets support `DjangoFilterBackend`, `SearchFilter`, and
 
 ### 4.2 BrAPI v2
 
-Read-only compatibility endpoints are under `/brapi/v2/`:
+Compatibility endpoints are under `/brapi/v2/` (with write support for observations, observation units, and germplasm):
 
 - `serverinfo`
 - `studies`
-- `germplasm`
-- `observations`
+- `germplasm` (POST writeable)
+- `observations` (POST/PUT writeable)
 - `observationvariables` and its `variables` alias
 - `locations`
 - `programs`
-- `observationunits`
+- `observationunits` (PUT status-writeable)
 
 BrAPI serializers translate internal models into camelCase BrAPI fields.
 `BrapiPagination` provides the BrAPI `metadata` and `result.data` envelope.
-These endpoints retain the project's default authentication requirement.
+These endpoints retain the project's default authentication requirement and RBAC.
 
 ## 5. Role-Based Access Control
 
@@ -279,22 +278,22 @@ configured.
 
 ## 9. Testing
 
-The verified 2026-07-25 baseline is **79 passed and 1 skipped**. The skipped
+The verified 2026-08-01 baseline is **104 passed and 1 skipped**. The skipped
 test exercises optional Sentry initialization and runs when the production
 Sentry dependency is installed.
 
 | Area | Collected tests |
 |---|---:|
-| Core, germplasm, and trials model/service tests | 20 |
+| Core, germplasm, and trials model/service tests | 24 |
 | Admin | 4 |
-| Internal API CRUD and RBAC | 17 |
+| Internal API CRUD and RBAC | 19 |
 | Filtering | 8 |
-| BrAPI and health check | 12 |
+| BrAPI (read & write) and health check | 21 |
 | Exception handling | 3 |
 | OpenAPI, throttling, and caching hardening | 5 |
 | Management commands | 7 |
 | Optional Sentry integration | 2 |
-| **Total** | **78** |
+| **Total** | **104** |
 
 Run:
 
@@ -321,8 +320,6 @@ Schema generation completes with 0 errors. W001 warnings from drf-spectacular fo
 
 ### 10.3 Remaining Product Opportunities
 
-- BrAPI write support.
-- Alpha-lattice and augmented layout-generation services.
 - Spreadsheet formats beyond CSV.
 - Advanced multi-environment and genomic analysis.
 

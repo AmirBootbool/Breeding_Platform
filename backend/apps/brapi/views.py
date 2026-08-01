@@ -1,9 +1,10 @@
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import viewsets
+from rest_framework import viewsets, mixins, status
 from rest_framework.response import Response
 
 from apps.core.models import Location, Program
+from apps.core.permissions import RoleBasedPermission
 from apps.germplasm.models import Germplasm
 from apps.trials.models import Observation, ObservationVariable, Plot, Trial
 
@@ -16,6 +17,9 @@ from .serializers import (
     BrapiObservationVariableSerializer,
     BrapiProgramSerializer,
     BrapiStudySerializer,
+    BrapiObservationWriteSerializer,
+    BrapiObservationUnitWriteSerializer,
+    BrapiGermplasmWriteSerializer,
 )
 
 
@@ -62,8 +66,28 @@ class BrapiStudyViewSet(BrapiModelViewSet):
         return queryset
 
 
-class BrapiGermplasmViewSet(BrapiModelViewSet):
+class BrapiGermplasmViewSet(mixins.CreateModelMixin, BrapiModelViewSet):
     serializer_class = BrapiGermplasmSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder"}
+
+    def get_serializer_class(self):
+        if self.action in ("create",):
+            return BrapiGermplasmWriteSerializer
+        return BrapiGermplasmSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        read_serializer = BrapiGermplasmSerializer(instance, context=self.get_serializer_context())
+        return Response(
+            {
+                "metadata": {"pagination": None, "status": [], "datafiles": []},
+                "result": read_serializer.data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     def get_queryset(self):
         queryset = Germplasm.objects.select_related("program").all()
@@ -83,8 +107,50 @@ class BrapiGermplasmViewSet(BrapiModelViewSet):
         return queryset
 
 
-class BrapiObservationViewSet(BrapiModelViewSet):
+class BrapiObservationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, BrapiModelViewSet):
     serializer_class = BrapiObservationSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder", "technician"}
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return BrapiObservationWriteSerializer
+        return BrapiObservationSerializer
+
+    def create(self, request, *args, **kwargs):
+        many = isinstance(request.data, list)
+        serializer = self.get_serializer(data=request.data, many=many)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        if many:
+            read_serializer = BrapiObservationSerializer(instance, many=True, context=self.get_serializer_context())
+            result_data = {"data": read_serializer.data}
+        else:
+            read_serializer = BrapiObservationSerializer(instance, context=self.get_serializer_context())
+            result_data = read_serializer.data
+
+        return Response(
+            {
+                "metadata": {"pagination": None, "status": [], "datafiles": []},
+                "result": result_data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        read_serializer = BrapiObservationSerializer(instance, context=self.get_serializer_context())
+        return Response(
+            {
+                "metadata": {"pagination": None, "status": [], "datafiles": []},
+                "result": read_serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def get_queryset(self):
         queryset = Observation.objects.select_related(
@@ -246,8 +312,30 @@ class BrapiProgramViewSet(BrapiModelViewSet):
         return queryset
 
 
-class BrapiObservationUnitViewSet(BrapiModelViewSet):
+class BrapiObservationUnitViewSet(mixins.UpdateModelMixin, BrapiModelViewSet):
     serializer_class = BrapiObservationUnitSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder"}
+
+    def get_serializer_class(self):
+        if self.action in ("update", "partial_update"):
+            return BrapiObservationUnitWriteSerializer
+        return BrapiObservationUnitSerializer
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        read_serializer = BrapiObservationUnitSerializer(instance, context=self.get_serializer_context())
+        return Response(
+            {
+                "metadata": {"pagination": None, "status": [], "datafiles": []},
+                "result": read_serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def get_queryset(self):
         queryset = Plot.objects.select_related("trial", "germplasm").order_by(

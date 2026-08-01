@@ -2047,6 +2047,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBrapiGermplasmList'
           description: ''
+    post:
+      operationId: brapi_v2_germplasm_create
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrapiGermplasmWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrapiGermplasmWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrapiGermplasmWrite'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiGermplasmWrite'
+          description: ''
   /brapi/v2/germplasm/{id}:
     get:
       operationId: brapi_v2_germplasm_retrieve
@@ -2171,6 +2197,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBrapiObservationList'
           description: ''
+    post:
+      operationId: brapi_v2_observations_create
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationWrite'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationWrite'
+          description: ''
   /brapi/v2/observations/{id}:
     get:
       operationId: brapi_v2_observations_retrieve
@@ -2192,6 +2243,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BrapiObservation'
+          description: ''
+    put:
+      operationId: brapi_v2_observations_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation.
+        required: true
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationWrite'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationWrite'
+          description: ''
+    patch:
+      operationId: brapi_v2_observations_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this observation.
+        required: true
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBrapiObservationWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBrapiObservationWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBrapiObservationWrite'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationWrite'
           description: ''
   /brapi/v2/observationunits:
     get:
@@ -2254,6 +2369,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BrapiObservationUnit'
+          description: ''
+    put:
+      operationId: brapi_v2_observationunits_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plot.
+        required: true
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationUnitWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationUnitWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationUnitWrite'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationUnitWrite'
+          description: ''
+    patch:
+      operationId: brapi_v2_observationunits_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this plot.
+        required: true
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBrapiObservationUnitWrite'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBrapiObservationUnitWrite'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBrapiObservationUnitWrite'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationUnitWrite'
           description: ''
   /brapi/v2/observationvariables:
     get:
@@ -2593,6 +2772,29 @@ components:
       - programName
       - species
       - yearOfDevelopment
+    BrapiGermplasmWrite:
+      type: object
+      properties:
+        germplasmName:
+          type: string
+        accessionNumber:
+          type: string
+        germplasmDbId:
+          type: string
+        pedigree:
+          type: string
+          nullable: true
+        breedingMethod:
+          type: string
+          nullable: true
+        yearOfDevelopment:
+          type: integer
+          nullable: true
+        programDbId:
+          type: string
+      required:
+      - germplasmName
+      - programDbId
     BrapiLocation:
       type: object
       properties:
@@ -2720,6 +2922,17 @@ components:
       - observationUnitPosition
       - studyDbId
       - studyName
+    BrapiObservationUnitWrite:
+      type: object
+      properties:
+        observationUnitState:
+          type: string
+        additionalInfo:
+          type: object
+          additionalProperties: {}
+        observationUnitPosition:
+          type: object
+          additionalProperties: {}
     BrapiObservationVariable:
       type: object
       properties:
@@ -2756,6 +2969,19 @@ components:
       - observationVariableName
       - scale
       - trait
+    BrapiObservationWrite:
+      type: object
+      properties:
+        observationUnitDbId:
+          type: string
+        observationVariableDbId:
+          type: string
+        value:
+          type: string
+        observationTimeStamp:
+          type: string
+          format: date-time
+          nullable: true
     BrapiProgram:
       type: object
       properties:
@@ -3553,6 +3779,30 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserProfile'
+    PatchedBrapiObservationUnitWrite:
+      type: object
+      properties:
+        observationUnitState:
+          type: string
+        additionalInfo:
+          type: object
+          additionalProperties: {}
+        observationUnitPosition:
+          type: object
+          additionalProperties: {}
+    PatchedBrapiObservationWrite:
+      type: object
+      properties:
+        observationUnitDbId:
+          type: string
+        observationVariableDbId:
+          type: string
+        value:
+          type: string
+        observationTimeStamp:
+          type: string
+          format: date-time
+          nullable: true
     PatchedCross:
       type: object
       properties:

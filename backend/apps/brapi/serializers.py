@@ -369,3 +369,159 @@ class BrapiObservationUnitSerializer(serializers.ModelSerializer):
         return {
             "status": obj.status,
         }
+
+
+class BrapiObservationWriteSerializer(serializers.Serializer):
+    observationUnitDbId = serializers.CharField(source="plot_id", required=False)
+    observationVariableDbId = serializers.CharField(source="variable_id", required=False)
+    value = serializers.CharField(required=False)
+    observationTimeStamp = serializers.DateTimeField(
+        source="observation_time", required=False, allow_null=True
+    )
+
+    def validate_observationUnitDbId(self, value):
+        try:
+            val_int = int(value)
+        except ValueError:
+            raise serializers.ValidationError("Must be an integer ID.")
+        if not Plot.objects.filter(id=val_int).exists():
+            raise serializers.ValidationError("Unknown plot.")
+        return val_int
+
+    def validate_observationVariableDbId(self, value):
+        try:
+            val_int = int(value)
+        except ValueError:
+            raise serializers.ValidationError("Must be an integer ID.")
+        if not ObservationVariable.objects.filter(id=val_int).exists():
+            raise serializers.ValidationError("Unknown variable.")
+        return val_int
+
+    def validate(self, attrs):
+        if self.instance is None:
+            if "plot_id" not in attrs:
+                raise serializers.ValidationError({"observationUnitDbId": "This field is required."})
+            if "variable_id" not in attrs:
+                raise serializers.ValidationError({"observationVariableDbId": "This field is required."})
+            if "value" not in attrs:
+                raise serializers.ValidationError({"value": "This field is required."})
+
+        var_id = attrs.get("variable_id")
+        if var_id:
+            variable = ObservationVariable.objects.get(id=var_id)
+            attrs["_variable"] = variable
+        elif self.instance:
+            attrs["_variable"] = self.instance.variable
+
+        return attrs
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError
+        variable = validated_data.pop("_variable")
+        obs = Observation(
+            plot_id=validated_data["plot_id"],
+            variable=variable,
+            observation_time=validated_data.get("observation_time"),
+        )
+        obs.set_typed_value(validated_data["value"])
+        try:
+            obs.full_clean()
+        except ValidationError as e:
+            raise serializers.ValidationError(e.message_dict)
+        obs.save()
+        return obs
+
+    def update(self, instance, validated_data):
+        from django.core.exceptions import ValidationError
+        if "value" in validated_data:
+            instance.set_typed_value(validated_data["value"])
+        if "observation_time" in validated_data:
+            instance.observation_time = validated_data["observation_time"]
+        try:
+            instance.full_clean()
+        except ValidationError as e:
+            raise serializers.ValidationError(e.message_dict)
+        instance.save()
+        return instance
+
+
+class BrapiObservationUnitWriteSerializer(serializers.Serializer):
+    observationUnitState = serializers.CharField(required=False)
+    additionalInfo = serializers.DictField(required=False)
+    observationUnitPosition = serializers.DictField(required=False)
+
+    def validate(self, attrs):
+        if "observationUnitPosition" in attrs:
+            raise serializers.ValidationError(
+                "Plot layout (position/block/replication) cannot be "
+                "modified via BrAPI. Update status only, or use "
+                "the internal API for layout changes."
+            )
+        return attrs
+
+    def update(self, instance, validated_data):
+        from django.core.exceptions import ValidationError
+        status_val = None
+        if "observationUnitState" in validated_data:
+            status_val = validated_data["observationUnitState"]
+        elif "additionalInfo" in validated_data:
+            status_val = validated_data["additionalInfo"].get("status")
+
+        if status_val is not None:
+            choices = [c[0] for c in Plot.STATUS_CHOICES]
+            if status_val not in choices:
+                raise serializers.ValidationError(
+                    {"observationUnitState": f"Invalid status choice. Must be one of {choices}"}
+                )
+            instance.status = status_val
+
+        try:
+            instance.full_clean()
+        except ValidationError as e:
+            raise serializers.ValidationError(e.message_dict)
+        instance.save()
+        return instance
+
+
+class BrapiGermplasmWriteSerializer(serializers.Serializer):
+    germplasmName = serializers.CharField()
+    accessionNumber = serializers.CharField(required=False)
+    germplasmDbId = serializers.CharField(required=False)
+    pedigree = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    breedingMethod = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    yearOfDevelopment = serializers.IntegerField(required=False, allow_null=True)
+    programDbId = serializers.CharField()
+
+    def validate_programDbId(self, value):
+        try:
+            val_int = int(value)
+        except ValueError:
+            raise serializers.ValidationError("Must be an integer ID.")
+        if not Program.objects.filter(id=val_int).exists():
+            raise serializers.ValidationError("Unknown program.")
+        return val_int
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError
+        germplasm_db_id = validated_data.get("germplasmDbId") or validated_data.get("accessionNumber")
+        if not germplasm_db_id:
+            import uuid
+            germplasm_db_id = f"GERM-{uuid.uuid4().hex[:6].upper()}"
+
+        program = Program.objects.get(id=int(validated_data["programDbId"]))
+        germplasm_data = {
+            "name": validated_data["germplasmName"],
+            "germplasm_db_id": germplasm_db_id,
+            "program": program,
+            "pedigree_string": validated_data.get("pedigree", ""),
+            "cross_type": validated_data.get("breedingMethod", ""),
+            "year_developed": validated_data.get("yearOfDevelopment"),
+        }
+
+        try:
+            germ = Germplasm(**germplasm_data)
+            germ.full_clean()
+            germ.save()
+            return germ
+        except ValidationError as e:
+            raise serializers.ValidationError(e.message_dict)

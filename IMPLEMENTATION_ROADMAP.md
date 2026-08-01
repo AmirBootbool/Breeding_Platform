@@ -21,7 +21,8 @@ and implement it without reading the others.
 | 7     | ✅ Done       | Custom browser frontend           |
 | 8     | ✅ Done       | Frontend CRUD Operations          |
 | 9     | ✅ Done       | Frontend depth & bulk workflows   |
-| 10    | 🔲 Planned    | Alpha-lattice & augmented designs |
+| 10    | ✅ Done       | Alpha-lattice & augmented designs |
+| 11    | 🔲 Planned    | BrAPI v2 write support            |
 
 
 ---
@@ -1040,3 +1041,305 @@ def perform_update(self, serializer):
 | 9.3 Multi-trait summary | 2–3 h |
 | 9.4 Audit trail | 2 h |
 | **Phase 9 total** | **~12–14 h** |
+
+---
+
+## Phase 10: Alpha-Lattice & Augmented Trial Designs — ✅ COMPLETE
+
+### Goal
+
+RCBD works well for small trials with few replications, but breaks down
+once entry counts grow large enough that complete blocks can't reasonably
+contain every entry. Add two additional layout-generation strategies —
+**alpha-lattice** (incomplete blocks, replicated entries) and
+**augmented** (checks replicated, test entries unreplicated) — alongside
+the existing RCBD generator, selectable at trial creation.
+
+### Prerequisites
+
+- Phases 1–9 complete.
+- `generate_rcbd_layout` and `create_plots_for_trial` in
+  `apps/trials/services.py` are the reference implementation to extend
+  around, not replace.
+
+---
+
+### 10.1 Data Model Changes
+- [x] Extend `design_type` choices in `apps/trials/models.py` to support `alpha_lattice` and `augmented`
+- [x] Add `block_size` field to `Trial` model (nullable, optional)
+- [x] Add `incomplete_block` (nullable integer) and `is_check` (boolean) fields to `Plot` model
+- [x] Implement model validation in `Trial.clean()` for `block_size` presence when `design_type == "alpha_lattice"`
+- [x] Generate and apply database migrations for `trials`
+- [x] Add unit tests in `apps/trials/tests/test_models.py` for model-level validations and fields
+
+### 10.2 Alpha-Lattice Layout Service
+- [x] Add `generate_alpha_lattice_layout` in `apps/trials/services.py` that takes entries, reps, block_size, and seed
+- [x] Validate entry count is divisible by block size, and block_size >= 2
+- [x] Refactor `create_plots_for_trial` in `apps/trials/services.py` to branch on `design_type` for RCBD, alpha_lattice, and augmented
+- [x] Ensure layout generators accept `Sequence[Germplasm]` or use ID/index mappings correctly
+- [x] Add unit tests in `apps/trials/tests/test_services.py` for alpha-lattice generation (divisibility check, correct blocks, determinism)
+
+### 10.3 Augmented Design Service
+- [x] Add `generate_augmented_layout` in `apps/trials/services.py` that distributes test entries across replicates and replicates checks in every rep
+- [x] Update `create_plots_for_trial` to accept `check_germplasm_ids` parameter and pass it to `generate_augmented_layout`
+- [x] Add unit tests in `apps/trials/tests/test_services.py` for augmented design generation (check replication count, test entry count, empty check edge case, determinism)
+
+### 10.4 API & Frontend Design Selection
+- [x] Update `TrialSerializer` to expose `block_size` and validate `block_size` requirement for alpha_lattice
+- [x] Update `PlotSerializer` to expose `incomplete_block` and `is_check`
+- [x] Update `create_plots` action in `TrialViewSet` to accept `check_germplasm_ids` and pass them to `create_plots_for_trial`
+- [x] Update TypeScript API client interfaces in `frontend/src/api/client.ts` (`Trial`, `Plot`) to include new fields
+- [x] Update Trial Manager creation form in `frontend/src/pages/TrialManager.tsx` to support alpha-lattice (conditional block size input) and augmented (entry check flags)
+- [x] Update `PlotGrid` component/styles in `frontend/src/pages/TrialManager.tsx` to visually group/label incomplete blocks and highlight check plots
+- [x] Add API integration tests in `backend/tests/test_api_trials.py` for both layout creation endpoints
+
+---
+
+### Phase 10 Complete When
+
+- [x] Alpha-lattice layouts generate correctly for divisible entry/block-size combinations and reject non-divisible ones with a clear error.
+- [x] Augmented layouts replicate checks per-replicate and place each test entry exactly once.
+- [x] Trial creation form supports selecting a design type with the correct conditional inputs (block size / check flags).
+- [x] Plot grid visually differentiates incomplete blocks and check plots.
+- [x] All existing tests plus new Phase 10 tests pass.
+- [x] `openapi.yaml` regenerates with 0 errors.
+- [x] `architecture.md` and `NEXT_PHASE_SUMMARY.md` updated.
+
+### Effort Estimate
+
+| Section | Estimated Hours |
+|---|---:|
+| 10.1 Data model changes | 1–2 h |
+| 10.2 Alpha-lattice service | 3–4 h |
+| 10.3 Augmented design service | 2–3 h |
+| 10.4 API & frontend design selection | 2–3 h |
+| **Phase 10 total** | **~8–12 h** |
+
+---
+
+## Phase 11: BrAPI v2 Write Support
+
+### Goal
+
+`apps.brapi` is currently read-only (§4.2 of `architecture.md`). Add
+write operations for the resources where write access has real value —
+observations, observation units (plots), and germplasm — so external
+BrAPI clients (Field Book, BreedBase, other breeding tools) can push data
+into the platform, not just read from it. Internal RBAC continues to
+govern who can write; BrAPI write endpoints are a transition layer, not
+a bypass of it.
+
+### Prerequisites
+
+- Phases 1–10 complete.
+- Existing BrAPI read serializers/routes in `apps/brapi/` are the pattern
+  to extend — camelCase translation, `BrapiPagination` envelope, and the
+  project's default authentication requirement all carry over unchanged.
+
+### Scope Decisions
+
+- **In scope:** `POST`/`PUT` for `observations`, `POST`/`PUT` for
+  `observationunits` (maps to internal `Plot` status field, not
+  layout — plot creation stays an internal-API-only RCBD/lattice/augmented
+  operation), and `POST` for `germplasm`.
+- **Out of scope for this phase:** BrAPI `studies`/`trials` write
+  (trial creation has internal-only preconditions — program, location,
+  season FKs — that don't map cleanly onto the BrAPI study payload without
+  a lot of translation risk). Revisit if a concrete client needs it.
+- **Auth model:** BrAPI write requests authenticate exactly like internal
+  API requests (token auth), and go through the same `RoleBasedPermission`
+  role checks as their internal-API equivalents. A BrAPI client is just
+  another authenticated caller — no separate BrAPI-specific permission
+  tier.
+
+---
+
+### 11.1 BrAPI Observation Write (3–4 hours)
+
+**Goal:** `POST /brapi/v2/observations` and
+`PUT /brapi/v2/observations/{id}` accept BrAPI-shaped observation payloads
+and translate them into internal `Observation` create/update.
+
+**Context:** The existing read serializer
+(`apps/brapi/serializers.py::ObservationSerializer`, or equivalent) already
+knows the camelCase↔internal field mapping for reads. Reuse the same field
+mapping table for the reverse direction rather than hand-writing a new
+translation.
+
+**Step-by-step implementation:**
+
+1. Add a writeable BrAPI serializer in `apps/brapi/serializers.py`:
+
+```python
+class ObservationWriteSerializer(serializers.Serializer):
+    observationUnitDbId = serializers.IntegerField(source="plot_id")
+    observationVariableDbId = serializers.IntegerField(source="variable_id")
+    value = serializers.CharField()
+    observationTimeStamp = serializers.DateTimeField(
+        source="observation_time", required=False
+    )
+
+    def validate(self, attrs):
+        # Route `value` into the correct typed field based on the
+        # variable's data_type, reusing Observation's own validation.
+        variable = ObservationVariable.objects.filter(
+            id=attrs["variable_id"]
+        ).first()
+        if variable is None:
+            raise serializers.ValidationError(
+                {"observationVariableDbId": "Unknown variable."}
+            )
+        attrs["_variable"] = variable
+        return attrs
+
+    def create(self, validated_data):
+        variable = validated_data.pop("_variable")
+        obs = Observation(
+            plot_id=validated_data["plot_id"],
+            variable=variable,
+            observation_time=validated_data.get("observation_time"),
+        )
+        obs.set_typed_value(validated_data["value"])  # see step 2
+        obs.full_clean()
+        obs.save()
+        return obs
+
+    def update(self, instance, validated_data):
+        if "value" in validated_data:
+            instance.set_typed_value(validated_data["value"])
+        if "observation_time" in validated_data:
+            instance.observation_time = validated_data["observation_time"]
+        instance.full_clean()
+        instance.save()
+        return instance
+```
+
+2. Add a `set_typed_value(self, raw_value)` helper method on the
+   `Observation` model in `apps/trials/models.py` if one doesn't already
+   exist — it should route a raw string into `value_numeric`,
+   `value_text`, or `value_boolean` based on `self.variable.data_type`,
+   reusing whatever type-coercion logic `full_clean()` already validates
+   against. This keeps BrAPI writes and internal-API writes sharing one
+   code path for "what does this string mean for this variable."
+
+3. Add BrAPI write views in `apps/brapi/views.py`:
+
+```python
+class BrapiObservationViewSet(mixins.CreateModelMixin,
+                                mixins.UpdateModelMixin,
+                                GenericViewSet):
+    queryset = Observation.objects.all()
+    serializer_class = ObservationWriteSerializer
+    permission_classes = [RoleBasedPermission]  # same as internal Observation writes
+```
+
+   Wire into `apps/brapi/urls.py` as `observations` `POST`/`PUT` alongside
+   the existing read-only `ListAPIView`/`RetrieveAPIView` for the same
+   path.
+
+4. Response shape: BrAPI expects the created/updated resource echoed back
+   in BrAPI shape (reuse the existing read `ObservationSerializer` for the
+   response body, not the write serializer, so camelCase output matches
+   what a BrAPI client already expects from `GET`).
+
+5. **Tests to add** (`backend/tests/test_brapi_write.py`):
+   - Valid observation create → 201, response uses BrAPI camelCase field
+     names, `Observation.objects.count()` incremented.
+   - Invalid variable ID → 400 with BrAPI-appropriate error shape.
+   - Out-of-range numeric value for the variable → 400.
+   - Viewer-role token → 403.
+   - Technician-role token → 201.
+
+---
+
+### 11.2 BrAPI Observation Unit (Plot) Write (2–3 hours)
+
+**Goal:** `PUT /brapi/v2/observationunits/{id}` allows updating plot
+**status** only — not layout fields (replication, block, position, germplasm),
+which stay internal-API-only since they're governed by the design-generation
+services.
+
+**Step-by-step implementation:**
+
+1. Add `ObservationUnitWriteSerializer` in `apps/brapi/serializers.py`,
+   mapping only the mutable status field:
+
+```python
+class ObservationUnitWriteSerializer(serializers.Serializer):
+    observationUnitPUI = serializers.CharField(required=False)
+    observationUnitPosition = serializers.DictField(required=False)
+
+    def validate(self, attrs):
+        if "observationUnitPosition" in attrs:
+            raise serializers.ValidationError(
+                "Plot layout (position/block/replication) cannot be "
+                "modified via BrAPI. Update status only, or use "
+                "the internal API for layout changes."
+            )
+        return attrs
+```
+
+2. `PUT` view following the same pattern as 11.1, scoped to `Plot`.
+
+3. **Tests to add**:
+   - Update `status` → 200, internal `Plot` row updated.
+   - Attempt to update `observationUnitPosition` → 400, plot unchanged.
+   - RBAC: matches internal `Plot` update role.
+
+---
+
+### 11.3 BrAPI Germplasm Write (2–3 hours)
+
+**Goal:** `POST /brapi/v2/germplasm` creates internal `Germplasm` records
+from BrAPI-shaped payloads.
+
+**Step-by-step implementation:**
+
+1. Add `GermplasmWriteSerializer`, translating BrAPI germplasm fields
+   (`germplasmName`, `commonCropName`, `pedigree`, etc.) to internal
+   `Germplasm` fields. Reuse the internal `GermplasmSerializer`'s
+   validation.
+
+2. `POST` view, `RoleBasedPermission` scoped to the same roles as internal
+   `Germplasm` creation.
+
+3. **Tests to add**:
+   - Valid BrAPI germplasm payload → 201, internal `Germplasm` created.
+   - Duplicate `germplasmName`/`germplasm_db_id` → 400.
+   - Unknown `programDbId` → 400.
+
+---
+
+### 11.4 Documentation & Schema (1–2 hours)
+
+**Goal:** Keep OpenAPI schema, BrAPI compatibility notes, and
+architecture docs in sync with the new write surface.
+
+**Step-by-step implementation:**
+
+1. Confirm `drf-spectacular` picks up the new write viewsets cleanly.
+2. Update `architecture.md`:
+   - §1.3 "Out of Scope" — remove "BrAPI write operations."
+   - §4.2 — document writeable BrAPI resources.
+   - §10.3 — remove "BrAPI write support" from opportunities.
+3. Update `NEXT_PHASE_SUMMARY.md`.
+
+---
+
+### Phase 11 Complete When
+
+- [ ] `POST`/`PUT /brapi/v2/observations` create/update observations with the same validation/RBAC.
+- [ ] `PUT /brapi/v2/observationunits/{id}` updates status only; layout changes are rejected.
+- [ ] `POST /brapi/v2/germplasm` creates germplasm.
+- [ ] All existing tests plus new Phase 11 tests pass.
+- [ ] `openapi.yaml` regenerates with 0 errors.
+
+### Effort Estimate
+
+| Section | Estimated Hours |
+|---|---:|
+| 11.1 BrAPI observation write | 3–4 h |
+| 11.2 BrAPI observation unit write | 2–3 h |
+| 11.3 BrAPI germplasm write | 2–3 h |
+| 11.4 Documentation & schema | 1–2 h |
+| **Phase 11 total** | **~8–12 h** |

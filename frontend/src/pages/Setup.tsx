@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  programs, locations, seasons, observationVariables,
+  programs, locations, seasons, observationVariables, audit,
   Program, Location, Season, ObservationVariable, ApiError
 } from '../api/client'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useAuthStore } from '../store/authStore'
 
 // ============================================================
 // Generic helpers
 // ============================================================
 
-type Tab = 'programs' | 'locations' | 'seasons' | 'variables'
+type Tab = 'programs' | 'locations' | 'seasons' | 'variables' | 'recent-changes'
 
 function ApiErrorMsg({ err }: { err: unknown }) {
   if (!err) return null
@@ -483,6 +484,70 @@ function VariablesTab() {
 }
 
 // ============================================================
+// Recent Changes (Audit log) sub-tab
+// ============================================================
+
+function RecentChangesTab() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['recent-changes'],
+    queryFn: () => audit.recentChanges(100),
+  })
+
+  return (
+    <div>
+      <ApiErrorMsg err={error} />
+      {isLoading ? (
+        <div className="loading-spinner">
+          <div className="spinner" />
+        </div>
+      ) : (
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Record Label</th>
+                <th>Created By</th>
+                <th>Created At</th>
+                <th>Updated By</th>
+                <th>Updated At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.map((entry, idx) => (
+                <tr key={`${entry.model}-${entry.id}-${idx}`}>
+                  <td>
+                    <span className="badge badge-gray">{entry.model}</span>
+                  </td>
+                  <td>
+                    <strong>{entry.label}</strong>
+                  </td>
+                  <td className="text-sm">{entry.created_by || '—'}</td>
+                  <td className="text-sm text-muted">
+                    {entry.created_at ? new Date(entry.created_at).toLocaleString() : '—'}
+                  </td>
+                  <td className="text-sm">{entry.updated_by || '—'}</td>
+                  <td className="text-sm text-muted">
+                    {entry.updated_at ? new Date(entry.updated_at).toLocaleString() : '—'}
+                  </td>
+                </tr>
+              ))}
+              {(!data || data.length === 0) && (
+                <tr>
+                  <td colSpan={6} className="text-center text-muted">
+                    No recent changes found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
 // Main Setup page
 // ============================================================
 
@@ -494,7 +559,13 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 ]
 
 export default function Setup() {
+  const role = useAuthStore(s => s.role)
   const [activeTab, setActiveTab] = useState<Tab>('programs')
+
+  const visibleTabs = [...TABS]
+  if (role === 'admin') {
+    visibleTabs.push({ key: 'recent-changes', label: 'Recent Changes', icon: '📜' })
+  }
 
   return (
     <div className="page-shell">
@@ -504,7 +575,7 @@ export default function Setup() {
       />
 
       <div className="tab-bar mb-8">
-        {TABS.map(t => (
+        {visibleTabs.map(t => (
           <button
             key={t.key}
             id={`setup-tab-${t.key}`}
@@ -520,6 +591,7 @@ export default function Setup() {
       {activeTab === 'locations' && <LocationsTab />}
       {activeTab === 'seasons'   && <SeasonsTab />}
       {activeTab === 'variables' && <VariablesTab />}
+      {activeTab === 'recent-changes' && role === 'admin' && <RecentChangesTab />}
     </div>
   )
 }

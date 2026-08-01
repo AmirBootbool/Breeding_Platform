@@ -85,6 +85,26 @@ The application has built-in integration with Sentry for real-time error trackin
 - `SENTRY_TRACES_SAMPLE_RATE`: Sample rate for transaction/performance tracing (optional, defaults to `0.1` or 10%)
 - `SENTRY_PROFILES_SAMPLE_RATE`: Sample rate for profiling tracing (optional, defaults to `0.1` or 10%)
 
+### Prometheus Metrics
+System and domain-level metrics are exposed at `/api/metrics/` in the standard Prometheus text format. This endpoint is public (no authentication required) to allow Prometheus scrapers to scrape it cleanly.
+
+It includes:
+- Standard Django HTTP requests middleware instrumentation (latencies, counts).
+- Django database connection/query execution counts.
+- Domain-specific Gauges:
+  - `wbp_germplasm_total`: Total germplasm records in the registry.
+  - `wbp_trials_active_total`: Active trials count (harvest date in the future or unset).
+  - `wbp_observations_total`: Total phenotypes/observations count.
+
+Example Prometheus scrape config:
+```yaml
+scrape_configs:
+  - job_name: 'wheat-breeding-platform'
+    metrics_path: '/api/metrics/'
+    static_configs:
+      - targets: ['localhost:8000']
+```
+
 ---
 
 ## 6. Database Backups
@@ -126,4 +146,26 @@ docker compose -f docker-compose.prod.yml exec db createdb -U postgres db_name
 
 # 2. Restore from SQL file
 docker compose -f docker-compose.prod.yml exec -T db psql -U postgres db_name < backup_file.sql
+```
+
+### Automated Backup Verification
+A verification script is provided at `scripts/verify_backup.sh` to automatically test that the latest backup file is restorable and valid. 
+
+The script performs the following steps:
+1. Locates the most recent `.sql.gz` backup.
+2. Reads the expected row count from the sibling `.manifest.json` metadata file (created automatically during backup).
+3. Recreates a throwaway PostgreSQL database `wheatbreeding_restore_check`.
+4. Restores the backup SQL contents.
+5. Verifies the restored row counts match or exceed the manifest expectations.
+6. Cleans up by dropping the throwaway database.
+7. Exits with non-zero code on failures.
+
+To run the verification script manually:
+```bash
+./scripts/verify_backup.sh
+```
+
+You can configure this script to run on a weekly cron job (e.g. Sunday night) to verify your backups:
+```bash
+0 3 * * 0 /path/to/project/scripts/verify_backup.sh >> /var/log/db_backup_verify.log 2>&1
 ```

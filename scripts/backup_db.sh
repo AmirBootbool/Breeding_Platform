@@ -40,9 +40,20 @@ fi
 gzip "$BACKUP_FILE"
 echo "Backup compressed successfully: $BACKUP_FILE.gz"
 
+# Generate verification manifest
+MANIFEST_FILE="$BACKUP_FILE.gz.manifest.json"
+echo "Generating verification manifest..."
+if ROW_COUNT=$(docker compose -f "$PROJECT_ROOT/docker-compose.prod.yml" exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT COUNT(*) FROM germplasm_germplasm;" 2>/dev/null); then
+    echo "{\"germplasm_count\": ${ROW_COUNT:-0}, \"timestamp\": \"$TIMESTAMP\"}" > "$MANIFEST_FILE"
+    echo "Manifest saved: $MANIFEST_FILE"
+else
+    echo "WARNING: Failed to query live row count for manifest. Writing fallback manifest."
+    echo "{\"germplasm_count\": 0, \"timestamp\": \"$TIMESTAMP\"}" > "$MANIFEST_FILE"
+fi
+
 # Clean up backups older than RETENTION_DAYS
 echo "Cleaning up backups older than $RETENTION_DAYS days in $BACKUP_DIR..."
-find "$BACKUP_DIR" -name "backup_${POSTGRES_DB}_*.sql.gz" -type f -mtime +"$RETENTION_DAYS" -delete
+find "$BACKUP_DIR" -name "backup_${POSTGRES_DB}_*.sql.gz*" -type f -mtime +"$RETENTION_DAYS" -delete
 echo "Cleanup completed."
 
 echo "=== Backup Process Complete ==="

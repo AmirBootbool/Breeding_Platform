@@ -35,10 +35,13 @@ def health_check(request):
         )
 
 
+from apps.core.views import metrics_view
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/token/", obtain_auth_token, name="api-token-auth"),
     path("api/health/", health_check, name="api-health"),
+    path("api/metrics/", metrics_view, name="api-metrics"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/schema/swagger-ui/",

@@ -4,6 +4,25 @@ info:
   version: 1.0.0
   description: API for managing wheat breeding germplasm, trials, and observations.
 paths:
+  /api/audit/recent_changes/:
+    get:
+      operationId: api_audit_recent_changes_list
+      description: Retrieve a consolidated audit trail of recent changes across core
+        models.
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogEntry'
+          description: ''
   /api/auth/token/:
     post:
       operationId: api_auth_token_create
@@ -2700,6 +2719,37 @@ paths:
           description: ''
 components:
   schemas:
+    AuditLogEntry:
+      type: object
+      properties:
+        model:
+          type: string
+        id:
+          type: integer
+        label:
+          type: string
+        created_by:
+          type: string
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - created_by
+      - id
+      - label
+      - model
+      - updated_at
+      - updated_by
     AuthToken:
       type: object
       properties:

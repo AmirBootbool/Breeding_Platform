@@ -351,3 +351,20 @@ export const observations = {
       body: JSON.stringify(data),
     }),
 }
+
+// ---- Audit Log --------------------------------------------------------------
+
+export interface AuditLogEntry {
+  model: string
+  id: number
+  label: string
+  created_by: string | null
+  updated_by: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export const audit = {
+  recentChanges: (limit = 50) =>
+    apiFetch<AuditLogEntry[]>(`/audit/recent_changes/?limit=${limit}`),
+}

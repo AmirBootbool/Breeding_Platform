@@ -22,7 +22,8 @@ and implement it without reading the others.
 | 8     | ✅ Done       | Frontend CRUD Operations          |
 | 9     | ✅ Done       | Frontend depth & bulk workflows   |
 | 10    | ✅ Done       | Alpha-lattice & augmented designs |
-| 11    | 🔲 Planned    | BrAPI v2 write support            |
+| 11    | ✅ Done       | BrAPI v2 write support            |
+| 12    | 🔲 Planned    | Observability & ops hardening     |
 
 
 ---
@@ -1328,11 +1329,11 @@ architecture docs in sync with the new write surface.
 
 ### Phase 11 Complete When
 
-- [ ] `POST`/`PUT /brapi/v2/observations` create/update observations with the same validation/RBAC.
-- [ ] `PUT /brapi/v2/observationunits/{id}` updates status only; layout changes are rejected.
-- [ ] `POST /brapi/v2/germplasm` creates germplasm.
-- [ ] All existing tests plus new Phase 11 tests pass.
-- [ ] `openapi.yaml` regenerates with 0 errors.
+- [x] `POST`/`PUT /brapi/v2/observations` create/update observations with the same validation/RBAC.
+- [x] `PUT /brapi/v2/observationunits/{id}` updates status only; layout changes are rejected.
+- [x] `POST /brapi/v2/germplasm` creates germplasm.
+- [x] All existing tests plus new Phase 11 tests pass.
+- [x] `openapi.yaml` regenerates with 0 errors.
 
 ### Effort Estimate
 
@@ -1343,3 +1344,153 @@ architecture docs in sync with the new write surface.
 | 11.3 BrAPI germplasm write | 2–3 h |
 | 11.4 Documentation & schema | 1–2 h |
 | **Phase 11 total** | **~8–12 h** |
+
+---
+
+## Phase 12: Observability & Ops Hardening
+
+### Goal
+
+The platform already has structured JSON logging and an optional Sentry
+hook (§5 of `deployment.md`), but there's no metrics surface, no
+in-app visibility into who changed what (beyond the raw `created_by`/
+`updated_by` fields added in Phase 9), and no automated proof that backups
+are actually restorable. This phase closes those three gaps without
+introducing new infrastructure dependencies beyond what's already optional
+(Redis is already supported; Prometheus scraping needs no new service,
+just an endpoint).
+
+### Prerequisites
+
+- Phases 1–9 complete (Phase 9's `created_by`/`updated_by` fields are the
+  data source for 12.2's audit log page — this phase does not duplicate
+  that with a separate audit table).
+- Phases 10–11 are independent of this phase and can land in either order.
+
+---
+
+### 12.1 Metrics Endpoint (2–3 hours)
+
+**Goal:** Expose request-level and domain-level metrics in Prometheus
+text format at `/api/metrics/`, gated the same way `/api/health/` is
+(public, but read-only and free of sensitive data).
+
+**Step-by-step implementation:**
+
+1. Add `django-prometheus` to `backend/requirements/base.txt`.
+
+2. Add to `INSTALLED_APPS` and `MIDDLEWARE` in `config/settings.py`:
+
+```python
+INSTALLED_APPS = [
+    "django_prometheus",
+    ...
+]
+
+MIDDLEWARE = [
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
+    ...,
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
+]
+```
+
+3. Add the metrics URL in `config/urls.py`:
+
+```python
+urlpatterns = [
+    path("api/metrics/", include("django_prometheus.urls")),
+    ...
+]
+```
+
+4. Add a small set of **domain-specific** gauges in `apps/core/metrics.py`:
+
+```python
+from prometheus_client import Gauge
+
+from apps.germplasm.models import Germplasm
+from apps.trials.models import Observation, Trial
+
+germplasm_total = Gauge("wbp_germplasm_total", "Total germplasm records")
+trials_active_total = Gauge("wbp_trials_active_total", "Trials with an end date in the future or unset")
+observations_total = Gauge("wbp_observations_total", "Total observations recorded")
+
+
+def refresh_domain_gauges():
+    germplasm_total.set(Germplasm.objects.count())
+    trials_active_total.set(Trial.objects.filter(end_date__gte=timezone.now()).count())
+    observations_total.set(Observation.objects.count())
+```
+
+5. Call `refresh_domain_gauges()` on each scrape. Hook it into a custom view that calls the refresh function then delegates to the django-prometheus exporter.
+
+6. Document the endpoint in `deployment.md` §5 (Logging & Monitoring).
+
+7. **Tests to add** (`backend/tests/test_metrics.py`):
+   - `GET /api/metrics/` returns 200 with Prometheus text format, unauthenticated.
+   - Response body contains `wbp_germplasm_total` and reflects the actual count.
+
+---
+
+### 12.2 Audit Log Page (Admin/Setup UI) (2–3 hours)
+
+**Goal:** Surface the `created_by`/`updated_by`/timestamp fields added in
+Phase 9 as a browsable, filterable change history in the Setup page,
+rather than requiring Django Admin access to see who changed what.
+
+**Step-by-step implementation:**
+
+1. Add a lightweight read-only API endpoint, `GET /api/audit/recent_changes/`, in `apps/core/views.py` pulling recently updated records from `Program`, `Location`, `Season`, `Germplasm`, `Trial`, and `ObservationVariable` using `created_by` / `updated_by` and sorted by `updated_at` descending.
+
+2. Restrict this view to admin role.
+
+3. **Frontend** — new tab in `frontend/src/pages/Setup.tsx` (or a new page if `Setup.tsx` is already large): "Recent Changes" table — columns: model, record label, created by/at, updated by/at. Sortable by `updated_at` descending by default. Role-gate the nav entry to admin only.
+
+4. **Tests to add** (`backend/tests/test_api_audit.py`):
+   - Admin token → 200, response includes recently created/updated records across multiple model types, sorted by `updated_at` desc.
+   - Non-admin token (breeder/technician/viewer) → 403.
+   - `limit` param respected.
+
+---
+
+### 12.3 Automated Backup Restore Verification (2–3 hours)
+
+**Goal:** Prove — automatically, on a schedule — that `backup_db.sh`
+output is actually restorable.
+
+**Step-by-step implementation:**
+
+1. Add a new script, `scripts/verify_backup.sh`, that:
+   - Takes the most recent `.sql.gz` file from `BACKUP_DIR`.
+   - Spins up a throwaway Postgres database.
+   - Restores the backup.
+   - Runs a sanity query (row count on a core table, e.g. `SELECT COUNT(*) FROM germplasm_germplasm;`).
+   - Drops the throwaway database.
+   - Exits non-zero on failure.
+
+2. Record the row count alongside each backup in `backup_db.sh` itself.
+
+3. Add a cron example to `deployment.md` §6.
+
+4. **Tests to add:** Add a short "Verifying backups" section to `deployment.md` with manual run instructions and expected output.
+
+---
+
+### Phase 12 Complete When
+
+- [ ] `/api/metrics/` exposes Prometheus-format HTTP and domain metrics, publicly accessible.
+- [ ] Admins can view a cross-model "recent changes" list in the Setup UI, built from Phase 9's attribution fields.
+- [ ] `scripts/verify_backup.sh` restores the latest backup into a throwaway database and validates row counts.
+- [ ] `deployment.md` documents the metrics endpoint and backup verification workflow.
+- [ ] All existing tests plus new Phase 12 tests pass.
+- [ ] `openapi.yaml` regenerates with 0 errors.
+- [ ] `architecture.md` and `NEXT_PHASE_SUMMARY.md` updated.
+
+### Effort Estimate
+
+| Section | Estimated Hours |
+|---|---:|
+| 12.1 Metrics endpoint | 2–3 h |
+| 12.2 Audit log page | 2–3 h |
+| 12.3 Backup restore verification | 2–3 h |
+| **Phase 12 total** | **~6–9 h** |

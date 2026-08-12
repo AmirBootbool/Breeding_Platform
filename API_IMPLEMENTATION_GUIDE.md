@@ -218,15 +218,31 @@ Annotates `plot_count`; uses `select_related('program', 'location', 'season')`.
 POST api/trials/{id}/create_plots/
 ```
 
-Bulk-creates a seeded RCBD layout for a trial. Accessible to `admin` and
-`breeder` roles. `germplasm_ids` is optional and defaults to all germplasm in
-the trial's program; `seed` is optional.
+Generates plot layouts and randomization for a trial. Accessible to `admin` and `breeder` roles. Supports all three design types:
 
+- **RCBD**: Replicates all entries.
+- **Alpha-lattice**: Groups entries into incomplete blocks. Requires `block_size` (even divisor of entry count) set on the Trial beforehand.
+- **Augmented**: Replicates check entries across all replicates, while test entries appear exactly once total. Requires passing `check_germplasm_ids` in the request payload.
+
+##### Request Parameters:
+* `germplasm_ids` (array of integers, optional): Defaults to all germplasm in the trial's program.
+* `check_germplasm_ids` (array of integers, optional): Required for **Augmented** design; designates which germplasms are checks.
+* `seed` (integer, optional): Ensures layout generation is repeatable and deterministic.
+
+##### Example (RCBD/Alpha-Lattice):
 ```bash
 curl -X POST http://localhost:8000/api/trials/1/create_plots/ \
   -H "Authorization: Token abc123..." \
   -H "Content-Type: application/json" \
-  -d '{"germplasm_ids": [5, 6, 7], "seed": 42}'
+  -d '{"germplasm_ids": [5, 6, 7, 8], "seed": 42}'
+```
+
+##### Example (Augmented):
+```bash
+curl -X POST http://localhost:8000/api/trials/2/create_plots/ \
+  -H "Authorization: Token abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"germplasm_ids": [10, 11, 12, 13, 14], "check_germplasm_ids": [10, 11], "seed": 42}'
 ```
 
 **Custom action — `summary`**
@@ -412,8 +428,7 @@ The following capabilities are not currently implemented:
 | Feature | Status |
 |---|---|
 | BrAPI writes beyond germplasm/observations/observation-unit status | `studies`, `observationvariables`/`variables`, `locations`, `programs`, and `serverinfo` remain read-only; plot layout is not writeable via BrAPI on any resource |
-| Advanced design generation | Only RCBD generation is implemented |
-| Advanced multi-environment/genomic analysis | Outside the current scope |
+| Advanced genomic analysis | Genomic/marker-based analysis is outside the current scope |
 
 A custom browser frontend (Vite + React + TypeScript) is implemented and
 described in [docs/architecture.md](docs/architecture.md) — it is no longer

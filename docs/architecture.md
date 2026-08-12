@@ -139,6 +139,7 @@ for the health check and schema documentation.
 | `/api/locations/` | Location CRUD |
 | `/api/seasons/` | Season CRUD |
 | `/api/user-profiles/` | Profile and role CRUD |
+| `/api/audit/recent_changes/` | Chronological recent record changes (admin-only) |
 | `/api/germplasm/` | Germplasm CRUD |
 | `/api/germplasm/bulk_import/` | Bulk CSV germplasm import |
 | `/api/crosses/` | Cross CRUD |

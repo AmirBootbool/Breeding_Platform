@@ -359,6 +359,42 @@ an example Prometheus scrape configuration.
 curl http://localhost:8000/api/metrics/
 ```
 
+### 5.6 Audit Endpoint (`/api/audit/recent_changes/`)
+
+An admin-only endpoint returning a consolidated chronological feed of recent additions and updates across core models (`Program`, `Location`, `Season`, `Germplasm`, `Trial`, `ObservationVariable`). 
+
+Non-admin roles (`breeder`, `technician`, `viewer`) are blocked with HTTP 403 Forbidden.
+
+##### Query Parameters:
+* `limit` (integer, optional): The maximum number of entries to return (defaults to 50).
+
+##### Response Format:
+```json
+[
+  {
+    "model": "Program",
+    "id": 1,
+    "label": "Main Program",
+    "created_by": "admin_user",
+    "updated_by": "admin_user",
+    "created_at": "2026-08-12T09:00:00Z",
+    "updated_at": "2026-08-12T10:15:00Z"
+  }
+]
+```
+
+##### Example (Admin role - 200 OK):
+```bash
+curl "http://localhost:8000/api/audit/recent_changes/?limit=5" \
+  -H "Authorization: Token <admin-token>"
+```
+
+##### Example (Breeder/Technician/Viewer - 403 Forbidden):
+```bash
+curl "http://localhost:8000/api/audit/recent_changes/" \
+  -H "Authorization: Token <non-admin-token>"
+```
+
 ---
 
 ## 6. Filtering, Searching, and Ordering

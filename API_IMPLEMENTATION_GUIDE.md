@@ -290,6 +290,50 @@ Uses `select_related` for related lookups.
 | `germplasm_name` | string | read-only, computed |
 | `variable_name` | string | read-only, computed |
 
+#### Analysis Sets — `api/analysis-sets/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+Allows grouping of trials across seasons and locations for joint phenotypic performance analysis.
+
+##### Fields:
+* `id` (int, read-only)
+* `name` (string, unique)
+* `program` (int, program ID)
+* `trials` (array of integers, trial IDs)
+* `description` (string)
+* `created_by` (int, user ID, read-only)
+* `created_at` (string, timestamp, read-only)
+
+**Custom action — `heritability`**
+
+```
+GET api/analysis-sets/{id}/heritability/?variable={variable_id}
+```
+
+Estimates broad-sense heritability ($H^2$) and variance components using a mixed random-effects model (phenotype-only, statsmodels-based).
+
+##### Example:
+```bash
+curl "http://localhost:8000/api/analysis-sets/1/heritability/?variable=3" \
+  -H "Authorization: Token abc123..."
+```
+
+**Custom action — `ranking`**
+
+```
+GET api/analysis-sets/{id}/ranking/?variable={variable_id}
+```
+
+Ranks germplasm by environment-adjusted mean performance across all trials in the analysis set.
+
+##### Example:
+```bash
+curl "http://localhost:8000/api/analysis-sets/1/ranking/?variable=3" \
+  -H "Authorization: Token abc123..."
+```
+
 ---
 
 ### 5.4 BrAPI v2 (`apps/brapi/`)

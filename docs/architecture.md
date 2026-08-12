@@ -66,6 +66,7 @@ The following capabilities are implemented:
 | pytest + pytest-django | Unit and integration tests |
 | black, isort, flake8 | Formatting and linting |
 | python-decouple | Environment configuration |
+| pandas / statsmodels | Phenotypic data processing and heritability modeling |
 | **Vite + React 18 + TypeScript** | **Custom browser frontend SPA** |
 | **React Query + Zustand + Recharts** | **Frontend data, state, and charts** |
 
@@ -192,10 +193,15 @@ profile are treated as viewers. Viewsets can override write roles per action.
 
 `apps/trials/services.py` contains:
 
-- `generate_rcbd_layout`: deterministic RCBD randomization when given a seed.
-- `create_plots_for_trial`: validates preconditions and bulk-creates plots in
-  a transaction.
+- `generate_rcbd_layout`, `generate_alpha_lattice_layout`, `generate_augmented_layout`: deterministic layout randomization generators.
+- `create_plots_for_trial`: validates layout parameters and bulk-creates plots in a transaction.
 - `compute_trial_summary`: calculates per-variable descriptive statistics.
+- `compute_heritability`: fits phenotype G+E mixed models and estimates broad-sense heritability ($H^2$).
+- `compute_cross_environment_ranking`: estimates environment-adjusted mean performance across multiple environments.
+
+`apps/germplasm/services.py` contains:
+
+- `import_germplasm_csv`: transactional bulk CSV germplasm parser and validation engine.
 
 Management commands provide:
 

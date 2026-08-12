@@ -24,7 +24,7 @@ and implement it without reading the others.
 | 10    | ✅ Done       | Alpha-lattice & augmented designs |
 | 11    | ✅ Done       | BrAPI v2 write support            |
 | 12    | ✅ Done       | Observability & ops hardening     |
-| 13    | 🔲 Planned    | Multi-environment trial analysis  |
+| 13    | ✅ Done       | Multi-environment trial analysis  |
 
 
 ---
@@ -1582,12 +1582,12 @@ Add joint analysis across multiple seasons and locations, estimating broad-sense
 
 ### Phase 13 Complete When
 
-- [ ] `AnalysisSet` groups trials.
-- [ ] Broad-sense H² and variance components computed correctly using statsmodels.
-- [ ] Cross-environment line ranking adjusted means returned.
-- [ ] Viewsets, actions, and RBAC integrated.
-- [ ] React Multi-Environment Analysis page created, showing metrics cards, tables, and Recharts bar charts.
-- [ ] All tests pass and schema compiles with 0 errors.
+- [x] `AnalysisSet` groups trials.
+- [x] Broad-sense H² and variance components computed correctly using statsmodels.
+- [x] Cross-environment line ranking adjusted means returned.
+- [x] Viewsets, actions, and RBAC integrated.
+- [x] React Multi-Environment Analysis page created, showing metrics cards, tables, and Recharts bar charts.
+- [x] All tests pass and schema compiles with 0 errors.
 
 ### Effort Estimate
 

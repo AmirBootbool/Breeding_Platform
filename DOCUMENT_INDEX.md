@@ -36,10 +36,15 @@ history.
 | 4 — Feature Completeness & Quality | Complete | Filtering, errors, data exchange, statistics, tests, and FK protection |
 | 5 — Production Readiness | Complete | Deployment stack, BrAPI, observability, backups, and CI |
 | 6 — Documentation & Tech-Debt Cleanup | Complete | Current docs, OpenAPI annotations, ADRs, and history consolidation |
+| 7 — Custom Browser Frontend | Complete | React SPA architecture, routing, navigation, dashboard, and login |
+| 8 — Frontend CRUD Operations | Complete | Interactive Program, Location, Season, and Variable CRUD tables |
+| 9 — Frontend Depth & Bulk Workflows | Complete | Bulk CSV imports, Observation spreadsheet grid, and trait summaries |
+| 10 — Trial Layout Designs | Complete | Alpha-lattice and Augmented layout design algorithms |
+| 11 — BrAPI v2 Write Support | Complete | Multi-role compatible POST and PUT endpoints |
+| 12 — Observability & Ops Hardening | Complete | Metrics, recent changes audit trails, and backup restoration scripts |
+| 13 — Multi-Environment Trial Analysis | Complete | Heritability mixed models (statsmodels) and environment ranking |
 
-The verified Phase 6 baseline is **77 passed and 1 skipped**. The skip is the
-optional Sentry initialization test when the production-only SDK is not
-installed.
+The verified baseline is **113 passed and 1 skipped**. The skip is the optional Sentry initialization test when the production-only SDK is not installed.
 
 ## Reading Paths
 

@@ -16,33 +16,26 @@ a BrAPI v2 compatibility API, and a Django Admin back office.
 The following capabilities are implemented:
 
 - Germplasm registry with self-referencing pedigree links and crossing records.
-- Trial creation and seeded RCBD plot-layout generation.
+- Trial creation and plot-layout generation for RCBD, Alpha-lattice, and Augmented trial layout designs.
+- Bulk CSV germplasm import via browser UI and management commands.
 - Plot lifecycle tracking and data-type-aware phenotypic observations.
-- Per-trial numeric summary statistics: count, mean, minimum, maximum,
-  standard deviation, and coefficient of variation.
-- CSV germplasm import, trial-data export, and Field Book import/export.
-- Token and session authentication with admin, breeder, technician, and viewer
-  roles.
-- Full internal REST API with searching, ordering, field filtering, structured
-  error responses, and throttling.
-- BrAPI v2 compatibility endpoints for server information, studies, germplasm,
-  observations, observation variables, locations, programs, and observation
-  units.
-- OpenAPI 3 schema generation through drf-spectacular, with Swagger UI and
-  ReDoc views.
-- Django Admin, production logging, WhiteNoise static-file serving, Gunicorn,
-  health checks, optional Redis caching and Sentry integration, and PostgreSQL
-  backup guidance.
+- Bulk observation grid with whole-batch rollback in spreadsheet view.
+- Per-trial numeric summary statistics and multi-trait comparison dashboard.
+- created_by/updated_by audit attribution on core models.
+- CSV trial-data export and Field Book import/export.
+- Token and session authentication with admin, breeder, technician, and viewer roles.
+- Full internal REST API with searching, ordering, field filtering, structured error responses, and throttling.
+- BrAPI v2 compatibility endpoints (with write support for germplasm, observations, and plot status).
+- OpenAPI 3 schema generation through drf-spectacular, with Swagger UI and ReDoc views.
+- Django Admin, Prometheus metrics logging, Recent Changes audit UI, production logging, WhiteNoise, Gunicorn, health checks, Redis caching, Sentry integration, and automated backup restore verification.
 - SQLite development and PostgreSQL production database paths.
-- 104 passing tests, plus one optional Sentry test skipped when the production
-  dependency is absent.
+- Broad-sense heritability ($H^2$) mixed linear models and cross-environment line ranking.
+- 113 passing tests, plus one optional Sentry test skipped when the production dependency is absent (114 tests total).
 
 ### 1.3 Out of Scope
 
-- Genomic data storage and analysis.
+- Genomic data storage and analysis (explicitly deferred).
 - Drone or image-based phenotyping.
-- Multi-environment models such as heritability and genotype-by-environment
-  analysis.
 - Multi-institution data federation.
 
 ### 1.4 Design Principles
@@ -103,33 +96,26 @@ ObservationVariable 1:N Observation (PROTECT)
 
 ### 3.2 Core Models
 
-- `Program`: unique name, crop, description, and creation timestamp.
-- `Location`: indexed name, coordinates, country, and region.
-- `Season`: name, indexed year, and program; unique within
-  `(name, program, year)`.
+- `Program`: unique name, crop, description, creation timestamp, and `created_by`/`updated_by` fields.
+- `Location`: indexed name, coordinates, country, region, timestamps, and `created_by`/`updated_by` fields.
+- `Season`: name, indexed year, program (unique within `(name, program, year)`), and `created_by`/`updated_by` fields.
 - `UserProfile`: one-to-one user, role, optional program, and timestamps.
 
 ### 3.3 Germplasm Models
 
-- `Germplasm`: name, unique `germplasm_db_id`, species, program, optional
-  parents, pedigree text, cross type, development year, notes, and timestamps.
-- `Cross`: unique cross code, protected female and male parents, date,
-  optional location, notes, and timestamps. Model validation prevents a record
-  from using the same parent on both sides.
+- `Germplasm`: name, unique `germplasm_db_id`, species, program, optional parents, pedigree text, cross type, development year, notes, timestamps, and `created_by`/`updated_by` fields.
+- `Cross`: unique cross code, protected female and male parents, date, optional location, notes, and timestamps. Model validation prevents a record from using the same parent on both sides.
 
 The automatic germplasm identifier strategy is recorded in
 [ADR-0001](adr/0001-germplasm-identifier-save-strategy.md).
 
 ### 3.4 Trial Models
 
-- `Trial`: unique code, optional BrAPI study ID, program, protected location
-  and season, design type, replication count, dates, notes, and timestamps.
-- `Plot`: trial, protected germplasm, replication/block/position fields,
-  lifecycle status, and a trial-scoped unique plot number.
-- `ObservationVariable`: global trait name and code, unit, type, validation
-  range, required flag, and creation timestamp.
-- `Observation`: plot, protected variable, observation time, typed value
-  fields, notes, and creation timestamp.
+- `Trial`: unique code, optional BrAPI study ID, program, protected location and season, design type, replication count, block size (for alpha-lattice), dates, notes, timestamps, and `created_by`/`updated_by` fields.
+- `Plot`: trial, protected germplasm, replication/block/position fields, lifecycle status, check flag (`is_check`), incomplete block index (for alpha-lattice), and a trial-scoped unique plot number. *(Note: plots deliberately omit `created_by`/`updated_by` to avoid write overhead)*.
+- `ObservationVariable`: global trait name and code, unit, type, validation range, required flag, creation timestamp, and `created_by`/`updated_by` fields.
+- `Observation`: plot, protected variable, observation time, typed value fields, notes, and creation timestamp. *(Note: observations deliberately omit `created_by`/`updated_by` to avoid write overhead)*.
+- `AnalysisSet`: name, program, description, trials (Many-to-Many), creation timestamp, and `created_by` field. Used to group trials for multi-environment analyses.
 
 Observation validation enforces the selected variable's data type, numeric
 range, and whole-number requirement. The decision to keep traits global is
@@ -154,13 +140,18 @@ for the health check and schema documentation.
 | `/api/seasons/` | Season CRUD |
 | `/api/user-profiles/` | Profile and role CRUD |
 | `/api/germplasm/` | Germplasm CRUD |
+| `/api/germplasm/bulk_import/` | Bulk CSV germplasm import |
 | `/api/crosses/` | Cross CRUD |
 | `/api/trials/` | Trial CRUD |
-| `/api/trials/{id}/create_plots/` | Generate an RCBD layout |
+| `/api/trials/{id}/create_plots/` | Generate plot layouts (RCBD/alpha-lattice/augmented) |
 | `/api/trials/{id}/summary/` | Per-trait numeric statistics |
 | `/api/plots/` | Plot CRUD |
 | `/api/observation-variables/` | Trait vocabulary CRUD |
 | `/api/observations/` | Observation CRUD |
+| `/api/observations/bulk_create/` | Bulk observation spreadsheet grid submission |
+| `/api/analysis-sets/` | Analysis set CRUD |
+| `/api/analysis-sets/{id}/heritability/` | Broad-sense heritability estimation |
+| `/api/analysis-sets/{id}/ranking/` | Genotype adjusted mean ranking (BLUEs/BLUPs) |
 
 List viewsets support `DjangoFilterBackend`, `SearchFilter`, and
 `OrderingFilter`, with a default page size of 100.
@@ -278,22 +269,24 @@ configured.
 
 ## 9. Testing
 
-The verified 2026-08-01 baseline is **104 passed and 1 skipped**. The skipped
+The verified baseline is **113 passed and 1 skipped**. The skipped
 test exercises optional Sentry initialization and runs when the production
 Sentry dependency is installed.
 
 | Area | Collected tests |
 |---|---:|
-| Core, germplasm, and trials model/service tests | 24 |
+| Core, germplasm, and trials model/service tests | 26 |
 | Admin | 4 |
-| Internal API CRUD and RBAC | 19 |
+| Internal API CRUD and RBAC | 22 |
 | Filtering | 8 |
 | BrAPI (read & write) and health check | 21 |
 | Exception handling | 3 |
 | OpenAPI, throttling, and caching hardening | 5 |
 | Management commands | 7 |
-| Optional Sentry integration | 2 |
-| **Total** | **104** |
+| Bulk germplasm import / observation grid | 8 |
+| Metrics, audit log, and Sentry integration | 7 |
+| Analysis sets, heritability, and ranking | 3 |
+| **Total** | **114** |
 
 Run:
 

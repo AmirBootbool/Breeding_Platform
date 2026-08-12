@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/trials',       label: 'Trials',            icon: '🧪',  roles: null },
   { to: '/observations', label: 'Observation Entry', icon: '✏️', roles: null },
   { to: '/export',       label: 'Data Export',       icon: '⬇',  roles: null },
+  { to: '/analysis',     label: 'Multi-Env Analysis',icon: '📈',  roles: new Set(['admin', 'breeder']) },
   { to: '/setup',        label: 'Setup',             icon: '⚙',  roles: new Set(['admin', 'breeder']) },
 ]
 

@@ -11,14 +11,20 @@ from django.http import StreamingHttpResponse
 
 from apps.core.permissions import RoleBasedPermission
 
-from .models import Observation, ObservationVariable, Plot, Trial
+from .models import AnalysisSet, Observation, ObservationVariable, Plot, Trial
 from .serializers import (
+    AnalysisSetSerializer,
     ObservationSerializer,
     ObservationVariableSerializer,
     PlotSerializer,
     TrialSerializer,
 )
-from .services import compute_trial_summary, create_plots_for_trial
+from .services import (
+    compute_cross_environment_ranking,
+    compute_heritability,
+    compute_trial_summary,
+    create_plots_for_trial,
+)
 
 
 class TrialViewSet(viewsets.ModelViewSet):
@@ -75,9 +81,9 @@ class TrialViewSet(viewsets.ModelViewSet):
         if check_germplasm_ids is not None:
             if not isinstance(check_germplasm_ids, (list, tuple)):
                 check_germplasm_ids = [check_germplasm_ids]
-            check_entries = list(trial.program.germplasm.filter(
-                id__in=check_germplasm_ids
-            ))
+            check_entries = list(
+                trial.program.germplasm.filter(id__in=check_germplasm_ids)
+            )
 
         created = create_plots_for_trial(
             trial, germplasm_qs, seed=seed, check_entries=check_entries
@@ -251,8 +257,9 @@ class ObservationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk_create")
     def bulk_create(self, request):
-        from django.core.exceptions import ValidationError as DjangoValidationError
         from rest_framework.exceptions import ValidationError as DRFValidationError
+
+        from django.core.exceptions import ValidationError as DjangoValidationError
 
         rows = request.data.get("observations", [])
         created = []
@@ -266,7 +273,11 @@ class ObservationViewSet(viewsets.ModelViewSet):
                         serializer.save()
                         created.append(serializer.data)
                     except (DjangoValidationError, DRFValidationError) as exc:
-                        detail = exc.message_dict if hasattr(exc, "message_dict") else str(exc)
+                        detail = (
+                            exc.message_dict
+                            if hasattr(exc, "message_dict")
+                            else str(exc)
+                        )
                         errors.append({"index": i, "detail": detail})
                 else:
                     errors.append({"index": i, "detail": serializer.errors})
@@ -275,4 +286,48 @@ class ObservationViewSet(viewsets.ModelViewSet):
                 transaction.set_rollback(True)
 
         status_code = 201 if not errors else 400
-        return Response({"created": created if not errors else [], "errors": errors}, status=status_code)
+        return Response(
+            {"created": created if not errors else [], "errors": errors},
+            status=status_code,
+        )
+
+
+class AnalysisSetViewSet(viewsets.ModelViewSet):
+    serializer_class = AnalysisSetSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder"}
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+    def get_queryset(self):
+        return (
+            AnalysisSet.objects.select_related("program", "created_by")
+            .prefetch_related("trials")
+            .order_by("name")
+        )
+
+    @action(detail=True, methods=["get"], url_path="heritability")
+    def heritability(self, request, pk=None):
+        from django.shortcuts import get_object_or_404
+
+        analysis_set = self.get_object()
+        variable_id = request.query_params.get("variable")
+        if not variable_id:
+            return Response({"detail": "variable query param is required."}, status=400)
+        variable = get_object_or_404(ObservationVariable, pk=variable_id)
+        return Response(compute_heritability(analysis_set, variable))
+
+    @action(detail=True, methods=["get"], url_path="ranking")
+    def ranking(self, request, pk=None):
+        from django.shortcuts import get_object_or_404
+
+        analysis_set = self.get_object()
+        variable_id = request.query_params.get("variable")
+        if not variable_id:
+            return Response({"detail": "variable query param is required."}, status=400)
+        variable = get_object_or_404(ObservationVariable, pk=variable_id)
+        return Response(compute_cross_environment_ranking(analysis_set, variable))

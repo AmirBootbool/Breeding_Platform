@@ -1,6 +1,6 @@
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import viewsets, mixins, status
+from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
 
 from apps.core.models import Location, Program
@@ -11,15 +11,15 @@ from apps.trials.models import Observation, ObservationVariable, Plot, Trial
 from .pagination import BrapiPagination
 from .serializers import (
     BrapiGermplasmSerializer,
+    BrapiGermplasmWriteSerializer,
     BrapiLocationSerializer,
     BrapiObservationSerializer,
     BrapiObservationUnitSerializer,
+    BrapiObservationUnitWriteSerializer,
     BrapiObservationVariableSerializer,
+    BrapiObservationWriteSerializer,
     BrapiProgramSerializer,
     BrapiStudySerializer,
-    BrapiObservationWriteSerializer,
-    BrapiObservationUnitWriteSerializer,
-    BrapiGermplasmWriteSerializer,
 )
 
 
@@ -80,7 +80,9 @@ class BrapiGermplasmViewSet(mixins.CreateModelMixin, BrapiModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
-        read_serializer = BrapiGermplasmSerializer(instance, context=self.get_serializer_context())
+        read_serializer = BrapiGermplasmSerializer(
+            instance, context=self.get_serializer_context()
+        )
         return Response(
             {
                 "metadata": {"pagination": None, "status": [], "datafiles": []},
@@ -107,7 +109,9 @@ class BrapiGermplasmViewSet(mixins.CreateModelMixin, BrapiModelViewSet):
         return queryset
 
 
-class BrapiObservationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, BrapiModelViewSet):
+class BrapiObservationViewSet(
+    mixins.CreateModelMixin, mixins.UpdateModelMixin, BrapiModelViewSet
+):
     serializer_class = BrapiObservationSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder", "technician"}
@@ -123,10 +127,14 @@ class BrapiObservationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, 
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         if many:
-            read_serializer = BrapiObservationSerializer(instance, many=True, context=self.get_serializer_context())
+            read_serializer = BrapiObservationSerializer(
+                instance, many=True, context=self.get_serializer_context()
+            )
             result_data = {"data": read_serializer.data}
         else:
-            read_serializer = BrapiObservationSerializer(instance, context=self.get_serializer_context())
+            read_serializer = BrapiObservationSerializer(
+                instance, context=self.get_serializer_context()
+            )
             result_data = read_serializer.data
 
         return Response(
@@ -143,7 +151,9 @@ class BrapiObservationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        read_serializer = BrapiObservationSerializer(instance, context=self.get_serializer_context())
+        read_serializer = BrapiObservationSerializer(
+            instance, context=self.get_serializer_context()
+        )
         return Response(
             {
                 "metadata": {"pagination": None, "status": [], "datafiles": []},
@@ -328,7 +338,9 @@ class BrapiObservationUnitViewSet(mixins.UpdateModelMixin, BrapiModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        read_serializer = BrapiObservationUnitSerializer(instance, context=self.get_serializer_context())
+        read_serializer = BrapiObservationUnitSerializer(
+            instance, context=self.get_serializer_context()
+        )
         return Response(
             {
                 "metadata": {"pagination": None, "status": [], "datafiles": []},

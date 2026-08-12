@@ -266,3 +266,52 @@ def test_trial_alpha_lattice_validation():
         block_size=3,
     )
     t3.clean()  # Should not raise validation error
+
+
+from apps.trials.models import AnalysisSet
+from apps.trials.services import validate_analysis_set_coverage
+
+
+@pytest.mark.django_db
+def test_analysis_set_creation_and_coverage():
+    program = Program.objects.create(name="Trial Program")
+    loc1 = Location.objects.create(name="Loc1")
+    loc2 = Location.objects.create(name="Loc2")
+    season1 = Season.objects.create(name="2024", year=2024, program=program)
+    season2 = Season.objects.create(name="2025", year=2025, program=program)
+
+    t1 = Trial.objects.create(
+        name="Trial 1",
+        trial_code="TR1",
+        program=program,
+        location=loc1,
+        season=season1,
+        design_type="RCBD",
+        num_reps=2,
+    )
+    t2 = Trial.objects.create(
+        name="Trial 2",
+        trial_code="TR2",
+        program=program,
+        location=loc2,
+        season=season2,
+        design_type="RCBD",
+        num_reps=2,
+    )
+
+    analysis_set = AnalysisSet.objects.create(
+        name="Multi-Env Yield Set",
+        program=program,
+        description="A test analysis set",
+    )
+    analysis_set.trials.add(t1)
+
+    # Only 1 environment coverage check
+    warning = validate_analysis_set_coverage(analysis_set)
+    assert warning is not None
+    assert "spans only one season/location combination" in warning
+
+    # Add second trial to gain 2 environments
+    analysis_set.trials.add(t2)
+    warning = validate_analysis_set_coverage(analysis_set)
+    assert warning is None

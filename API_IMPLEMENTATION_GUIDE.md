@@ -1,6 +1,6 @@
 # Wheat Breeding Platform — API Reference
 
-> **Last updated:** July 20 2026
+> **Last updated:** July 31 2026
 > This document describes the REST API as currently implemented.
 
 ---
@@ -278,19 +278,78 @@ Uses `select_related` for related lookups.
 
 ### 5.4 BrAPI v2 (`apps/brapi/`)
 
-The authenticated, read-only BrAPI compatibility API is rooted at
-`/brapi/v2/`. It provides `serverinfo`, `studies`, `germplasm`,
-`observations`, `observationvariables`/`variables`, `locations`, `programs`,
-and `observationunits`. Responses use BrAPI camelCase fields and
+The authenticated BrAPI compatibility API is rooted at `/brapi/v2/`. It
+provides `serverinfo`, `studies`, `germplasm`, `observations`,
+`observationvariables`/`variables`, `locations`, `programs`, and
+`observationunits`. Responses use BrAPI camelCase fields and
 `metadata`/`result` envelopes.
+
+Most resources remain **read-only**. Three resources now also accept
+writes, authenticated and role-checked exactly like their internal-API
+equivalents — a BrAPI client is just another authenticated caller, not a
+separate permission tier:
+
+| Resource | Read | Write | Write roles |
+|---|---|---|---|
+| `germplasm` | Yes | `POST` (create) | `admin`, `breeder` — matches internal `Germplasm` write roles |
+| `observations` | Yes | `POST` (create), `PUT` (update) | `admin`, `breeder`, `technician` — matches internal `Observation` write roles |
+| `observationunits` | Yes | `PUT` (status/notes only) | `admin`, `breeder`, `technician` for status/notes updates, matching internal `Plot` update roles |
+| `studies`, `observationvariables`/`variables`, `locations`, `programs`, `serverinfo` | Yes | No | — |
+
+**`observationunits` write is deliberately restricted to status and notes.**
+Plot layout fields (replication, block, position, germplasm assignment) are
+not writeable via BrAPI — a request that attempts to modify
+`observationUnitPosition` is rejected with a 400. Layout is governed by the
+trial's plot-generation service (RCBD, alpha-lattice, or augmented) and
+changing it outside that service would bypass the design's integrity.
+Use the internal API for layout changes.
+
+**Example — create an observation via BrAPI:**
+
+```bash
+curl -X POST http://localhost:8000/brapi/v2/observations \
+  -H "Authorization: Token abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "observationUnitDbId": 42,
+    "observationVariableDbId": 3,
+    "value": "8.5",
+    "observationTimeStamp": "2026-07-01T09:00:00Z"
+  }'
+```
+
+**Example — attempt to modify plot layout (rejected):**
+
+```bash
+curl -X PUT http://localhost:8000/brapi/v2/observationunits/42 \
+  -H "Authorization: Token abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"observationUnitPosition": {"positionCoordinateX": "3"}}'
+# 400 — plot layout cannot be modified via BrAPI
+```
+
+### 5.5 Metrics (`/api/metrics/`)
+
+A public, unauthenticated endpoint (like `/api/health/`) exposing
+Prometheus-format text metrics: standard HTTP request/latency
+instrumentation, database query counts, and three domain gauges
+(`wbp_germplasm_total`, `wbp_trials_active_total`,
+`wbp_observations_total`). This is an operations/monitoring endpoint, not
+part of the domain CRUD API — see
+[docs/deployment.md](docs/deployment.md) §5 for the full metric list and
+an example Prometheus scrape configuration.
+
+```bash
+curl http://localhost:8000/api/metrics/
+```
 
 ---
 
 ## 6. Filtering, Searching, and Ordering
 
-Internal API viewsets expose configured field filters through
-`DjangoFilterBackend` as well as `search_fields` and `ordering_fields` through
-DRF's `SearchFilter` and `OrderingFilter`. Append query parameters:
+*   Internal API viewsets expose configured field filters through
+    `DjangoFilterBackend` as well as `search_fields` and `ordering_fields` through
+    DRF's `SearchFilter` and `OrderingFilter`. Append query parameters:
 
 ```bash
 # Search programs by name
@@ -352,7 +411,11 @@ The following capabilities are not currently implemented:
 
 | Feature | Status |
 |---|---|
-| Custom browser/mobile frontend | Django Admin is the current UI |
-| BrAPI writes | BrAPI endpoints are read-only |
+| BrAPI writes beyond germplasm/observations/observation-unit status | `studies`, `observationvariables`/`variables`, `locations`, `programs`, and `serverinfo` remain read-only; plot layout is not writeable via BrAPI on any resource |
 | Advanced design generation | Only RCBD generation is implemented |
 | Advanced multi-environment/genomic analysis | Outside the current scope |
+
+A custom browser frontend (Vite + React + TypeScript) is implemented and
+described in [docs/architecture.md](docs/architecture.md) — it is no longer
+a boundary. Django Admin remains available as a secondary back office
+interface alongside it.

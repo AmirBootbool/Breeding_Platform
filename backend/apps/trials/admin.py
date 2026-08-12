@@ -3,7 +3,7 @@ import csv
 from django.contrib import admin
 from django.http import HttpResponse
 
-from .models import Observation, ObservationVariable, Plot, Trial
+from .models import AnalysisSet, Observation, ObservationVariable, Plot, Trial
 
 
 class PlotInline(admin.TabularInline):
@@ -128,3 +128,12 @@ class ObservationAdmin(admin.ModelAdmin):
         "variable__name",
     ]
     raw_id_fields = ["plot", "variable"]
+
+
+@admin.register(AnalysisSet)
+class AnalysisSetAdmin(admin.ModelAdmin):
+    list_display = ["name", "program", "created_by", "created_at"]
+    search_fields = ["name", "description"]
+    list_filter = ["program", "created_at"]
+    raw_id_fields = ["program", "created_by"]
+    filter_horizontal = ["trials"]

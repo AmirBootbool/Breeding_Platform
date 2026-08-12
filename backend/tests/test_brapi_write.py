@@ -1,7 +1,8 @@
 import pytest
 from rest_framework import status
-from apps.trials.models import Observation, Plot, ObservationVariable
+
 from apps.germplasm.models import Germplasm
+from apps.trials.models import Observation, ObservationVariable, Plot
 
 
 @pytest.fixture
@@ -44,7 +45,9 @@ def test_brapi_observation_create_single(client_for_role, plot, float_variable):
 
 
 @pytest.mark.django_db
-def test_brapi_observation_create_bulk(client_for_role, plot, float_variable, text_variable):
+def test_brapi_observation_create_bulk(
+    client_for_role, plot, float_variable, text_variable
+):
     client = client_for_role("technician")
     payload = [
         {
@@ -56,7 +59,7 @@ def test_brapi_observation_create_bulk(client_for_role, plot, float_variable, te
             "observationUnitDbId": str(plot.id),
             "observationVariableDbId": str(text_variable.id),
             "value": "Excellent growth",
-        }
+        },
     ]
     response = client.post("/brapi/v2/observations", data=payload, format="json")
     assert response.status_code == status.HTTP_201_CREATED
@@ -84,7 +87,9 @@ def test_brapi_observation_update(client_for_role, plot, float_variable):
     payload = {
         "value": "78.9",
     }
-    response = client.put(f"/brapi/v2/observations/{obs.id}", data=payload, format="json")
+    response = client.put(
+        f"/brapi/v2/observations/{obs.id}", data=payload, format="json"
+    )
     assert response.status_code == status.HTTP_200_OK
     assert response.data["result"]["value"] == "78.9"
 
@@ -122,19 +127,19 @@ def test_brapi_observation_unit_update(client_for_role, plot):
     assert plot.status == "planned"
 
     # Via observationUnitState
-    payload = {
-        "observationUnitState": "planted"
-    }
-    response = client.put(f"/brapi/v2/observationunits/{plot.id}", data=payload, format="json")
+    payload = {"observationUnitState": "planted"}
+    response = client.put(
+        f"/brapi/v2/observationunits/{plot.id}", data=payload, format="json"
+    )
     assert response.status_code == status.HTTP_200_OK
     plot.refresh_from_db()
     assert plot.status == "planted"
 
     # Via additionalInfo status
-    payload = {
-        "additionalInfo": {"status": "harvested"}
-    }
-    response = client.put(f"/brapi/v2/observationunits/{plot.id}", data=payload, format="json")
+    payload = {"additionalInfo": {"status": "harvested"}}
+    response = client.put(
+        f"/brapi/v2/observationunits/{plot.id}", data=payload, format="json"
+    )
     assert response.status_code == status.HTTP_200_OK
     plot.refresh_from_db()
     assert plot.status == "harvested"
@@ -143,12 +148,10 @@ def test_brapi_observation_unit_update(client_for_role, plot):
 @pytest.mark.django_db
 def test_brapi_observation_unit_rejects_layout(client_for_role, plot):
     client = client_for_role("breeder")
-    payload = {
-        "observationUnitPosition": {
-            "rowNumber": "5"
-        }
-    }
-    response = client.put(f"/brapi/v2/observationunits/{plot.id}", data=payload, format="json")
+    payload = {"observationUnitPosition": {"rowNumber": "5"}}
+    response = client.put(
+        f"/brapi/v2/observationunits/{plot.id}", data=payload, format="json"
+    )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
@@ -180,24 +183,31 @@ def test_brapi_rbac_viewer_blocked(client_for_role, plot, float_variable, progra
     client = client_for_role("viewer")
 
     # Blocked on observation create
-    response = client.post("/brapi/v2/observations", data={
-        "observationUnitDbId": str(plot.id),
-        "observationVariableDbId": str(float_variable.id),
-        "value": "5.0"
-    })
+    response = client.post(
+        "/brapi/v2/observations",
+        data={
+            "observationUnitDbId": str(plot.id),
+            "observationVariableDbId": str(float_variable.id),
+            "value": "5.0",
+        },
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
     # Blocked on plot status update
-    response = client.put(f"/brapi/v2/observationunits/{plot.id}", data={
-        "observationUnitState": "planted"
-    })
+    response = client.put(
+        f"/brapi/v2/observationunits/{plot.id}",
+        data={"observationUnitState": "planted"},
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
     # Blocked on germplasm create
-    response = client.post("/brapi/v2/germplasm", data={
-        "germplasmName": "Attila BrAPI",
-        "programDbId": str(program.id),
-    })
+    response = client.post(
+        "/brapi/v2/germplasm",
+        data={
+            "germplasmName": "Attila BrAPI",
+            "programDbId": str(program.id),
+        },
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -205,8 +215,11 @@ def test_brapi_rbac_viewer_blocked(client_for_role, plot, float_variable, progra
 def test_brapi_rbac_technician_germplasm_blocked(client_for_role, program):
     # Technicians are blocked on germplasm creations
     client = client_for_role("technician")
-    response = client.post("/brapi/v2/germplasm", data={
-        "germplasmName": "Attila BrAPI",
-        "programDbId": str(program.id),
-    })
+    response = client.post(
+        "/brapi/v2/germplasm",
+        data={
+            "germplasmName": "Attila BrAPI",
+            "programDbId": str(program.id),
+        },
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN

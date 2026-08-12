@@ -8,6 +8,7 @@ import TrialManager from './pages/TrialManager'
 import ObservationEntry from './pages/ObservationEntry'
 import DataExport from './pages/DataExport'
 import Setup from './pages/Setup'
+import MultiEnvironmentAnalysis from './pages/MultiEnvironmentAnalysis'
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
@@ -23,6 +24,7 @@ function ProtectedLayout() {
           <Route path="/observations" element={<ObservationEntry />} />
           <Route path="/export"       element={<DataExport />} />
           <Route path="/setup"        element={<Setup />} />
+          <Route path="/analysis"     element={<MultiEnvironmentAnalysis />} />
           <Route path="*"             element={<Navigate to="/" replace />} />
         </Routes>
       </div>

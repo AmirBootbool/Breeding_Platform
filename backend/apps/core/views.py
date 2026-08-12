@@ -1,15 +1,17 @@
-from django.utils import timezone
-from rest_framework import serializers
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.decorators import api_view, permission_classes
-from drf_spectacular.utils import extend_schema
 from django_prometheus.exports import ExportToDjangoView
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from apps.core.models import Program, Location, Season
+from django.utils import timezone
+
+from apps.core.models import Location, Program, Season
 from apps.germplasm.models import Germplasm
-from apps.trials.models import Trial, ObservationVariable
+from apps.trials.models import ObservationVariable, Trial
+
 from .metrics import refresh_domain_gauges
 
 AUDITED_MODELS = [Program, Location, Season, Germplasm, Trial, ObservationVariable]
@@ -38,7 +40,7 @@ class RecentChangesView(APIView):
 
     @extend_schema(
         responses={200: AuditLogEntrySerializer(many=True)},
-        description="Retrieve a consolidated audit trail of recent changes across core models."
+        description="Retrieve a consolidated audit trail of recent changes across core models.",
     )
     def get(self, request):
         # Enforce admin role check explicitly
@@ -47,7 +49,7 @@ class RecentChangesView(APIView):
         if not is_admin:
             return Response(
                 {"detail": "You do not have permission to perform this action."},
-                status=403
+                status=403,
             )
 
         limit = int(request.query_params.get("limit", 50))
@@ -75,19 +77,33 @@ class RecentChangesView(APIView):
             for obj in qs:
                 created_at_val = getattr(obj, "created_at", None)
                 updated_at_val = getattr(obj, "updated_at", None) or created_at_val
-                entries.append({
-                    "model": model.__name__,
-                    "id": obj.pk,
-                    "label": str(obj),
-                    "created_by": getattr(obj.created_by, "username", None) if "created_by" in fields else None,
-                    "updated_by": getattr(obj.updated_by, "username", None) if "updated_by" in fields else None,
-                    "created_at": created_at_val,
-                    "updated_at": updated_at_val,
-                })
+                entries.append(
+                    {
+                        "model": model.__name__,
+                        "id": obj.pk,
+                        "label": str(obj),
+                        "created_by": (
+                            getattr(obj.created_by, "username", None)
+                            if "created_by" in fields
+                            else None
+                        ),
+                        "updated_by": (
+                            getattr(obj.updated_by, "username", None)
+                            if "updated_by" in fields
+                            else None
+                        ),
+                        "created_at": created_at_val,
+                        "updated_at": updated_at_val,
+                    }
+                )
 
         # Sort the consolidated list across all models by updated_at descending, treating None as epoch start
         entries.sort(
-            key=lambda e: e["updated_at"] if e["updated_at"] is not None else timezone.now().replace(year=1970),
-            reverse=True
+            key=lambda e: (
+                e["updated_at"]
+                if e["updated_at"] is not None
+                else timezone.now().replace(year=1970)
+            ),
+            reverse=True,
         )
         return Response(entries[:limit])

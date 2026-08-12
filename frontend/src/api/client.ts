@@ -368,3 +368,58 @@ export const audit = {
   recentChanges: (limit = 50) =>
     apiFetch<AuditLogEntry[]>(`/audit/recent_changes/?limit=${limit}`),
 }
+
+// ---- Analysis Sets ----------------------------------------------------------
+
+export interface AnalysisSet {
+  id: number
+  name: string
+  program: number
+  program_name: string
+  trials: number[]
+  trial_details: Trial[]
+  description: string
+  created_at: string
+  created_by_username: string
+}
+
+export interface HeritabilityResponse {
+  h2: number | null
+  variance_genotype: number | null
+  variance_gxe: number | null
+  variance_residual: number | null
+  n_environments: number
+  n_genotypes: number
+  warning: string | null
+}
+
+export interface RankingEntry {
+  germplasm: string
+  adjusted_mean: number
+  raw_mean: number
+  n_observations: number
+  n_environments: number
+  family_group: string | null
+  raw_means_by_env: Record<string, number>
+}
+
+export const analysisSets = {
+  list: () =>
+    apiFetch<PaginatedResponse<AnalysisSet>>('/analysis-sets/?page_size=100'),
+  create: (data: Partial<AnalysisSet>) =>
+    apiFetch<AnalysisSet>('/analysis-sets/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<AnalysisSet>) =>
+    apiFetch<AnalysisSet>(`/analysis-sets/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  destroy: (id: number) =>
+    apiFetch<void>(`/analysis-sets/${id}/`, { method: 'DELETE' }),
+  getHeritability: (id: number, variableId: number) =>
+    apiFetch<HeritabilityResponse>(`/analysis-sets/${id}/heritability/?variable=${variableId}`),
+  getRanking: (id: number, variableId: number) =>
+    apiFetch<RankingEntry[]>(`/analysis-sets/${id}/ranking/?variable=${variableId}`),
+}

@@ -46,6 +46,7 @@ class GermplasmViewSet(viewsets.ModelViewSet):
             )
 
         from django.core.exceptions import ValidationError
+
         from apps.germplasm.services import import_germplasm_csv
 
         try:
@@ -58,7 +59,7 @@ class GermplasmViewSet(viewsets.ModelViewSet):
             )
 
         status_code = 201 if not result["errors"] else 400
-        
+
         response_data = result.copy()
         if dry_run or result["errors"]:
             response_data["created"] = 0

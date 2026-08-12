@@ -1,12 +1,7 @@
-import csv
 import os
 
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
-
-from apps.core.models import Program
-from apps.germplasm.models import Germplasm
 
 
 class Command(BaseCommand):
@@ -34,7 +29,7 @@ class Command(BaseCommand):
 
         try:
             from apps.germplasm.services import import_germplasm_csv
-            
+
             with open(csv_file_path, "rb") as f:
                 result = import_germplasm_csv(f, program_name, dry_run=dry_run)
         except ValidationError as ve:
@@ -48,7 +43,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Created: {result['created']}")
         self.stdout.write(f"Skipped (Duplicate): {result['skipped']}")
         self.stdout.write(f"Errors: {len(result['errors'])}")
-        
+
         for err in result["errors"]:
             self.stderr.write(f"Row {err['row']}: {err['detail']}")
 

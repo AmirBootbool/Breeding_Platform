@@ -1,9 +1,10 @@
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
 from apps.core.serializers import AuditSerializerMixin
 
-from .models import Observation, ObservationVariable, Plot, Trial
+from .models import AnalysisSet, Observation, ObservationVariable, Plot, Trial
 
 
 class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
@@ -50,8 +51,14 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        design_type = attrs.get("design_type", getattr(self.instance, "design_type", "RCBD") if self.instance else "RCBD")
-        block_size = attrs.get("block_size", getattr(self.instance, "block_size", None) if self.instance else None)
+        design_type = attrs.get(
+            "design_type",
+            getattr(self.instance, "design_type", "RCBD") if self.instance else "RCBD",
+        )
+        block_size = attrs.get(
+            "block_size",
+            getattr(self.instance, "block_size", None) if self.instance else None,
+        )
         if design_type == "alpha_lattice":
             if block_size is None:
                 raise serializers.ValidationError(
@@ -110,7 +117,13 @@ class ObservationVariableSerializer(AuditSerializerMixin, serializers.ModelSeria
             "created_by_username",
             "updated_by_username",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by_username", "updated_by_username"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by_username",
+            "updated_by_username",
+        ]
 
 
 class ObservationSerializer(serializers.ModelSerializer):
@@ -140,4 +153,33 @@ class ObservationSerializer(serializers.ModelSerializer):
             "germplasm_name",
             "variable_name",
             "created_at",
+        ]
+
+
+class AnalysisSetSerializer(serializers.ModelSerializer):
+    program_name = serializers.CharField(source="program.name", read_only=True)
+    trial_details = TrialSerializer(source="trials", many=True, read_only=True)
+    created_by_username = serializers.CharField(
+        source="created_by.username", read_only=True
+    )
+
+    class Meta:
+        model = AnalysisSet
+        fields = [
+            "id",
+            "name",
+            "program",
+            "program_name",
+            "trials",
+            "trial_details",
+            "description",
+            "created_at",
+            "created_by_username",
+        ]
+        read_only_fields = [
+            "id",
+            "program_name",
+            "trial_details",
+            "created_at",
+            "created_by_username",
         ]

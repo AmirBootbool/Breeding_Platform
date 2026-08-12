@@ -6,23 +6,27 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('trials', '0004_observationvariable_created_by_and_more'),
+        ("trials", "0004_observationvariable_created_by_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='plot',
-            name='incomplete_block',
+            model_name="plot",
+            name="incomplete_block",
             field=models.PositiveIntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='plot',
-            name='is_check',
+            model_name="plot",
+            name="is_check",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='trial',
-            name='block_size',
-            field=models.PositiveIntegerField(blank=True, help_text='Incomplete block size for alpha-lattice designs.', null=True),
+            model_name="trial",
+            name="block_size",
+            field=models.PositiveIntegerField(
+                blank=True,
+                help_text="Incomplete block size for alpha-lattice designs.",
+                null=True,
+            ),
         ),
     ]

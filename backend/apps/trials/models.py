@@ -65,9 +65,7 @@ class Trial(models.Model):
                     {"block_size": "block_size is required for alpha-lattice trials."}
                 )
             if self.block_size < 2:
-                raise ValidationError(
-                    {"block_size": "block_size must be at least 2."}
-                )
+                raise ValidationError({"block_size": "block_size must be at least 2."})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -261,6 +259,7 @@ class Observation(models.Model):
             self.value_date = None
         elif self.variable.data_type == "date":
             from django.utils.dateparse import parse_date
+
             if isinstance(raw_value, str):
                 self.value_date = parse_date(raw_value)
             else:
@@ -271,3 +270,25 @@ class Observation(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class AnalysisSet(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    program = models.ForeignKey(
+        Program, on_delete=models.CASCADE, related_name="analysis_sets"
+    )
+    trials = models.ManyToManyField(Trial, related_name="analysis_sets")
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        # Validation warning logic will be in services.py since trials
+        # are not accessible in clean() for a model instance until it is saved.
+        pass

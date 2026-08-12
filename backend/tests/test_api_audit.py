@@ -1,6 +1,7 @@
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
+
 from django.contrib.auth import get_user_model
 
 from apps.core.models import Program, UserProfile
@@ -14,7 +15,10 @@ def test_audit_endpoint_requires_admin(api_client, client_for_role):
 
     # Unauthenticated
     response = api_client.get(url)
-    assert response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
+    assert response.status_code in [
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_403_FORBIDDEN,
+    ]
 
     # Viewer
     viewer_client = client_for_role("viewer")
@@ -41,7 +45,7 @@ def test_audit_endpoint_requires_admin(api_client, client_for_role):
 def test_audit_endpoint_data_serialization(program):
     admin_user = User.objects.create_user(username="test_admin", password="password123")
     UserProfile.objects.create(user=admin_user, role="admin")
-    
+
     client = APIClient()
     client.force_authenticate(user=admin_user)
 
@@ -67,9 +71,11 @@ def test_audit_endpoint_data_serialization(program):
 
 @pytest.mark.django_db
 def test_audit_endpoint_limit_param():
-    admin_user = User.objects.create_user(username="test_admin_limit", password="password123")
+    admin_user = User.objects.create_user(
+        username="test_admin_limit", password="password123"
+    )
     UserProfile.objects.create(user=admin_user, role="admin")
-    
+
     client = APIClient()
     client.force_authenticate(user=admin_user)
 
@@ -79,7 +85,7 @@ def test_audit_endpoint_limit_param():
             name=f"Program Limit Test {i}",
             crop="Wheat",
             created_by=admin_user,
-            updated_by=admin_user
+            updated_by=admin_user,
         )
 
     url = "/api/audit/recent_changes/"

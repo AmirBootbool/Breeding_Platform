@@ -1,17 +1,23 @@
 import io
+
 import pytest
-from django.contrib.auth.models import User
 from rest_framework.test import APIClient
+
+from django.contrib.auth.models import User
+
 from apps.core.models import Program, UserProfile
 from apps.germplasm.models import Germplasm
+
 
 @pytest.fixture
 def api_client():
     return APIClient()
 
+
 @pytest.fixture
 def test_program():
     return Program.objects.create(name="Bread Wheat", crop="wheat")
+
 
 @pytest.fixture
 def breeder_user(test_program):
@@ -19,11 +25,13 @@ def breeder_user(test_program):
     UserProfile.objects.create(user=user, role="breeder", program=test_program)
     return user
 
+
 @pytest.fixture
 def viewer_user(test_program):
     user = User.objects.create_user(username="viewer_test", password="password")
     UserProfile.objects.create(user=user, role="viewer", program=test_program)
     return user
+
 
 @pytest.mark.django_db
 def test_bulk_import_valid_csv(api_client, breeder_user, test_program):
@@ -40,7 +48,7 @@ def test_bulk_import_valid_csv(api_client, breeder_user, test_program):
     response = api_client.post(
         "/api/germplasm/bulk_import/",
         {"file": file_obj, "program": test_program.name, "dry_run": "false"},
-        format="multipart"
+        format="multipart",
     )
     assert response.status_code == 201
     assert response.data["created"] == 3
@@ -49,6 +57,7 @@ def test_bulk_import_valid_csv(api_client, breeder_user, test_program):
     assert Germplasm.objects.filter(name="BulkLine1", program=test_program).exists()
     assert Germplasm.objects.filter(name="BulkLine2", program=test_program).exists()
     assert Germplasm.objects.filter(name="BulkLine3", program=test_program).exists()
+
 
 @pytest.mark.django_db
 def test_bulk_import_invalid_csv_rollback(api_client, breeder_user, test_program):
@@ -65,7 +74,7 @@ def test_bulk_import_invalid_csv_rollback(api_client, breeder_user, test_program
     response = api_client.post(
         "/api/germplasm/bulk_import/",
         {"file": file_obj, "program": test_program.name, "dry_run": "false"},
-        format="multipart"
+        format="multipart",
     )
     assert response.status_code == 400
     assert response.data["created"] == 0
@@ -74,6 +83,7 @@ def test_bulk_import_invalid_csv_rollback(api_client, breeder_user, test_program
 
     # Transaction rollback check: no germplasm should be saved
     assert not Germplasm.objects.filter(name="BulkLine1").exists()
+
 
 @pytest.mark.django_db
 def test_bulk_import_dry_run(api_client, breeder_user, test_program):
@@ -88,7 +98,7 @@ def test_bulk_import_dry_run(api_client, breeder_user, test_program):
     response = api_client.post(
         "/api/germplasm/bulk_import/",
         {"file": file_obj, "program": test_program.name, "dry_run": "true"},
-        format="multipart"
+        format="multipart",
     )
     assert response.status_code == 201
     assert response.data["created"] == 0
@@ -96,6 +106,7 @@ def test_bulk_import_dry_run(api_client, breeder_user, test_program):
 
     # Verify no records actually created
     assert not Germplasm.objects.filter(name="DryRun1").exists()
+
 
 @pytest.mark.django_db
 def test_bulk_import_viewer_denied(api_client, viewer_user, test_program):
@@ -107,6 +118,6 @@ def test_bulk_import_viewer_denied(api_client, viewer_user, test_program):
     response = api_client.post(
         "/api/germplasm/bulk_import/",
         {"file": file_obj, "program": test_program.name},
-        format="multipart"
+        format="multipart",
     )
     assert response.status_code == 403

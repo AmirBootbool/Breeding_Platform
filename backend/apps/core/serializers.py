@@ -22,15 +22,45 @@ class AuditSerializerMixin(serializers.Serializer):
 class ProgramSerializer(AuditSerializerMixin, serializers.ModelSerializer):
     class Meta:
         model = Program
-        fields = ["id", "name", "crop", "description", "created_at", "created_by_username", "updated_by_username"]
-        read_only_fields = ["id", "created_at", "created_by_username", "updated_by_username"]
+        fields = [
+            "id",
+            "name",
+            "crop",
+            "description",
+            "created_at",
+            "created_by_username",
+            "updated_by_username",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "created_by_username",
+            "updated_by_username",
+        ]
 
 
 class LocationSerializer(AuditSerializerMixin, serializers.ModelSerializer):
     class Meta:
         model = Location
-        fields = ["id", "name", "latitude", "longitude", "country", "region", "created_at", "updated_at", "created_by_username", "updated_by_username"]
-        read_only_fields = ["id", "created_at", "updated_at", "created_by_username", "updated_by_username"]
+        fields = [
+            "id",
+            "name",
+            "latitude",
+            "longitude",
+            "country",
+            "region",
+            "created_at",
+            "updated_at",
+            "created_by_username",
+            "updated_by_username",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "created_by_username",
+            "updated_by_username",
+        ]
 
 
 class SeasonSerializer(AuditSerializerMixin, serializers.ModelSerializer):
@@ -38,8 +68,21 @@ class SeasonSerializer(AuditSerializerMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Season
-        fields = ["id", "name", "year", "program", "program_name", "created_by_username", "updated_by_username"]
-        read_only_fields = ["id", "program_name", "created_by_username", "updated_by_username"]
+        fields = [
+            "id",
+            "name",
+            "year",
+            "program",
+            "program_name",
+            "created_by_username",
+            "updated_by_username",
+        ]
+        read_only_fields = [
+            "id",
+            "program_name",
+            "created_by_username",
+            "updated_by_username",
+        ]
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

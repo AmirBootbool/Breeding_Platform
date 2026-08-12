@@ -1,15 +1,19 @@
 import os
+
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from django.contrib.auth import get_user_model
-from apps.core.models import Program, Location, Season, UserProfile
-from apps.germplasm.models import Germplasm, Cross
-from apps.trials.models import Trial, Plot, ObservationVariable, Observation
-from django.utils import timezone
 import datetime
+
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+
+from apps.core.models import Location, Program, Season, UserProfile
+from apps.germplasm.models import Cross, Germplasm
+from apps.trials.models import Observation, ObservationVariable, Plot, Trial
+
 
 def seed():
     print("Seeding database...")
@@ -17,33 +21,45 @@ def seed():
     # Create Programs
     p1, _ = Program.objects.get_or_create(
         name="Kano Spring Wheat Program",
-        defaults={"crop": "wheat", "description": "Breeding drought-tolerant and heat-tolerant spring wheat varieties for Sub-Saharan Africa."}
+        defaults={
+            "crop": "wheat",
+            "description": "Breeding drought-tolerant and heat-tolerant spring wheat varieties for Sub-Saharan Africa.",
+        },
     )
     p2, _ = Program.objects.get_or_create(
         name="CIMMYT Bread Wheat Program",
-        defaults={"crop": "wheat", "description": "Global bread wheat improvement program focusing on yield potential and rust resistance."}
+        defaults={
+            "crop": "wheat",
+            "description": "Global bread wheat improvement program focusing on yield potential and rust resistance.",
+        },
     )
 
     # Create Locations
     l1, _ = Location.objects.get_or_create(
         name="Kano Station, Nigeria",
-        defaults={"country": "Nigeria", "region": "Kano State", "latitude": 11.98, "longitude": 8.52}
+        defaults={
+            "country": "Nigeria",
+            "region": "Kano State",
+            "latitude": 11.98,
+            "longitude": 8.52,
+        },
     )
     l2, _ = Location.objects.get_or_create(
         name="Mexicali Station, Mexico",
-        defaults={"country": "Mexico", "region": "Baja California", "latitude": 32.62, "longitude": -115.45}
+        defaults={
+            "country": "Mexico",
+            "region": "Baja California",
+            "latitude": 32.62,
+            "longitude": -115.45,
+        },
     )
 
     # Create Seasons
     s1, _ = Season.objects.get_or_create(
-        name="2026 Winter Season",
-        year=2026,
-        program=p1
+        name="2026 Winter Season", year=2026, program=p1
     )
     s2, _ = Season.objects.get_or_create(
-        name="2026 Spring Season",
-        year=2026,
-        program=p2
+        name="2026 Spring Season", year=2026, program=p2
     )
 
     # Create Users
@@ -53,16 +69,15 @@ def seed():
         defaults={
             "is_superuser": True,
             "is_staff": True,
-            "email": "tester@wheatbreed.org"
-        }
+            "email": "tester@wheatbreed.org",
+        },
     )
     if created or not u.check_password("password12345"):
         u.set_password("password12345")
         u.save()
-    
+
     up, _ = UserProfile.objects.get_or_create(
-        user=u,
-        defaults={"role": "admin", "program": p1}
+        user=u, defaults={"role": "admin", "program": p1}
     )
     # Ensure it is admin
     up.role = "admin"
@@ -79,8 +94,8 @@ def seed():
                 "species": "Triticum aestivum",
                 "cross_type": "unknown",
                 "year_developed": 2015,
-                "notes": "Parent line used in historical crosses."
-            }
+                "notes": "Parent line used in historical crosses.",
+            },
         )
         g_parents.append(g)
 
@@ -94,8 +109,8 @@ def seed():
             "parent_female": g_parents[0],
             "parent_male": g_parents[1],
             "pedigree_string": "KAUZ/PASTOR",
-            "notes": "High yield potential line under heat stress."
-        }
+            "notes": "High yield potential line under heat stress.",
+        },
     )
 
     g2, _ = Germplasm.objects.get_or_create(
@@ -108,8 +123,8 @@ def seed():
             "parent_female": g_parents[2],
             "parent_male": g_parents[3],
             "pedigree_string": "ATTILA/PBW343",
-            "notes": "Outstanding resistance to leaf rust."
-        }
+            "notes": "Outstanding resistance to leaf rust.",
+        },
     )
 
     g3, _ = Germplasm.objects.get_or_create(
@@ -122,8 +137,8 @@ def seed():
             "parent_female": g1,
             "parent_male": g_parents[0],
             "pedigree_string": "KAN-WHEAT-01*2/KAUZ",
-            "notes": "Backcross progeny with enhanced baking quality traits."
-        }
+            "notes": "Backcross progeny with enhanced baking quality traits.",
+        },
     )
 
     # Create Crosses
@@ -134,8 +149,8 @@ def seed():
             "male_parent": g2,
             "cross_date": datetime.date(2026, 1, 15),
             "location": l1,
-            "notes": "Biparental cross targeting combining rust resistance with drought tolerance."
-        }
+            "notes": "Biparental cross targeting combining rust resistance with drought tolerance.",
+        },
     )
 
     # Create Observation Variables
@@ -147,8 +162,8 @@ def seed():
             "data_type": "numeric",
             "min_value": 30.0,
             "max_value": 150.0,
-            "description": "Height from the soil surface to the tip of the spike (excluding awns)."
-        }
+            "description": "Height from the soil surface to the tip of the spike (excluding awns).",
+        },
     )
     v2, _ = ObservationVariable.objects.get_or_create(
         name="Grain yield",
@@ -158,8 +173,8 @@ def seed():
             "data_type": "numeric",
             "min_value": 0.5,
             "max_value": 12.0,
-            "description": "Total grain weight per plot adjusted to t/ha."
-        }
+            "description": "Total grain weight per plot adjusted to t/ha.",
+        },
     )
     v3, _ = ObservationVariable.objects.get_or_create(
         name="Rust severity",
@@ -169,8 +184,8 @@ def seed():
             "data_type": "numeric",
             "min_value": 0.0,
             "max_value": 100.0,
-            "description": "Visual percentage assessment of leaf rust on leaves."
-        }
+            "description": "Visual percentage assessment of leaf rust on leaves.",
+        },
     )
 
     # Create a Trial
@@ -185,8 +200,8 @@ def seed():
             "num_reps": 3,
             "planting_date": datetime.date(2026, 11, 1),
             "harvest_date": datetime.date(2027, 3, 15),
-            "notes": "Standard yield trial testing advanced drought-tolerant spring wheat lines."
-        }
+            "notes": "Standard yield trial testing advanced drought-tolerant spring wheat lines.",
+        },
     )
 
     # Generate plots for the trial
@@ -200,22 +215,12 @@ def seed():
     if not Observation.objects.filter(plot__in=plots_qs).exists():
         print("Seeding observation data...")
         obs_time = timezone.now()
-        
+
         # Plant height values (numeric)
-        ph_values = {
-            g1.id: 85.2,
-            g2.id: 92.4,
-            g3.id: 88.0,
-            g_parents[0].id: 80.5
-        }
+        ph_values = {g1.id: 85.2, g2.id: 92.4, g3.id: 88.0, g_parents[0].id: 80.5}
         # Grain yield values (numeric)
-        gy_values = {
-            g1.id: 4.8,
-            g2.id: 4.2,
-            g3.id: 5.1,
-            g_parents[0].id: 3.5
-        }
-        
+        gy_values = {g1.id: 4.8, g2.id: 4.2, g3.id: 5.1, g_parents[0].id: 3.5}
+
         for plot in plots_qs:
             # Plant height
             val_ph = ph_values.get(plot.germplasm_id, 85.0) + (plot.rep * 1.5 - 3.0)
@@ -224,7 +229,7 @@ def seed():
                 variable=v1,
                 value_numeric=round(val_ph, 1),
                 observation_time=obs_time,
-                notes=f"Measurement in Rep {plot.rep}"
+                notes=f"Measurement in Rep {plot.rep}",
             )
             # Grain yield
             val_gy = gy_values.get(plot.germplasm_id, 4.0) + (plot.rep * 0.2 - 0.4)
@@ -233,10 +238,11 @@ def seed():
                 variable=v2,
                 value_numeric=round(val_gy, 2),
                 observation_time=obs_time,
-                notes=f"Harvest from Rep {plot.rep}"
+                notes=f"Harvest from Rep {plot.rep}",
             )
 
     print("Database successfully seeded!")
+
 
 if __name__ == "__main__":
     seed()

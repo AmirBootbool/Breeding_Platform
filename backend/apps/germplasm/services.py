@@ -50,7 +50,11 @@ def import_germplasm_csv(file_obj, program_name, dry_run=False):
                     program=program,
                     pedigree_string=row.get("pedigree_string", "").strip(),
                     cross_type=row.get("cross_type", "").strip() or "unknown",
-                    year_developed=int(row["year_developed"]) if row.get("year_developed", "").strip() else None,
+                    year_developed=(
+                        int(row["year_developed"])
+                        if row.get("year_developed", "").strip()
+                        else None
+                    ),
                     notes=row.get("notes", "").strip(),
                 )
                 germplasm.full_clean()
@@ -68,3 +72,18 @@ def import_germplasm_csv(file_obj, program_name, dry_run=False):
         "skipped": skipped,
         "errors": errors,
     }
+
+
+def get_family_group(germplasm):
+    """Returns a stable family key based on shared parentage — full-sib
+    if both parents match another germplasm, half-sib if one does.
+    """
+    f = germplasm.parent_female_id
+    m = germplasm.parent_male_id
+    if f and m:
+        return f"full_f{f}_m{m}"
+    elif f:
+        return f"half_female_f{f}"
+    elif m:
+        return f"half_male_m{m}"
+    return f"unrelated_{germplasm.id}"

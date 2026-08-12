@@ -169,7 +169,9 @@ def test_trial_summary_without_observations(auth_client, trial):
 
 
 @pytest.mark.django_db
-def test_export_csv_returns_csv_download(auth_client, trial, plot, observation_variable):
+def test_export_csv_returns_csv_download(
+    auth_client, trial, plot, observation_variable
+):
     from apps.trials.models import Observation
 
     Observation.objects.create(
@@ -218,9 +220,7 @@ def test_trial_summary_multiple_variables(
     Observation.objects.create(
         plot=plot, variable=observation_variable, value_numeric=15.0
     )
-    Observation.objects.create(
-        plot=plot, variable=sec_var, value_numeric=50.0
-    )
+    Observation.objects.create(plot=plot, variable=sec_var, value_numeric=50.0)
 
     response = auth_client.get(f"/api/trials/{trial.id}/summary/")
     assert response.status_code == 200
@@ -249,11 +249,12 @@ def test_trial_audit_fields(client_for_role, program, location, season):
             "design_type": "RCBD",
             "num_reps": 1,
         },
-        format="json"
+        format="json",
     )
     assert response.status_code == 201
 
     from apps.trials.models import Trial
+
     trial_obj = Trial.objects.get(trial_code="TR-AUDIT")
     assert trial_obj.created_by is not None
     assert trial_obj.created_by.username == "breeder_user"
@@ -264,9 +265,7 @@ def test_trial_audit_fields(client_for_role, program, location, season):
     # Update Trial via API
     other_client = client_for_role("breeder", username="other_breeder")
     response_patch = other_client.patch(
-        f"/api/trials/{trial_obj.id}/",
-        {"name": "Audit Trial Updated"},
-        format="json"
+        f"/api/trials/{trial_obj.id}/", {"name": "Audit Trial Updated"}, format="json"
     )
     assert response_patch.status_code == 200
     trial_obj.refresh_from_db()
@@ -322,7 +321,7 @@ def test_create_plots_alpha_lattice(client_for_role, program, location, season):
         season=season,
         design_type="alpha_lattice",
         num_reps=2,
-        block_size=5, # 12 % 5 != 0
+        block_size=5,  # 12 % 5 != 0
     )
     response_fail = client.post(
         f"/api/trials/{trial2.id}/create_plots/",
@@ -345,7 +344,7 @@ def test_create_plots_augmented(client_for_role, program, location, season):
         for i in range(1, 13)
     ]
     germplasm_ids = [g.id for g in germplasms]
-    check_ids = germplasm_ids[:3] # first 3 are checks
+    check_ids = germplasm_ids[:3]  # first 3 are checks
 
     trial = Trial.objects.create(
         name="Aug Trial API",
@@ -367,7 +366,9 @@ def test_create_plots_augmented(client_for_role, program, location, season):
         format="json",
     )
     assert response.status_code == 201
-    assert response.data["created_count"] == 18 # 3 checks * 3 reps + 9 tests = 18 plots
+    assert (
+        response.data["created_count"] == 18
+    )  # 3 checks * 3 reps + 9 tests = 18 plots
     # Check checks count
     checks_marked = [p for p in response.data["plots"] if p["is_check"]]
     assert len(checks_marked) == 9

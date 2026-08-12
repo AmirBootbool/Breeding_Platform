@@ -373,7 +373,9 @@ class BrapiObservationUnitSerializer(serializers.ModelSerializer):
 
 class BrapiObservationWriteSerializer(serializers.Serializer):
     observationUnitDbId = serializers.CharField(source="plot_id", required=False)
-    observationVariableDbId = serializers.CharField(source="variable_id", required=False)
+    observationVariableDbId = serializers.CharField(
+        source="variable_id", required=False
+    )
     value = serializers.CharField(required=False)
     observationTimeStamp = serializers.DateTimeField(
         source="observation_time", required=False, allow_null=True
@@ -400,9 +402,13 @@ class BrapiObservationWriteSerializer(serializers.Serializer):
     def validate(self, attrs):
         if self.instance is None:
             if "plot_id" not in attrs:
-                raise serializers.ValidationError({"observationUnitDbId": "This field is required."})
+                raise serializers.ValidationError(
+                    {"observationUnitDbId": "This field is required."}
+                )
             if "variable_id" not in attrs:
-                raise serializers.ValidationError({"observationVariableDbId": "This field is required."})
+                raise serializers.ValidationError(
+                    {"observationVariableDbId": "This field is required."}
+                )
             if "value" not in attrs:
                 raise serializers.ValidationError({"value": "This field is required."})
 
@@ -417,6 +423,7 @@ class BrapiObservationWriteSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         from django.core.exceptions import ValidationError
+
         variable = validated_data.pop("_variable")
         obs = Observation(
             plot_id=validated_data["plot_id"],
@@ -433,6 +440,7 @@ class BrapiObservationWriteSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         from django.core.exceptions import ValidationError
+
         if "value" in validated_data:
             instance.set_typed_value(validated_data["value"])
         if "observation_time" in validated_data:
@@ -461,6 +469,7 @@ class BrapiObservationUnitWriteSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         from django.core.exceptions import ValidationError
+
         status_val = None
         if "observationUnitState" in validated_data:
             status_val = validated_data["observationUnitState"]
@@ -471,7 +480,9 @@ class BrapiObservationUnitWriteSerializer(serializers.Serializer):
             choices = [c[0] for c in Plot.STATUS_CHOICES]
             if status_val not in choices:
                 raise serializers.ValidationError(
-                    {"observationUnitState": f"Invalid status choice. Must be one of {choices}"}
+                    {
+                        "observationUnitState": f"Invalid status choice. Must be one of {choices}"
+                    }
                 )
             instance.status = status_val
 
@@ -488,7 +499,9 @@ class BrapiGermplasmWriteSerializer(serializers.Serializer):
     accessionNumber = serializers.CharField(required=False)
     germplasmDbId = serializers.CharField(required=False)
     pedigree = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    breedingMethod = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    breedingMethod = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
     yearOfDevelopment = serializers.IntegerField(required=False, allow_null=True)
     programDbId = serializers.CharField()
 
@@ -503,9 +516,13 @@ class BrapiGermplasmWriteSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         from django.core.exceptions import ValidationError
-        germplasm_db_id = validated_data.get("germplasmDbId") or validated_data.get("accessionNumber")
+
+        germplasm_db_id = validated_data.get("germplasmDbId") or validated_data.get(
+            "accessionNumber"
+        )
         if not germplasm_db_id:
             import uuid
+
             germplasm_db_id = f"GERM-{uuid.uuid4().hex[:6].upper()}"
 
         program = Program.objects.get(id=int(validated_data["programDbId"]))

@@ -4,6 +4,214 @@ info:
   version: 1.0.0
   description: API for managing wheat breeding germplasm, trials, and observations.
 paths:
+  /api/analysis-sets/:
+    get:
+      operationId: api_analysis_sets_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAnalysisSetList'
+          description: ''
+    post:
+      operationId: api_analysis_sets_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisSet'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnalysisSet'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnalysisSet'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisSet'
+          description: ''
+  /api/analysis-sets/{id}/:
+    get:
+      operationId: api_analysis_sets_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis set.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisSet'
+          description: ''
+    put:
+      operationId: api_analysis_sets_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis set.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisSet'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnalysisSet'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnalysisSet'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisSet'
+          description: ''
+    patch:
+      operationId: api_analysis_sets_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis set.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAnalysisSet'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAnalysisSet'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAnalysisSet'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisSet'
+          description: ''
+    delete:
+      operationId: api_analysis_sets_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis set.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/analysis-sets/{id}/heritability/:
+    get:
+      operationId: api_analysis_sets_heritability_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis set.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisSet'
+          description: ''
+  /api/analysis-sets/{id}/ranking/:
+    get:
+      operationId: api_analysis_sets_ranking_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this analysis set.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisSet'
+          description: ''
   /api/audit/recent_changes/:
     get:
       operationId: api_audit_recent_changes_list
@@ -2719,6 +2927,47 @@ paths:
           description: ''
 components:
   schemas:
+    AnalysisSet:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        trials:
+          type: array
+          items:
+            type: integer
+        trial_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trial'
+          readOnly: true
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - id
+      - name
+      - program
+      - program_name
+      - trial_details
+      - trials
     AuditLogEntry:
       type: object
       properties:
@@ -3438,6 +3687,29 @@ components:
       - name
       - updated_at
       - updated_by_username
+    PaginatedAnalysisSetList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisSet'
     PaginatedBrapiGermplasmList:
       type: object
       required:
@@ -3829,6 +4101,38 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/UserProfile'
+    PatchedAnalysisSet:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        trials:
+          type: array
+          items:
+            type: integer
+        trial_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trial'
+          readOnly: true
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
     PatchedBrapiObservationUnitWrite:
       type: object
       properties:

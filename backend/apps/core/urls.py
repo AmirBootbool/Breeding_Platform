@@ -1,8 +1,9 @@
-from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .viewsets import LocationViewSet, ProgramViewSet, SeasonViewSet, UserProfileViewSet
+from django.urls import path
+
 from .views import RecentChangesView
+from .viewsets import LocationViewSet, ProgramViewSet, SeasonViewSet, UserProfileViewSet
 
 router = DefaultRouter()
 router.register(r"programs", ProgramViewSet, basename="program")

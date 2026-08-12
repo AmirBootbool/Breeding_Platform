@@ -1,6 +1,7 @@
 from rest_framework.routers import DefaultRouter
 
 from .viewsets import (
+    AnalysisSetViewSet,
     ObservationVariableViewSet,
     ObservationViewSet,
     PlotViewSet,
@@ -14,5 +15,6 @@ router.register(
     r"observation-variables", ObservationVariableViewSet, basename="observationvariable"
 )
 router.register(r"observations", ObservationViewSet, basename="observation")
+router.register(r"analysis-sets", AnalysisSetViewSet, basename="analysisset")
 
 urlpatterns = router.urls

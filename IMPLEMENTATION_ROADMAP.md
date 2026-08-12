@@ -23,7 +23,8 @@ and implement it without reading the others.
 | 9     | ✅ Done       | Frontend depth & bulk workflows   |
 | 10    | ✅ Done       | Alpha-lattice & augmented designs |
 | 11    | ✅ Done       | BrAPI v2 write support            |
-| 12    | 🔲 Planned    | Observability & ops hardening     |
+| 12    | ✅ Done       | Observability & ops hardening     |
+| 13    | 🔲 Planned    | Multi-environment trial analysis  |
 
 
 ---
@@ -1478,13 +1479,13 @@ output is actually restorable.
 
 ### Phase 12 Complete When
 
-- [ ] `/api/metrics/` exposes Prometheus-format HTTP and domain metrics, publicly accessible.
-- [ ] Admins can view a cross-model "recent changes" list in the Setup UI, built from Phase 9's attribution fields.
-- [ ] `scripts/verify_backup.sh` restores the latest backup into a throwaway database and validates row counts.
-- [ ] `deployment.md` documents the metrics endpoint and backup verification workflow.
-- [ ] All existing tests plus new Phase 12 tests pass.
-- [ ] `openapi.yaml` regenerates with 0 errors.
-- [ ] `architecture.md` and `NEXT_PHASE_SUMMARY.md` updated.
+- [x] `/api/metrics/` exposes Prometheus-format HTTP and domain metrics, publicly accessible.
+- [x] Admins can view a cross-model "recent changes" list in the Setup UI, built from Phase 9's attribution fields.
+- [x] `scripts/verify_backup.sh` restores the latest backup into a throwaway database and validates row counts.
+- [x] `deployment.md` documents the metrics endpoint and backup verification workflow.
+- [x] All existing tests plus new Phase 12 tests pass.
+- [x] `openapi.yaml` regenerates with 0 errors.
+- [x] `architecture.md` and `NEXT_PHASE_SUMMARY.md` updated.
 
 ### Effort Estimate
 
@@ -1494,3 +1495,108 @@ output is actually restorable.
 | 12.2 Audit log page | 2–3 h |
 | 12.3 Backup restore verification | 2–3 h |
 | **Phase 12 total** | **~6–9 h** |
+
+---
+
+## Phase 13: Multi-Environment Trial Analysis & Heritability (Phenotype-Only)
+
+### Goal
+
+Add joint analysis across multiple seasons and locations, estimating broad-sense heritability (H²) and environment-adjusted average performance of germplasm using phenotype data + pedigree relations (no genomic/marker dependency).
+
+### Prerequisites
+
+- Phases 1–9 complete.
+- Statsmodels dependency installed.
+
+---
+
+### 13.1 Data Model: Analysis Sets (2–3 hours)
+
+**Goal:** Create `AnalysisSet` to group multiple trials for joint analysis.
+
+**Step-by-step implementation:**
+1. Define `AnalysisSet` model in `apps/trials/models.py` with name, program, trials (M2M), description, created_by, and created_at.
+2. Implement service helper `validate_analysis_set_coverage` in `apps/trials/services.py` warning if set spans < 2 environments.
+3. Register in `apps/trials/admin.py` and run migrations.
+
+---
+
+### 13.2 Heritability & Variance Component Service (4–6 hours)
+
+**Goal:** Fit random-effects mixed linear models (genotype + environment + GxE) on traits to calculate broad-sense heritability:
+`H² = Vg / (Vg + Vgxe/e + Ve/(e*r))`
+
+**Step-by-step implementation:**
+1. Add `statsmodels` to requirements.
+2. Implement `build_observation_dataframe(analysis_set, variable)` returning columns: value, germplasm, environment, replication.
+3. Implement `compute_heritability(analysis_set, variable)` returning `h2` and variance components using `statsmodels.formula.api.smf.mixedlm`.
+
+---
+
+### 13.3 Cross-Environment Line Ranking (2–3 hours)
+
+**Goal:** Rank genotypes based on environment-adjusted means (BLUEs/BLUPs of the genotype effect) from the mixed-model fit.
+
+**Step-by-step implementation:**
+1. Implement `compute_cross_environment_ranking(analysis_set, variable)` returning ranked dicts including adjusted_mean, raw_mean, observation count, and environment coverage.
+
+---
+
+### 13.4 API Endpoints (2 hours)
+
+**Goal:** Expose analysis sets and their statistics.
+
+**Step-by-step implementation:**
+1. Add `AnalysisSetViewSet` to `apps/trials/viewsets.py`.
+2. Add detail actions `heritability` and `ranking` accepting `variable` query parameter.
+3. Wire URL patterns and enforce role-based access control (breeder/admin write, others read).
+
+---
+
+### 13.5 Frontend: Cross-Environment Comparison View (3–4 hours)
+
+**Goal:** Create a multi-environment analysis page in the React frontend.
+
+**Step-by-step implementation:**
+1. Create `frontend/src/pages/MultiEnvironmentAnalysis.tsx` with:
+   - Analysis-set builder and multi-trial selector.
+   - Trait picker.
+   - Heritability bands card (low/moderate/high).
+   - Adjusted ranking data table.
+   - Recharts grouped bar chart displaying GxE performance.
+2. Register page, routes, sidebar entry (Breeder/Admin only for edit, all read).
+
+---
+
+### 13.6 Pedigree-Aware Family Grouping (Optional, 2–3 hours)
+
+**Goal:** Group ranked genotypes by shared parents using pedigree data.
+
+**Step-by-step implementation:**
+1. Add `get_family_group(germplasm)` helper returning full/half-sib keys.
+2. Map keys in line ranking payload.
+3. Frontend toggle to cluster ranking table rows by parentage family group.
+
+---
+
+### Phase 13 Complete When
+
+- [ ] `AnalysisSet` groups trials.
+- [ ] Broad-sense H² and variance components computed correctly using statsmodels.
+- [ ] Cross-environment line ranking adjusted means returned.
+- [ ] Viewsets, actions, and RBAC integrated.
+- [ ] React Multi-Environment Analysis page created, showing metrics cards, tables, and Recharts bar charts.
+- [ ] All tests pass and schema compiles with 0 errors.
+
+### Effort Estimate
+
+| Section | Estimated Hours |
+|---|---:|
+| 13.1 Analysis set data model | 2–3 h |
+| 13.2 Heritability & variance components | 4–6 h |
+| 13.3 Cross-environment ranking | 2–3 h |
+| 13.4 API endpoints | 2 h |
+| 13.5 Frontend comparison view | 3–4 h |
+| 13.6 Pedigree-aware family grouping (optional) | 2–3 h |
+| **Phase 13 total** | **~13–18 h** |

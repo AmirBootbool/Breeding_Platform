@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import SendToTrialModal from '../components/SendToTrialModal'
 
 // ---- Cross type badge -------------------------------------------------------
 function CrossTypeBadge({ type }: { type: string }) {
@@ -41,6 +42,10 @@ function PedigreePanel({ entry }: { entry: Germplasm }) {
       <div className="pedigree-row">
         <span className="pedigree-label">Year</span>
         <span className="text-sm">{entry.year_developed ?? '—'}</span>
+      </div>
+      <div className="pedigree-row">
+        <span className="pedigree-label">Date Added</span>
+        <span className="text-sm">{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '—'}</span>
       </div>
       <div className="divider" />
       <div className="card-title" style={{ marginBottom: 'var(--space-2)' }}>Pedigree</div>
@@ -369,20 +374,29 @@ export default function GermplasmBrowser() {
   const [search, setSearch] = useState('')
   const [crossType, setCrossType] = useState('')
   const [selected, setSelected] = useState<Germplasm | null>(null)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false)
+  const [advancedIds, setAdvancedIds] = useState<number[]>([])
+  const [showAdvanceSuccessPrompt, setShowAdvanceSuccessPrompt] = useState(false)
+  const [showSendToTrialModal, setShowSendToTrialModal] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editEntry, setEditEntry] = useState<Germplasm | null>(null)
   const [deleteEntry, setDeleteEntry] = useState<Germplasm | null>(null)
 
   const params = [
     search ? `&search=${encodeURIComponent(search)}` : '',
     crossType ? `&cross_type=${encodeURIComponent(crossType)}` : '',
+    showArchived ? '&archived=true' : '',
   ].join('')
 
   const qc = useQueryClient()
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['germplasm', search, crossType],
+    queryKey: ['germplasm', search, crossType, showArchived],
     queryFn: () => germplasm.list(params),
     placeholderData: prev => prev,
   })
@@ -407,6 +421,37 @@ export default function GermplasmBrowser() {
     },
   })
 
+  const advanceMutation = useMutation({
+    mutationFn: (vars: { method: string; ssdCount: number }) =>
+      germplasm.advanceGeneration(selectedIds, vars.method, vars.ssdCount),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['germplasm'] })
+      setSelectedIds([])
+      setShowAdvanceModal(false)
+      setAdvancedIds(res.created_ids)
+      setShowAdvanceSuccessPrompt(true)
+    },
+  })
+
+  const bulkArchiveMutation = useMutation({
+    mutationFn: () => germplasm.bulkArchive(selectedIds),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['germplasm'] })
+      setSelectedIds([])
+      setShowArchiveConfirm(false)
+      alert(`Archived ${res.archived_count} accessions.`)
+    },
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: () => germplasm.bulkDelete(selectedIds),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['germplasm'] })
+      setSelectedIds([])
+      setShowDeleteConfirm(false)
+      alert(`Deleted ${res.deleted_count} accessions.`)
+    },
+  })
   const programList = programsData?.results ?? []
   const germplasmList = allGermplasmData?.results ?? []
 
@@ -415,9 +460,22 @@ export default function GermplasmBrowser() {
       <TopBar
         title="Germplasm Browser"
         subtitle={`${data?.count ?? '…'} entries registered`}
-        actions={canWrite ? (
-          <div className="flex gap-2">
-            <button id="bulk-import-btn" className="btn btn-secondary" onClick={() => setShowBulkImport(true)}>
+          actions={canWrite ? (
+            <div className="flex gap-2">
+              {selectedIds.length > 0 && (
+                <>
+                  <button className="btn btn-secondary" onClick={() => setShowArchiveConfirm(true)}>
+                    Archive ({selectedIds.length})
+                  </button>
+                  <button className="btn btn-secondary" style={{ color: 'var(--status-danger)' }} onClick={() => setShowDeleteConfirm(true)}>
+                    Remove ({selectedIds.length})
+                  </button>
+                  <button className="btn btn-primary" onClick={() => setShowAdvanceModal(true)}>
+                    Advance ({selectedIds.length})
+                  </button>
+                </>
+              )}
+              <button id="bulk-import-btn" className="btn btn-secondary" onClick={() => setShowBulkImport(true)}>
               Bulk Import
             </button>
             <button id="add-germplasm-btn" className="btn btn-primary" onClick={() => setShowCreate(true)}>
@@ -448,6 +506,10 @@ export default function GermplasmBrowser() {
           <option value="">All types</option>
           {CROSS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
+        <div className="flex items-center gap-2 text-sm ml-auto">
+          <input type="checkbox" id="show-archived" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />
+          <label htmlFor="show-archived" style={{ marginBottom: 0 }}>Show Archived</label>
+        </div>
         {isFetching && !isLoading && (
           <div className="spinner" style={{ width: 16, height: 16 }} />
         )}
@@ -467,12 +529,20 @@ export default function GermplasmBrowser() {
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 40 }}>
+                      <input 
+                        type="checkbox"
+                        checked={data?.results.length ? selectedIds.length === data.results.length : false}
+                        onChange={e => setSelectedIds(e.target.checked ? data?.results.map(r => r.id) ?? [] : [])}
+                      />
+                    </th>
                     <th>Name</th>
                     <th>ID</th>
                     <th>Species</th>
                     <th>Type</th>
                     <th>Year</th>
                     <th>Program</th>
+                    <th>Date Added</th>
                     {canWrite && <th style={{ width: 80 }}>Actions</th>}
                   </tr>
                 </thead>
@@ -484,12 +554,23 @@ export default function GermplasmBrowser() {
                       style={{ cursor: 'pointer' }}
                       className={selected?.id === entry.id ? 'selected-row' : ''}
                     >
+                      <td onClick={e => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.includes(entry.id)}
+                          onChange={e => {
+                            if (e.target.checked) setSelectedIds(prev => [...prev, entry.id])
+                            else setSelectedIds(prev => prev.filter(id => id !== entry.id))
+                          }}
+                        />
+                      </td>
                       <td><strong>{entry.name}</strong></td>
                       <td className="font-mono text-sm text-muted">{entry.germplasm_db_id}</td>
                       <td className="text-sm text-muted">{entry.species || '—'}</td>
                       <td><CrossTypeBadge type={entry.cross_type} /></td>
                       <td className="text-sm">{entry.year_developed ?? '—'}</td>
                       <td className="text-sm text-muted">{entry.program_name}</td>
+                      <td className="text-sm text-muted">{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '—'}</td>
                       {canWrite && (
                         <td onClick={e => e.stopPropagation()}>
                           <div className="flex gap-2">
@@ -565,6 +646,83 @@ export default function GermplasmBrowser() {
           loading={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate()}
           onCancel={() => setDeleteEntry(null)}
+        />
+      )}
+
+      {/* Bulk Archive Confirm */}
+      {showArchiveConfirm && (
+        <ConfirmDialog
+          message={`Archive ${selectedIds.length} accessions? They will be hidden from default views.`}
+          loading={bulkArchiveMutation.isPending}
+          onConfirm={() => bulkArchiveMutation.mutate()}
+          onCancel={() => setShowArchiveConfirm(false)}
+        />
+      )}
+
+      {/* Bulk Delete Confirm */}
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          message={`Permanently delete ${selectedIds.length} accessions? WARNING: This cannot be undone and will cascade delete all associated plots in trials.`}
+          loading={bulkDeleteMutation.isPending}
+          onConfirm={() => bulkDeleteMutation.mutate()}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+
+      {showAdvanceModal && (
+        <Modal title={`Advance ${selectedIds.length} Lines`} onClose={() => setShowAdvanceModal(false)}>
+          <form onSubmit={e => {
+            e.preventDefault()
+            const fd = new FormData(e.currentTarget)
+            advanceMutation.mutate({ method: fd.get('method') as string, ssdCount: Number(fd.get('ssdCount')) })
+          }}>
+            <div className="form-group">
+              <label className="form-label">Method</label>
+              <select name="method" className="form-input" defaultValue="bulk" onChange={e => {
+                const countInput = document.getElementById('ssd-count-input') as HTMLInputElement
+                if (countInput) countInput.disabled = e.target.value !== 'ssd'
+              }}>
+                <option value="bulk">Bulk (1 progeny per line)</option>
+                <option value="ssd">Single-Seed-Descent (N progeny per line)</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Number of Progeny (for SSD)</label>
+              <input id="ssd-count-input" type="number" name="ssdCount" className="form-input" defaultValue="1" min="1" disabled />
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAdvanceModal(false)} disabled={advanceMutation.isPending}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={advanceMutation.isPending}>
+                {advanceMutation.isPending ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Advancing…</> : 'Advance Generation'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {showAdvanceSuccessPrompt && (
+        <Modal title="Success!" onClose={() => setShowAdvanceSuccessPrompt(false)}>
+          <p>Successfully advanced and created {advancedIds.length} new lines.</p>
+          <div className="modal-footer" style={{ marginTop: 'var(--space-4)' }}>
+            <button className="btn btn-secondary" onClick={() => setShowAdvanceSuccessPrompt(false)}>Close</button>
+            <button className="btn btn-primary" onClick={() => {
+              setShowAdvanceSuccessPrompt(false)
+              setShowSendToTrialModal(true)
+            }}>Send to New Field</button>
+          </div>
+        </Modal>
+      )}
+
+      {showSendToTrialModal && (
+        <SendToTrialModal
+          germplasmIds={advancedIds}
+          onClose={() => setShowSendToTrialModal(false)}
+          onSuccess={(trialId) => {
+            setShowSendToTrialModal(false)
+            window.location.href = `/trials/${trialId}`
+          }}
         />
       )}
     </div>

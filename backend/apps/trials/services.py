@@ -103,6 +103,136 @@ def generate_augmented_layout(
     return layout
 
 
+def generate_prep_layout(
+    entries: Sequence[Germplasm],
+    check_entries: Sequence[Germplasm],
+    prep_fraction: float,
+    seed: int | None = None,
+) -> list[dict]:
+    rng = random.Random(seed)
+    check_set = set(check_entries)
+    test_entries = [e for e in entries if e not in check_set]
+
+    rep1 = list(check_entries) + test_entries
+    rng.shuffle(rep1)
+
+    num_prep = int(round(len(test_entries) * prep_fraction))
+    prep_test_entries = rng.sample(test_entries, num_prep) if test_entries else []
+    rep2 = list(check_entries) + prep_test_entries
+    rng.shuffle(rep2)
+
+    layout = []
+    for position, germplasm in enumerate(rep1, start=1):
+        layout.append({
+            "germplasm": germplasm,
+            "rep": 1,
+            "position": position,
+            "is_check": germplasm in check_set,
+        })
+    for position, germplasm in enumerate(rep2, start=1):
+        layout.append({
+            "germplasm": germplasm,
+            "rep": 2,
+            "position": position,
+            "is_check": germplasm in check_set,
+        })
+    return layout
+
+
+def generate_latin_square_layout(
+    entries: Sequence[Germplasm],
+    seed: int | None = None,
+) -> list[dict]:
+    n = len(entries)
+    if n > 30:
+        raise ValidationError(f"Latin Square max size is 30. Got {n} entries.")
+    
+    rng = random.Random(seed)
+    entries = list(entries)
+    rng.shuffle(entries)
+
+    square = []
+    for i in range(n):
+        row = [entries[(i + j) % n] for j in range(n)]
+        square.append(row)
+    
+    rng.shuffle(square)
+    col_indices = list(range(n))
+    rng.shuffle(col_indices)
+    
+    layout = []
+    position = 1
+    for r in range(n):
+        for c in range(n):
+            germplasm = square[r][col_indices[c]]
+            layout.append({
+                "germplasm": germplasm,
+                "row": r + 1,
+                "column": c + 1,
+                "position": position,
+            })
+            position += 1
+    return layout
+
+
+def generate_augmented_block_layout(
+    entries: Sequence[Germplasm],
+    check_entries: Sequence[Germplasm],
+    block_size: int,
+    seed: int | None = None,
+) -> list[dict]:
+    if block_size < 2:
+        raise ValidationError("block_size must be at least 2.")
+        
+    rng = random.Random(seed)
+    check_set = set(check_entries)
+    test_entries = [e for e in entries if e not in check_set]
+    rng.shuffle(test_entries)
+    
+    blocks = []
+    current_block = []
+    for entry in test_entries:
+        if len(current_block) >= block_size:
+            blocks.append(current_block)
+            current_block = []
+        current_block.append(entry)
+    if current_block:
+        blocks.append(current_block)
+        
+    layout = []
+    position = 1
+    for block_idx, block_test_entries in enumerate(blocks, start=1):
+        block_all = list(check_entries) + block_test_entries
+        rng.shuffle(block_all)
+        for germplasm in block_all:
+            layout.append({
+                "germplasm": germplasm,
+                "incomplete_block": block_idx,
+                "position": position,
+                "is_check": germplasm in check_set,
+            })
+            position += 1
+    return layout
+
+
+def generate_unreplicated_layout(
+    entries: Sequence[Germplasm],
+    seed: int | None = None,
+) -> list[dict]:
+    rng = random.Random(seed)
+    entries = list(entries)
+    rng.shuffle(entries)
+    
+    layout = []
+    for position, germplasm in enumerate(entries, start=1):
+        layout.append({
+            "germplasm": germplasm,
+            "rep": 1,
+            "position": position,
+        })
+    return layout
+
+
 def create_plots_for_trial(
     trial: Trial,
     entries: Sequence[Germplasm],
@@ -176,6 +306,77 @@ def create_plots_for_trial(
                 )
             )
             plot_number += 1
+    elif trial.design_type == "prep":
+        if trial.prep_fraction is None:
+            raise ValidationError(
+                {"prep_fraction": "prep_fraction is required for P-Rep trials."}
+            )
+        checks = list(check_entries) if check_entries else []
+        layout = generate_prep_layout(entries, checks, trial.prep_fraction, seed=seed)
+        plot_number = 1
+        for row in layout:
+            plots_to_create.append(
+                Plot(
+                    trial=trial,
+                    germplasm=row["germplasm"],
+                    rep=row["rep"],
+                    is_check=row["is_check"],
+                    plot_number=plot_number,
+                )
+            )
+            plot_number += 1
+    elif trial.design_type == "latin_square":
+        if trial.num_reps != 1:
+            raise ValidationError(
+                {"num_reps": "Latin Square designs must have num_reps = 1."}
+            )
+        layout = generate_latin_square_layout(entries, seed=seed)
+        plot_number = 1
+        for row in layout:
+            plots_to_create.append(
+                Plot(
+                    trial=trial,
+                    germplasm=row["germplasm"],
+                    rep=1,
+                    row=row["row"],
+                    column=row["column"],
+                    plot_number=plot_number,
+                )
+            )
+            plot_number += 1
+    elif trial.design_type == "augmented_block":
+        if trial.block_size is None:
+            raise ValidationError(
+                {"block_size": "block_size is required for augmented block trials."}
+            )
+        checks = list(check_entries) if check_entries else []
+        layout = generate_augmented_block_layout(entries, checks, trial.block_size, seed=seed)
+        plot_number = 1
+        for row in layout:
+            plots_to_create.append(
+                Plot(
+                    trial=trial,
+                    germplasm=row["germplasm"],
+                    rep=1,
+                    incomplete_block=row["incomplete_block"],
+                    is_check=row["is_check"],
+                    plot_number=plot_number,
+                )
+            )
+            plot_number += 1
+    elif trial.design_type == "unreplicated":
+        layout = generate_unreplicated_layout(entries, seed=seed)
+        plot_number = 1
+        for row in layout:
+            plots_to_create.append(
+                Plot(
+                    trial=trial,
+                    germplasm=row["germplasm"],
+                    rep=row["rep"],
+                    plot_number=plot_number,
+                )
+            )
+            plot_number += 1
     else:
         raise ValidationError(
             {"design_type": f"Unsupported design type: {trial.design_type}"}
@@ -223,6 +424,65 @@ def compute_trial_summary(trial: Trial) -> list[dict]:
             }
         )
     return results
+
+
+def advance_plots(plot_ids: list[int], selections_per_plot: int = 1, selection_method: str = "SSD") -> list[int]:
+    """Advance selected plots to the next generation by creating new Germplasm records."""
+    from .models import Plot
+    from apps.germplasm.models import Germplasm
+    from django.db import transaction
+    from datetime import date
+    import re
+
+    plots = Plot.objects.filter(id__in=plot_ids).select_related("germplasm", "trial__program")
+    if not plots.exists():
+        return []
+
+    created_ids = []
+    current_year = date.today().year
+
+    method_abbr = {
+        "SSD": "SSD",
+        "Single Spike": "SS",
+        "Single Plant": "SP",
+        "Special Bulk": "SB",
+        "Bulk": "BLK",
+    }.get(selection_method, "SEL")
+
+    with transaction.atomic():
+        for plot in plots:
+            base_name = plot.germplasm.name
+            base_pedigree = plot.germplasm.pedigree_string
+            program = plot.trial.program
+            
+            # Remove any trailing generation suffixes like -F2 or -SSD-1 to keep names clean
+            clean_name = re.sub(r'-(F\d+|SSD|SS|SP|SB|BLK)(-\d+)?$', '', base_name)
+            clean_pedigree = re.sub(r'-(F\d+|SSD|SS|SP|SB|BLK)(-\d+)?$', '', base_pedigree) if base_pedigree else ""
+            
+            current_gen = plot.germplasm.generation or 0
+            new_gen = current_gen + 1 if current_gen < 8 else 8
+            
+            gen_suffix = f"-F{new_gen}" if new_gen > 0 else ""
+
+            for i in range(1, selections_per_plot + 1):
+                sel_suffix = f"-{method_abbr}"
+                if selections_per_plot > 1:
+                    sel_suffix = f"-{method_abbr}{i}"
+                
+                full_suffix = f"{gen_suffix}{sel_suffix}"
+                
+                new_germplasm = Germplasm.objects.create(
+                    name=f"{clean_name}{full_suffix}",
+                    pedigree_string=f"{clean_pedigree}{full_suffix}",
+                    program=program,
+                    parent_female=plot.germplasm,
+                    cross_type="self",
+                    generation=new_gen,
+                    year_developed=current_year,
+                )
+                created_ids.append(new_germplasm.id)
+                
+    return created_ids
 
 
 def validate_analysis_set_coverage(analysis_set):
@@ -457,3 +717,186 @@ def compute_cross_environment_ranking(analysis_set, variable):
         )
     ranking.sort(key=lambda r: r["adjusted_mean"], reverse=True)
     return ranking
+
+
+def import_fieldbook_csv(trial: Trial, file_obj, dry_run: bool = False, user=None) -> dict:
+    """Import or update observations for a trial from an uploaded Field Book CSV file.
+
+    Returns dict with imported_count, updated_count, matched_variables, and errors.
+    """
+    import csv
+    import io
+    from django.core.exceptions import ValidationError
+    from django.db import transaction
+    from django.utils import timezone
+    from django.utils.dateparse import parse_date
+
+    from .models import Observation, ObservationVariable, Plot
+
+    if hasattr(file_obj, "read"):
+        raw = file_obj.read()
+        if isinstance(raw, str):
+            text = raw
+        else:
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1")
+        stream = io.StringIO(text)
+    elif isinstance(file_obj, str):
+        stream = io.StringIO(file_obj)
+    else:
+        stream = file_obj
+
+    reader = csv.DictReader(stream)
+    if not reader.fieldnames:
+        raise ValidationError("CSV file is empty or missing headers.")
+
+    plot_id_col = None
+    for col in ["plot_id", "plot", "plot_number", "plotnumber", "Plot"]:
+        if col in reader.fieldnames:
+            plot_id_col = col
+            break
+
+    if not plot_id_col:
+        raise ValidationError(
+            f"CSV is missing plot identifier column (plot_id/plot/plot_number). Found headers: {reader.fieldnames}"
+        )
+
+    # Load all variables and build mapping by name, variable_code, and lowercased keys
+    variables = list(ObservationVariable.objects.all())
+    var_map = {}
+    for var in variables:
+        var_map[var.name] = var
+        var_map[var.name.lower()] = var
+        if var.variable_code:
+            var_map[var.variable_code] = var
+            var_map[var.variable_code.lower()] = var
+
+    matched_cols = {}
+    for col in reader.fieldnames:
+        if col == plot_id_col:
+            continue
+        cleaned_col = col.strip()
+        if cleaned_col in var_map:
+            matched_cols[col] = var_map[cleaned_col]
+        elif cleaned_col.lower() in var_map:
+            matched_cols[col] = var_map[cleaned_col.lower()]
+
+    if not matched_cols:
+        raise ValidationError(
+            f"No matching observation variable columns found in CSV. Found headers: {reader.fieldnames}"
+        )
+
+    # Pre-fetch trial plots into a lookup dict: plot_number -> Plot
+    plots_by_number = {p.plot_number: p for p in Plot.objects.filter(trial=trial)}
+
+    imported_count = 0
+    updated_count = 0
+    errors = []
+
+    with transaction.atomic():
+        for row_idx, row in enumerate(reader, start=2):
+            plot_raw = row.get(plot_id_col, "").strip()
+            if not plot_raw:
+                errors.append({"row": row_idx, "detail": "Missing plot identifier."})
+                continue
+            try:
+                plot_num = int(plot_raw)
+            except ValueError:
+                errors.append(
+                    {"row": row_idx, "detail": f"Invalid plot number '{plot_raw}'."}
+                )
+                continue
+
+            plot = plots_by_number.get(plot_num)
+            if not plot:
+                errors.append(
+                    {
+                        "row": row_idx,
+                        "detail": f"Plot {plot_num} does not exist in trial '{trial.trial_code}'.",
+                    }
+                )
+                continue
+
+            for col_name, var in matched_cols.items():
+                cell_val = row.get(col_name, "").strip()
+                if cell_val == "":
+                    continue
+
+                val_num = None
+                val_text = ""
+                val_date = None
+
+                if var.data_type in ("numeric", "integer"):
+                    try:
+                        val_num = float(cell_val)
+                    except ValueError:
+                        errors.append(
+                            {
+                                "row": row_idx,
+                                "detail": f"Invalid numeric value '{cell_val}' for variable '{var.name}'.",
+                            }
+                        )
+                        continue
+                elif var.data_type == "date":
+                    val_date = parse_date(cell_val)
+                    if not val_date:
+                        errors.append(
+                            {
+                                "row": row_idx,
+                                "detail": f"Invalid date '{cell_val}' for variable '{var.name}' (expect YYYY-MM-DD).",
+                            }
+                        )
+                        continue
+                else:
+                    val_text = cell_val
+
+                obs = Observation.objects.filter(plot=plot, variable=var).first()
+                if obs:
+                    obs.value_numeric = val_num
+                    obs.value_text = val_text
+                    obs.value_date = val_date
+                    obs.observation_time = timezone.now()
+                    is_new = False
+                else:
+                    obs = Observation(
+                        plot=plot,
+                        variable=var,
+                        value_numeric=val_num,
+                        value_text=val_text,
+                        value_date=val_date,
+                        observation_time=timezone.now(),
+                    )
+                    is_new = True
+
+                try:
+                    obs.full_clean()
+                    if not dry_run:
+                        obs.save()
+                    if is_new:
+                        imported_count += 1
+                    else:
+                        updated_count += 1
+                except ValidationError as ve:
+                    detail = (
+                        ve.message_dict if hasattr(ve, "message_dict") else str(ve)
+                    )
+                    errors.append(
+                        {
+                            "row": row_idx,
+                            "detail": f"Validation error for '{var.name}': {detail}",
+                        }
+                    )
+
+        if dry_run or errors:
+            transaction.set_rollback(True)
+
+    return {
+        "imported_count": imported_count if not (dry_run or errors) else 0,
+        "updated_count": updated_count if not (dry_run or errors) else 0,
+        "matched_variables": list({v.name for v in matched_cols.values()}),
+        "errors": errors,
+        "dry_run": dry_run,
+    }
+

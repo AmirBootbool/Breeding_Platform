@@ -3,6 +3,10 @@ from .services import (
     generate_alpha_lattice_layout,
     generate_augmented_layout,
     generate_rcbd_layout,
+    generate_prep_layout,
+    generate_latin_square_layout,
+    generate_augmented_block_layout,
+    generate_unreplicated_layout,
 )
 
 __all__ = [
@@ -10,4 +14,8 @@ __all__ = [
     "generate_rcbd_layout",
     "generate_alpha_lattice_layout",
     "generate_augmented_layout",
+    "generate_prep_layout",
+    "generate_latin_square_layout",
+    "generate_augmented_block_layout",
+    "generate_unreplicated_layout",
 ]

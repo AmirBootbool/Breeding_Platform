@@ -29,6 +29,7 @@ class GermplasmSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "cross_type",
             "year_developed",
             "notes",
+            "is_archived",
             "created_at",
             "updated_at",
             "created_by_username",
@@ -52,6 +53,9 @@ class CrossSerializer(serializers.ModelSerializer):
     )
     male_parent_name = serializers.CharField(source="male_parent.name", read_only=True)
     location_name = serializers.CharField(source="location.name", read_only=True)
+    progeny_name = serializers.CharField(
+        source="progeny.name", read_only=True, default=None
+    )
 
     class Meta:
         model = Cross
@@ -62,6 +66,12 @@ class CrossSerializer(serializers.ModelSerializer):
             "female_parent_name",
             "male_parent",
             "male_parent_name",
+            "crossing_block",
+            "status",
+            "is_reciprocal",
+            "progeny",
+            "progeny_name",
+            "map_position",
             "cross_date",
             "location",
             "location_name",
@@ -74,6 +84,8 @@ class CrossSerializer(serializers.ModelSerializer):
             "female_parent_name",
             "male_parent_name",
             "location_name",
+            "progeny_name",
             "created_at",
             "updated_at",
         ]
+

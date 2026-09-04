@@ -92,6 +92,34 @@
   --sidebar-w: 240px;
 }
 
+/* ---------- Outdoor Sunlight Mode (High-Contrast Light Theme) ---------- */
+[data-theme="sunlight"] {
+  --bg-base:      hsl(210, 20%, 98%);
+  --bg-elevated:  hsl(0, 0%, 100%);
+  --bg-card:      hsl(0, 0%, 100%);
+  --bg-glass:     hsla(0, 0%, 100%, 0.94);
+  --bg-hover:     hsl(210, 16%, 93%);
+  --bg-input:     hsl(0, 0%, 100%);
+
+  --text-primary:   hsl(220, 24%, 10%);
+  --text-secondary: hsl(220, 16%, 28%);
+  --text-muted:     hsl(220, 12%, 46%);
+  --text-inverted:  hsl(0, 0%, 100%);
+
+  --border-subtle:  hsla(220, 16%, 75%, 0.6);
+  --border-default: hsla(220, 16%, 60%, 0.7);
+  --border-brand:   hsla(var(--hue-brand), 60%, 35%, 0.8);
+
+  --brand-300: hsl(var(--hue-brand), 60%, 32%);
+  --brand-400: hsl(var(--hue-brand), 60%, 36%);
+  --brand-500: hsl(var(--hue-brand), 62%, 30%);
+
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 16px hsla(var(--hue-brand), 60%, 40%, 0.2);
+}
+
 /* ---------- Reset ---------- */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -184,6 +212,15 @@ h4 { font-size: 1.1rem; }
   padding: var(--space-8);
   max-width: 1400px;
   width: 100%;
+}
+
+@media (max-width: 900px) {
+  .page-content {
+    margin-left: 0 !important;
+  }
+  .page-shell {
+    padding: var(--space-4);
+  }
 }
 
 .page-header {

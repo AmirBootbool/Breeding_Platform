@@ -3,6 +3,7 @@ import io
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from django.db import transaction
@@ -31,6 +32,16 @@ class TrialViewSet(viewsets.ModelViewSet):
     serializer_class = TrialSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder"}
+    role_action_permissions = {
+        "create": {"admin", "breeder"},
+        "update": {"admin", "breeder"},
+        "partial_update": {"admin", "breeder"},
+        "destroy": {"admin", "breeder"},
+        "create_plots": {"admin", "breeder"},
+        "advance_plots": {"admin", "breeder"},
+        "harvest_plots": {"admin", "breeder"},
+        "import_fieldbook": {"admin", "breeder", "technician"},
+    }
     search_fields = ["name", "trial_code", "program__name"]
     ordering_fields = ["trial_code", "name", "created_at"]
     filterset_fields = ["program", "season", "location", "design_type"]
@@ -101,6 +112,58 @@ class TrialViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=["post"])
+    def harvest_plots(self, request, pk=None):
+        trial = self.get_object()
+        plot_ids = request.data.get("plot_ids", [])
+        method = request.data.get("method")
+        ssd_count = int(request.data.get("ssd_count", 1))
+
+        if not plot_ids or method not in ["bulk", "ssd"]:
+            return Response({"detail": "Invalid method or missing plot IDs."}, status=400)
+
+        plots_qs = trial.plots.filter(id__in=plot_ids).select_related("germplasm")
+        
+        from apps.germplasm.models import Germplasm
+        from django.db import transaction
+        
+        created_entries = []
+        with transaction.atomic():
+            for plot in plots_qs:
+                line = plot.germplasm
+                if method == 'bulk':
+                    new_line = Germplasm(
+                        name=f"{line.name}-P{plot.plot_number}",
+                        species=line.species,
+                        program=line.program,
+                        parent_female=line,
+                        cross_type="self",
+                        pedigree_string=f"{line.pedigree_string}-B" if line.pedigree_string else "",
+                        created_by=request.user,
+                        updated_by=request.user,
+                    )
+                    new_line.save()
+                    created_entries.append(new_line)
+                elif method == 'ssd':
+                    for i in range(1, ssd_count + 1):
+                        new_line = Germplasm(
+                            name=f"{line.name}-P{plot.plot_number}-{i}",
+                            species=line.species,
+                            program=line.program,
+                            parent_female=line,
+                            cross_type="self",
+                            pedigree_string=f"{line.pedigree_string}-{i}" if line.pedigree_string else "",
+                            created_by=request.user,
+                            updated_by=request.user,
+                        )
+                        new_line.save()
+                        created_entries.append(new_line)
+                        
+        return Response({
+            "created_count": len(created_entries),
+            "created_ids": [g.id for g in created_entries]
+        })
+
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):
         trial = self.get_object()
@@ -161,6 +224,37 @@ class TrialViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 
+    @action(detail=True, methods=["post"])
+    def advance_plots(self, request, pk=None):
+        """Bulk-advance selected plots to a new generation."""
+        from .services import advance_plots
+        trial = self.get_object()
+        
+        plot_ids = request.data.get("plot_ids", [])
+        if not plot_ids or not isinstance(plot_ids, list):
+            return Response(
+                {"detail": "plot_ids must be a non-empty list of integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        selections_per_plot = int(request.data.get("selections_per_plot", 1))
+        selection_method = request.data.get("selection_method", "SSD")
+
+        try:
+            created_ids = advance_plots(plot_ids, selections_per_plot, selection_method)
+            return Response(
+                {
+                    "detail": f"Successfully created {len(created_ids)} new Germplasm entries.",
+                    "created_count": len(created_ids),
+                    "created_ids": created_ids
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST
+            )
+
     @action(detail=True, methods=["get"])
     def export_fieldbook(self, request, pk=None):
         """Stream a Field Book compatible CSV download for this trial."""
@@ -196,6 +290,46 @@ class TrialViewSet(viewsets.ModelViewSet):
         response = StreamingHttpResponse(generate(), content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
+
+    @action(
+        detail=True,
+        methods=["post"],
+        parser_classes=[MultiPartParser],
+        url_path="import_fieldbook",
+    )
+    def import_fieldbook(self, request, pk=None):
+        """Import observations for this trial from an uploaded Field Book CSV."""
+        from django.core.exceptions import ValidationError
+        from apps.trials.services import import_fieldbook_csv
+
+        trial = self.get_object()
+        file_obj = request.FILES.get("file")
+        dry_run = request.data.get("dry_run") in ("true", "True", "1", True)
+
+        if not file_obj:
+            return Response(
+                {"errors": [{"row": 0, "detail": "CSV file is required (form key 'file')."}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = import_fieldbook_csv(
+                trial, file_obj.file, dry_run=dry_run, user=request.user
+            )
+            if result.get("errors"):
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            msg = e.message_dict if hasattr(e, "message_dict") else str(e)
+            return Response(
+                {"errors": [{"row": 0, "detail": msg}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"errors": [{"row": 0, "detail": str(e)}]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class PlotViewSet(viewsets.ModelViewSet):

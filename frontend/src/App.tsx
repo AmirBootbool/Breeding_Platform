@@ -4,11 +4,13 @@ import Sidebar from './components/Sidebar'
 import LoginPage from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import GermplasmBrowser from './pages/GermplasmBrowser'
+import CrossingBlock from './pages/CrossingBlock'
 import TrialManager from './pages/TrialManager'
 import ObservationEntry from './pages/ObservationEntry'
 import DataExport from './pages/DataExport'
 import Setup from './pages/Setup'
 import MultiEnvironmentAnalysis from './pages/MultiEnvironmentAnalysis'
+import Traits from './pages/Traits'
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
@@ -20,11 +22,13 @@ function ProtectedLayout() {
         <Routes>
           <Route path="/"             element={<Dashboard />} />
           <Route path="/germplasm"    element={<GermplasmBrowser />} />
+          <Route path="/crosses"      element={<CrossingBlock />} />
           <Route path="/trials"       element={<TrialManager />} />
           <Route path="/observations" element={<ObservationEntry />} />
           <Route path="/export"       element={<DataExport />} />
           <Route path="/setup"        element={<Setup />} />
           <Route path="/analysis"     element={<MultiEnvironmentAnalysis />} />
+          <Route path="/traits"       element={<Traits />} />
           <Route path="*"             element={<Navigate to="/" replace />} />
         </Routes>
       </div>

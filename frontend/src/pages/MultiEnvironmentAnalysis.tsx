@@ -123,15 +123,15 @@ export default function MultiEnvironmentAnalysis() {
         subtitle="Estimate broad-sense heritability (H²) and perform environment-adjusted genotype rankings."
       />
 
-      <div className="flex gap-8 items-start">
+      <div className="flex gap-6 items-start" style={{ flexWrap: 'wrap' }}>
         {/* Sidebar / Left Column */}
-        <div style={{ width: 320, flexShrink: 0 }}>
+        <div style={{ width: 320, maxWidth: '100%', flexShrink: 0 }}>
           <div className="card mb-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Analysis Sets</h3>
+              <h3 className="card-title" style={{ margin: 0 }}>Analysis Sets</h3>
               {canWrite && (
                 <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
-                  ➕ Create
+                  + Create Set
                 </button>
               )}
             </div>
@@ -143,26 +143,27 @@ export default function MultiEnvironmentAnalysis() {
                 {setListRes?.results.map(set => (
                   <div
                     key={set.id}
-                    className={`flex justify-between items-center p-3 rounded cursor-pointer border transition-colors ${
-                      selectedSet?.id === set.id
-                        ? 'border-primary bg-primary-light'
-                        : 'border-gray hover:bg-gray-light'
-                    }`}
+                    className="flex justify-between items-center p-3 rounded cursor-pointer border transition-colors"
+                    style={{
+                      borderColor: selectedSet?.id === set.id ? 'var(--brand-400)' : 'var(--border-subtle)',
+                      background: selectedSet?.id === set.id ? 'hsla(var(--hue-brand), 52%, 40%, 0.15)' : 'var(--bg-elevated)',
+                      borderRadius: 'var(--r-md)',
+                    }}
                     onClick={() => {
                       setSelectedSet(set)
                       setSelectedVariable(null)
                     }}
                   >
                     <div>
-                      <div className="font-bold">{set.name}</div>
-                      <div className="text-xs text-muted">
+                      <div className="font-bold text-sm">{set.name}</div>
+                      <div className="text-xs text-muted mt-1">
                         {set.trial_details.length} trials • {set.program_name}
                       </div>
                     </div>
                     {canWrite && (
                       <button
                         className="btn btn-ghost btn-sm text-danger"
-                        style={{ color: 'var(--status-danger)' }}
+                        style={{ color: 'var(--status-danger)', padding: 'var(--space-1)' }}
                         onClick={(e) => {
                           e.stopPropagation()
                           setDeleteItem(set)
@@ -174,7 +175,7 @@ export default function MultiEnvironmentAnalysis() {
                   </div>
                 ))}
                 {(!setListRes || setListRes.results.length === 0) && (
-                  <div className="text-center text-muted p-4">No analysis sets found.</div>
+                  <div className="text-center text-muted p-4 text-sm">No analysis sets found.</div>
                 )}
               </div>
             )}
@@ -182,7 +183,7 @@ export default function MultiEnvironmentAnalysis() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1">
+        <div className="flex-1" style={{ minWidth: 320 }}>
           {!selectedSet ? (
             <div className="card text-center p-12 text-muted">
               Select or create an analysis set in the left panel to begin.
@@ -191,7 +192,7 @@ export default function MultiEnvironmentAnalysis() {
             <div className="flex flex-col gap-6">
               {/* Set details & Trait selection */}
               <div className="card">
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start mb-4" style={{ flexWrap: 'wrap', gap: 'var(--space-4)' }}>
                   <div>
                     <h2 className="text-xl font-bold mb-1">{selectedSet.name}</h2>
                     <p className="text-sm text-muted mb-2">{selectedSet.description || 'No description provided.'}</p>
@@ -204,7 +205,7 @@ export default function MultiEnvironmentAnalysis() {
                     <div className="form-group" style={{ minWidth: 240 }}>
                       <label className="form-label">Trait / Variable</label>
                       <select
-                        className="form-select"
+                        className="form-input"
                         value={selectedVariable?.id || ''}
                         onChange={(e) => {
                           const v = varRes?.results.find(item => item.id === parseInt(e.target.value))
@@ -214,7 +215,7 @@ export default function MultiEnvironmentAnalysis() {
                         <option value="">-- Choose Trait --</option>
                         {varRes?.results.map(v => (
                           <option key={v.id} value={v.id}>
-                            {v.name} ({v.variable_code})
+                            {v.name} ({v.variable_code || v.name})
                           </option>
                         ))}
                       </select>
@@ -222,11 +223,12 @@ export default function MultiEnvironmentAnalysis() {
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-bold text-sm mb-2">Trials Included:</h4>
+                <div className="divider" />
+                <div>
+                  <h4 className="card-title">Trials Included in MET:</h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedSet.trial_details.map(t => (
-                      <div key={t.id} className="badge badge-gray flex items-center gap-1">
+                      <div key={t.id} className="badge badge-gray flex items-center gap-1" style={{ padding: '4px 8px' }}>
                         <span>🧪 <strong>{t.trial_code}</strong></span>
                         <span className="text-xs text-muted">({t.location_name} • {t.season_name})</span>
                       </div>
@@ -238,15 +240,15 @@ export default function MultiEnvironmentAnalysis() {
               {selectedVariable && (
                 <>
                   {/* Heritability statistics block */}
-                  <div className="grid grid-cols-3 gap-6">
-                    <div className="card col-span-1 flex flex-col justify-between">
+                  <div className="grid-3" style={{ gap: 'var(--space-6)' }}>
+                    <div className="card flex flex-col justify-between">
                       <div>
-                        <div className="text-sm text-muted mb-1">Broad-Sense Heritability (H²)</div>
+                        <div className="card-title">Broad-Sense Heritability (H²)</div>
                         {h2Loading ? (
                           <div className="loading-spinner"><div className="spinner" /></div>
                         ) : heritabilityRes?.h2 !== null && heritabilityRes?.h2 !== undefined ? (
                           <div>
-                            <div className="text-4xl font-extrabold mb-2" style={{ color: 'var(--color-primary)' }}>
+                            <div className="stat-value mb-2" style={{ color: 'var(--brand-300)' }}>
                               {heritabilityRes.h2.toFixed(3)}
                             </div>
                             {h2Band && (
@@ -256,26 +258,26 @@ export default function MultiEnvironmentAnalysis() {
                             )}
                           </div>
                         ) : (
-                          <div className="text-2xl font-bold text-muted">N/A</div>
+                          <div className="stat-value text-muted">N/A</div>
                         )}
                       </div>
-                      <div className="text-xs text-muted border-t pt-2 mt-4">
+                      <div className="text-xs text-muted divider pt-2 mt-4">
                         H² measures phenotypic variance ratio explained by genotype across environments.
                       </div>
                     </div>
 
-                    <div className="card col-span-2">
-                      <h3 className="font-bold mb-3">Variance Components</h3>
+                    <div className="card" style={{ gridColumn: 'span 2' }}>
+                      <h3 className="card-title">Variance Components</h3>
                       {h2Loading ? (
                         <div className="loading-spinner"><div className="spinner" /></div>
                       ) : heritabilityRes ? (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="border-r pr-4">
-                            <div className="flex justify-between py-1 border-b">
+                        <div className="grid-2" style={{ gap: 'var(--space-4)' }}>
+                          <div>
+                            <div className="flex justify-between py-1 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                               <span className="text-sm text-muted">Genotype Variance (Vg)</span>
                               <span className="font-mono">{heritabilityRes.variance_genotype ?? '—'}</span>
                             </div>
-                            <div className="flex justify-between py-1 border-b">
+                            <div className="flex justify-between py-1 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                               <span className="text-sm text-muted">GxE Variance (Vgxe)</span>
                               <span className="font-mono">{heritabilityRes.variance_gxe ?? '—'}</span>
                             </div>
@@ -285,7 +287,7 @@ export default function MultiEnvironmentAnalysis() {
                             </div>
                           </div>
                           <div>
-                            <div className="flex justify-between py-1 border-b">
+                            <div className="flex justify-between py-1 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                               <span className="text-sm text-muted">Environments</span>
                               <span className="font-bold">{heritabilityRes.n_environments}</span>
                             </div>

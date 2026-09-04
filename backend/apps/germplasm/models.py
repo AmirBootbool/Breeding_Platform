@@ -44,8 +44,13 @@ class Germplasm(models.Model):
     cross_type = models.CharField(
         max_length=20, choices=CROSS_TYPE_CHOICES, default="unknown"
     )
+    generation = models.IntegerField(
+        default=0,
+        help_text="Generation index (0=F0, 1=F1, ..., 8=F8+)",
+    )
     year_developed = models.IntegerField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -94,7 +99,64 @@ class Germplasm(models.Model):
         verbose_name_plural = "germplasm"
 
 
+class CrossingBlock(models.Model):
+    """A named session/plan grouping multiple planned crosses."""
+
+    MAP_PATTERN_CHOICES = [
+        ("male_first", "Common male then females"),
+        ("female_first", "Common female then males"),
+        ("alternating", "Alternating male/female"),
+    ]
+
+    name = models.CharField(max_length=300)
+    program = models.ForeignKey(
+        Program, on_delete=models.CASCADE, related_name="crossing_blocks"
+    )
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    season = models.ForeignKey(
+        "core.Season",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crossing_blocks",
+    )
+    map_pattern = models.CharField(
+        max_length=30,
+        choices=MAP_PATTERN_CHOICES,
+        default="male_first",
+    )
+    include_reciprocals = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+
+    def __str__(self):
+        return f"{self.name} ({self.program.name})"
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class Cross(models.Model):
+    CROSS_STATUS_CHOICES = [
+        ("planned", "Planned"),
+        ("pollinated", "Pollinated"),
+        ("harvested", "Harvested"),
+        ("failed", "Failed"),
+    ]
+
     cross_code = models.CharField(max_length=100, unique=True)
     female_parent = models.ForeignKey(
         Germplasm,
@@ -105,6 +167,35 @@ class Cross(models.Model):
         Germplasm,
         on_delete=models.PROTECT,
         related_name="crosses_as_male",
+    )
+    crossing_block = models.ForeignKey(
+        CrossingBlock,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="crosses",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=CROSS_STATUS_CHOICES,
+        default="planned",
+    )
+    progeny = models.ForeignKey(
+        Germplasm,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_cross",
+        help_text="Auto-created progeny germplasm entry",
+    )
+    is_reciprocal = models.BooleanField(
+        default=False,
+        help_text="Whether this is a reciprocal of another cross",
+    )
+    map_position = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Position in the crossing block sowing map",
     )
     cross_date = models.DateField(db_index=True)
     location = models.ForeignKey(

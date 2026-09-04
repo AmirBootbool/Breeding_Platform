@@ -10,6 +10,9 @@ class Trial(models.Model):
         ("RCBD", "RCBD"),
         ("alpha_lattice", "Alpha-lattice"),
         ("augmented", "Augmented"),
+        ("prep", "P-Rep"),
+        ("latin_square", "Latin Square"),
+        ("augmented_block", "Augmented Block"),
         ("unreplicated", "Unreplicated"),
         ("other", "Other"),
     ]
@@ -27,7 +30,12 @@ class Trial(models.Model):
     block_size = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Incomplete block size for alpha-lattice designs.",
+        help_text="Incomplete block size for alpha-lattice and augmented block designs.",
+    )
+    prep_fraction = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Fraction of test entries to partially replicate (P-Rep designs, 0.0–1.0). Default 0.25.",
     )
     planting_date = models.DateField(null=True, blank=True)
     harvest_date = models.DateField(null=True, blank=True)
@@ -63,6 +71,27 @@ class Trial(models.Model):
             if self.block_size is None:
                 raise ValidationError(
                     {"block_size": "block_size is required for alpha-lattice trials."}
+                )
+            if self.block_size < 2:
+                raise ValidationError({"block_size": "block_size must be at least 2."})
+        if self.design_type == "prep":
+            if self.prep_fraction is None:
+                raise ValidationError(
+                    {"prep_fraction": "prep_fraction is required for P-Rep trials."}
+                )
+            if not (0.0 < self.prep_fraction <= 1.0):
+                raise ValidationError(
+                    {"prep_fraction": "prep_fraction must be between 0.0 (exclusive) and 1.0 (inclusive)."}
+                )
+        if self.design_type == "latin_square":
+            if self.num_reps != 1:
+                raise ValidationError(
+                    {"num_reps": "Latin Square designs must have num_reps = 1."}
+                )
+        if self.design_type == "augmented_block":
+            if self.block_size is None:
+                raise ValidationError(
+                    {"block_size": "block_size is required for augmented block trials."}
                 )
             if self.block_size < 2:
                 raise ValidationError({"block_size": "block_size must be at least 2."})

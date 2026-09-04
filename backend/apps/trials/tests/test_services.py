@@ -9,6 +9,10 @@ from apps.trials.services import (
     create_plots_for_trial,
     generate_alpha_lattice_layout,
     generate_augmented_layout,
+    generate_prep_layout,
+    generate_latin_square_layout,
+    generate_augmented_block_layout,
+    generate_unreplicated_layout,
 )
 
 
@@ -88,6 +92,93 @@ def test_generate_augmented_layout():
 
 
 @pytest.mark.django_db
+def test_generate_prep_layout():
+    program = Program.objects.create(name="Trial Program")
+    entries = [
+        Germplasm.objects.create(name=f"Line{i}", program=program) for i in range(1, 13)
+    ]
+    check_entries = entries[:2]
+    
+    # 2 checks, 10 tests. prep_fraction = 0.5 -> 5 tests re-replicated.
+    # Total plots: 
+    # Rep 1: 2 checks + 10 tests = 12
+    # Rep 2: 2 checks + 5 tests = 7
+    # Total = 19
+    layout = generate_prep_layout(entries, check_entries, prep_fraction=0.5, seed=42)
+    assert len(layout) == 19
+    
+    reps = [r["rep"] for r in layout]
+    assert reps.count(1) == 12
+    assert reps.count(2) == 7
+    
+    check_ids = {c.id for c in check_entries}
+    check_plots = [r for r in layout if r["germplasm"].id in check_ids]
+    assert len(check_plots) == 4
+    assert all(r["is_check"] for r in check_plots)
+
+
+@pytest.mark.django_db
+def test_generate_latin_square_layout():
+    program = Program.objects.create(name="Trial Program")
+    entries = [
+        Germplasm.objects.create(name=f"Line{i}", program=program) for i in range(1, 5)
+    ]
+    
+    # 4 entries -> 16 plots
+    layout = generate_latin_square_layout(entries, seed=42)
+    assert len(layout) == 16
+    
+    # Every row and col should have exactly 4 plots
+    rows = [r["row"] for r in layout]
+    cols = [r["column"] for r in layout]
+    assert rows.count(1) == 4 and rows.count(4) == 4
+    assert cols.count(1) == 4 and cols.count(4) == 4
+    
+    # Verify uniqueness in row 1
+    row1 = [r["germplasm"].id for r in layout if r["row"] == 1]
+    assert len(set(row1)) == 4
+
+
+@pytest.mark.django_db
+def test_generate_augmented_block_layout():
+    program = Program.objects.create(name="Trial Program")
+    entries = [
+        Germplasm.objects.create(name=f"Line{i}", program=program) for i in range(1, 13)
+    ]
+    check_entries = entries[:2] # 2 checks
+    test_entries = entries[2:] # 10 tests
+    
+    # 10 tests, block_size = 4 -> 3 blocks (sizes 4, 4, 2)
+    # Checks added to every block:
+    # Block 1: 4 tests + 2 checks = 6
+    # Block 2: 4 tests + 2 checks = 6
+    # Block 3: 2 tests + 2 checks = 4
+    # Total = 16
+    layout = generate_augmented_block_layout(entries, check_entries, block_size=4, seed=42)
+    assert len(layout) == 16
+    
+    blocks = [r["incomplete_block"] for r in layout]
+    assert blocks.count(1) == 6
+    assert blocks.count(2) == 6
+    assert blocks.count(3) == 4
+    
+    check_plots = [r for r in layout if r["is_check"]]
+    assert len(check_plots) == 6 # 3 blocks * 2 checks
+
+
+@pytest.mark.django_db
+def test_generate_unreplicated_layout():
+    program = Program.objects.create(name="Trial Program")
+    entries = [
+        Germplasm.objects.create(name=f"Line{i}", program=program) for i in range(1, 5)
+    ]
+    
+    layout = generate_unreplicated_layout(entries, seed=42)
+    assert len(layout) == 4
+    assert all(r["rep"] == 1 for r in layout)
+
+
+@pytest.mark.django_db
 def test_create_plots_for_trial_all_designs():
     program = Program.objects.create(name="Trial Program")
     location = Location.objects.create(name="Field")
@@ -142,6 +233,66 @@ def test_create_plots_for_trial_all_designs():
     check_plots = Plot.objects.filter(trial=trial_augmented, is_check=True)
     assert check_plots.count() == 9
     assert all(p.germplasm in checks for p in check_plots)
+
+    # 3. P-Rep trial
+    trial_prep = Trial.objects.create(
+        name="Prep Trial",
+        trial_code="TR-PREP",
+        program=program,
+        location=location,
+        season=season,
+        design_type="prep",
+        prep_fraction=0.5,
+    )
+    plots_prep = create_plots_for_trial(
+        trial_prep, entries, seed=42, check_entries=checks
+    )
+    # 3 checks, 9 tests -> Rep1: 12. Rep2: 3 checks + round(4.5)=4 tests -> 12 + 7 = 19 plots
+    assert len(plots_prep) == 19
+
+    # 4. Latin Square trial
+    trial_ls = Trial.objects.create(
+        name="LS Trial",
+        trial_code="TR-LS",
+        program=program,
+        location=location,
+        season=season,
+        design_type="latin_square",
+        num_reps=1,
+    )
+    ls_entries = entries[:5] # 5 entries -> 25 plots
+    plots_ls = create_plots_for_trial(
+        trial_ls, ls_entries, seed=42
+    )
+    assert len(plots_ls) == 25
+
+    # 5. Augmented Block trial
+    trial_aug_block = Trial.objects.create(
+        name="Aug Block Trial",
+        trial_code="TR-AUGB",
+        program=program,
+        location=location,
+        season=season,
+        design_type="augmented_block",
+        block_size=4,
+    )
+    plots_aug_block = create_plots_for_trial(
+        trial_aug_block, entries, seed=42, check_entries=checks
+    )
+    # 3 checks, 9 tests -> 3 blocks (sizes 4, 4, 1) + 3 checks per block -> 7, 7, 4 -> 18 plots
+    assert len(plots_aug_block) == 18
+    
+    # 6. Unreplicated trial
+    trial_unrep = Trial.objects.create(
+        name="Unrep Trial",
+        trial_code="TR-UNREP",
+        program=program,
+        location=location,
+        season=season,
+        design_type="unreplicated",
+    )
+    plots_unrep = create_plots_for_trial(trial_unrep, entries, seed=42)
+    assert len(plots_unrep) == 12
 
 
 from apps.trials.models import AnalysisSet, Observation, ObservationVariable

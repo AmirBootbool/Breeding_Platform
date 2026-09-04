@@ -20,7 +20,14 @@ class GermplasmViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "germplasm_db_id", "pedigree_string"]
     ordering_fields = ["name", "year_developed", "created_at"]
-    filterset_fields = ["program", "cross_type", "species"]
+    filterset_fields = ["program", "cross_type", "species", "is_archived"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        archived = self.request.query_params.get("archived")
+        if not (archived and archived.lower() in ["true", "1", "yes"]):
+            qs = qs.filter(is_archived=False)
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)
@@ -66,6 +73,39 @@ class GermplasmViewSet(viewsets.ModelViewSet):
 
         return Response(response_data, status=status_code)
 
+    @action(detail=False, methods=["post"], url_path="advance")
+    def advance(self, request):
+        germplasm_ids = request.data.get("germplasm_ids", [])
+        method = request.data.get("method")
+        ssd_count = int(request.data.get("ssd_count", 1))
+
+        if not germplasm_ids or method not in ["bulk", "ssd"]:
+            return Response({"detail": "Invalid method or missing IDs."}, status=400)
+
+        from apps.germplasm.services import advance_generation
+        germplasm_list = Germplasm.objects.filter(id__in=germplasm_ids)
+        
+        created = advance_generation(germplasm_list, method, ssd_count, request.user)
+        return Response({
+            "created_count": len(created),
+            "created_ids": [g.id for g in created]
+        })
+
+    @action(detail=False, methods=["post"], url_path="bulk_archive")
+    def bulk_archive(self, request):
+        ids = request.data.get("ids", [])
+        if not isinstance(ids, list) or not ids:
+            return Response({"detail": "ids must be a non-empty list of integers."}, status=400)
+        updated = Germplasm.objects.filter(id__in=ids).update(is_archived=True)
+        return Response({"archived_count": updated})
+
+    @action(detail=False, methods=["post"], url_path="bulk_delete")
+    def bulk_delete(self, request):
+        ids = request.data.get("ids", [])
+        if not isinstance(ids, list) or not ids:
+            return Response({"detail": "ids must be a non-empty list of integers."}, status=400)
+        deleted, _ = Germplasm.objects.filter(id__in=ids).delete()
+        return Response({"deleted_count": deleted})
 
 class CrossViewSet(viewsets.ModelViewSet):
     queryset = Cross.objects.select_related(

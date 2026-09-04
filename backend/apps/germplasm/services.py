@@ -87,3 +87,43 @@ def get_family_group(germplasm):
     elif m:
         return f"half_male_m{m}"
     return f"unrelated_{germplasm.id}"
+
+def advance_generation(germplasm_list, method, ssd_count=1, user=None):
+    """
+    Advances a list of germplasm entries to the next generation.
+    Supports 'bulk' (1 new entry per parent) and 'ssd' (N new entries per parent).
+    """
+    created_entries = []
+    
+    with transaction.atomic():
+        for line in germplasm_list:
+            if method == 'bulk':
+                new_line = Germplasm(
+                    name=f"{line.name}-B",
+                    species=line.species,
+                    program=line.program,
+                    parent_female=line,
+                    cross_type="self",
+                    pedigree_string=f"{line.pedigree_string}-B" if line.pedigree_string else "",
+                    created_by=user,
+                    updated_by=user,
+                )
+                new_line.save()
+                created_entries.append(new_line)
+            
+            elif method == 'ssd':
+                for i in range(1, ssd_count + 1):
+                    new_line = Germplasm(
+                        name=f"{line.name}-{i}",
+                        species=line.species,
+                        program=line.program,
+                        parent_female=line,
+                        cross_type="self",
+                        pedigree_string=f"{line.pedigree_string}-{i}" if line.pedigree_string else "",
+                        created_by=user,
+                        updated_by=user,
+                    )
+                    new_line.save()
+                    created_entries.append(new_line)
+                    
+    return created_entries

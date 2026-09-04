@@ -186,6 +186,49 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
     return 'text'
   }
 
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    colIndex: number
+  ) => {
+    let targetRow = rowIndex
+    let targetCol = colIndex
+
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      targetRow = Math.min(rowIndex + 1, plotList.length - 1)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      targetRow = Math.max(rowIndex - 1, 0)
+    } else if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) {
+      if (e.key === 'Tab') e.preventDefault()
+      if (colIndex < variableList.length - 1) {
+        targetCol = colIndex + 1
+      } else if (rowIndex < plotList.length - 1) {
+        targetRow = rowIndex + 1
+        targetCol = 0
+      }
+    } else if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) {
+      if (e.key === 'Tab') e.preventDefault()
+      if (colIndex > 0) {
+        targetCol = colIndex - 1
+      } else if (rowIndex > 0) {
+        targetRow = rowIndex - 1
+        targetCol = variableList.length - 1
+      }
+    } else {
+      return
+    }
+
+    if (targetRow !== rowIndex || targetCol !== colIndex) {
+      const nextInput = document.getElementById(`grid-cell-${targetRow}-${targetCol}`) as HTMLInputElement | null
+      if (nextInput) {
+        nextInput.focus()
+        nextInput.select()
+      }
+    }
+  }
+
   const isDirty = Object.keys(currentValues).some(k => currentValues[k] !== initialValues[k])
 
   return (
@@ -194,7 +237,7 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
         <div>
           <h3 className="card-title">Grid Entry — {trial.trial_code}</h3>
           <p className="text-xs text-muted">
-            Enter observations directly in the spreadsheet below. Only changed cells will be saved.
+            Enter observations directly in the spreadsheet below. Use <kbd>Enter</kbd> / <kbd>↓</kbd> / <kbd>↑</kbd> / <kbd>→</kbd> / <kbd>Tab</kbd> for fast scoring.
           </p>
         </div>
         <button
@@ -234,7 +277,7 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
             </tr>
           </thead>
           <tbody>
-            {plotList.map(p => (
+            {plotList.map((p, pIdx) => (
               <tr key={p.id}>
                 <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)', fontWeight: 600 }}>
                   {p.plot_number}
@@ -243,7 +286,7 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
                   {p.germplasm_name}
                 </td>
                 <td>{p.rep}</td>
-                {variableList.map(v => {
+                {variableList.map((v, vIdx) => {
                   const cellKey = `${p.id}-${v.id}`
                   const value = currentValues[cellKey] ?? ''
                   const initial = initialValues[cellKey] ?? ''
@@ -253,9 +296,11 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
                   return (
                     <td key={v.id} style={{ padding: '4px' }}>
                       <input
+                        id={`grid-cell-${pIdx}-${vIdx}`}
                         type={getCellInputType(v)}
                         value={value}
                         onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
+                        onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
                         className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''} ${hasError ? 'error' : ''}`}
                         min={v.min_value ?? undefined}
                         max={v.max_value ?? undefined}

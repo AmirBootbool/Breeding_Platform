@@ -70,6 +70,24 @@ export interface Germplasm {
   updated_by_username?: string | null
 }
 
+export interface PedigreeNode {
+  id: number
+  name: string
+  germplasm_db_id: string
+  species: string
+  program_id: number
+  program_name: string
+  cross_type: string
+  generation: number
+  generation_label: string
+  pedigree_string: string
+  year_developed: number | null
+  has_cycle?: boolean
+  parent_female: PedigreeNode | null
+  parent_male: PedigreeNode | null
+  progeny?: PedigreeNode[]
+}
+
 export interface Trial {
   id: number
   name: string
@@ -337,6 +355,8 @@ export const germplasm = {
       errors: { row: number; detail: string }[]
     }>
   },
+  getPedigreeTree: (id: number, depth: number = 3, direction: string = 'ancestors') =>
+    apiFetch<PedigreeNode>(`/germplasm/${id}/pedigree_tree/?depth=${depth}&direction=${direction}`),
 }
 
 export interface FieldBookImportResult {

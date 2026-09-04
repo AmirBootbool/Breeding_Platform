@@ -6,6 +6,7 @@ import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SendToTrialModal from '../components/SendToTrialModal'
+import PedigreeTreeModal from '../components/pedigree/PedigreeTreeModal'
 
 // ---- Cross type badge -------------------------------------------------------
 function CrossTypeBadge({ type }: { type: string }) {
@@ -21,11 +22,20 @@ function CrossTypeBadge({ type }: { type: string }) {
 }
 
 // ---- Pedigree panel ---------------------------------------------------------
-function PedigreePanel({ entry }: { entry: Germplasm }) {
+function PedigreePanel({ entry, onOpenTree }: { entry: Germplasm; onOpenTree: (entry: Germplasm) => void }) {
   return (
     <div className="pedigree-panel slide-in">
       <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>{entry.name}</h3>
       <p className="text-xs text-muted font-mono">{entry.germplasm_db_id}</p>
+      
+      <button 
+        className="btn btn-primary" 
+        style={{ width: '100%', marginTop: 'var(--space-3)', marginBottom: 'var(--space-3)', justifyContent: 'center' }}
+        onClick={() => onOpenTree(entry)}
+      >
+        🌳 View Pedigree Tree
+      </button>
+
       <div className="divider" />
       <div className="pedigree-row">
         <span className="pedigree-label">Species</span>
@@ -386,6 +396,7 @@ export default function GermplasmBrowser() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editEntry, setEditEntry] = useState<Germplasm | null>(null)
   const [deleteEntry, setDeleteEntry] = useState<Germplasm | null>(null)
+  const [treeTarget, setTreeTarget] = useState<Germplasm | null>(null)
 
   const params = [
     search ? `&search=${encodeURIComponent(search)}` : '',
@@ -543,7 +554,7 @@ export default function GermplasmBrowser() {
                     <th>Year</th>
                     <th>Program</th>
                     <th>Date Added</th>
-                    {canWrite && <th style={{ width: 80 }}>Actions</th>}
+                    <th style={{ width: 100 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -571,25 +582,34 @@ export default function GermplasmBrowser() {
                       <td className="text-sm">{entry.year_developed ?? '—'}</td>
                       <td className="text-sm text-muted">{entry.program_name}</td>
                       <td className="text-sm text-muted">{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '—'}</td>
-                      {canWrite && (
-                        <td onClick={e => e.stopPropagation()}>
-                          <div className="flex gap-2">
-                            <button
-                              id={`edit-germ-${entry.id}`}
-                              className="btn btn-ghost btn-sm"
-                              title="Edit"
-                              onClick={() => setEditEntry(entry)}
-                            >✏</button>
-                            <button
-                              id={`delete-germ-${entry.id}`}
-                              className="btn btn-ghost btn-sm"
-                              title="Delete"
-                              style={{ color: 'var(--status-danger)' }}
-                              onClick={() => setDeleteEntry(entry)}
-                            >🗑</button>
-                          </div>
-                        </td>
-                      )}
+                      <td onClick={e => e.stopPropagation()}>
+                        <div className="flex gap-2">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            title="View Pedigree Tree"
+                            onClick={() => setTreeTarget(entry)}
+                          >
+                            🌳
+                          </button>
+                          {canWrite && (
+                            <>
+                              <button
+                                id={`edit-germ-${entry.id}`}
+                                className="btn btn-ghost btn-sm"
+                                title="Edit"
+                                onClick={() => setEditEntry(entry)}
+                              >✏</button>
+                              <button
+                                id={`delete-germ-${entry.id}`}
+                                className="btn btn-ghost btn-sm"
+                                title="Delete"
+                                style={{ color: 'var(--status-danger)' }}
+                                onClick={() => setDeleteEntry(entry)}
+                              >🗑</button>
+                            </>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -598,7 +618,12 @@ export default function GermplasmBrowser() {
           )}
         </div>
 
-        {selected && <PedigreePanel entry={selected} />}
+        {selected && (
+          <PedigreePanel 
+            entry={selected} 
+            onOpenTree={(entry) => setTreeTarget(entry)} 
+          />
+        )}
       </div>
 
       {/* Create modal */}
@@ -722,6 +747,19 @@ export default function GermplasmBrowser() {
           onSuccess={(trialId) => {
             setShowSendToTrialModal(false)
             window.location.href = `/trials/${trialId}`
+          }}
+        />
+      )}
+
+      {/* Pedigree Tree Visualizer Modal */}
+      {treeTarget && (
+        <PedigreeTreeModal
+          germplasmId={treeTarget.id}
+          germplasmName={treeTarget.name}
+          onClose={() => setTreeTarget(null)}
+          onSelectGermplasm={(id) => {
+            const match = data?.results.find(r => r.id === id)
+            if (match) setSelected(match)
           }}
         />
       )}

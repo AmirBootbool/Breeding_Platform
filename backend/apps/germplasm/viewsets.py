@@ -107,6 +107,24 @@ class GermplasmViewSet(viewsets.ModelViewSet):
         deleted, _ = Germplasm.objects.filter(id__in=ids).delete()
         return Response({"deleted_count": deleted})
 
+    @action(detail=True, methods=["get"], url_path="pedigree_tree")
+    def pedigree_tree(self, request, pk=None):
+        from apps.germplasm.services import build_pedigree_tree
+
+        depth = request.query_params.get("depth", 3)
+        direction = request.query_params.get("direction", "ancestors")
+
+        try:
+            depth = int(depth)
+        except (TypeError, ValueError):
+            depth = 3
+
+        tree = build_pedigree_tree(pk, depth=depth, direction=direction)
+        if tree is None:
+            return Response({"detail": "Germplasm not found."}, status=404)
+
+        return Response(tree)
+
 class CrossViewSet(viewsets.ModelViewSet):
     queryset = Cross.objects.select_related(
         "female_parent__program",

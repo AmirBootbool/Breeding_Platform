@@ -2,7 +2,7 @@ import csv
 import io
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import models, transaction
 
 from apps.core.models import Program
 from apps.germplasm.models import Germplasm
@@ -127,3 +127,124 @@ def advance_generation(germplasm_list, method, ssd_count=1, user=None):
                     created_entries.append(new_line)
                     
     return created_entries
+
+
+def format_generation_label(generation):
+    """Returns human-friendly generation label (e.g. F1, F2, or Founder/F0)."""
+    if generation is None or generation == 0:
+        return "F0"
+    return f"F{generation}"
+
+
+def build_pedigree_tree(germplasm_id, depth=3, direction="ancestors"):
+    """
+    Constructs a recursive genealogical pedigree tree for a given germplasm accession.
+    
+    Args:
+        germplasm_id (int): Primary key of the root Germplasm.
+        depth (int): Maximum levels of recursion (1 to 6).
+        direction (str): 'ancestors', 'progeny', or 'both'.
+    
+    Returns:
+        dict: Recursive tree node with ancestors and/or progeny.
+    """
+    depth = max(1, min(int(depth), 6))
+
+    try:
+        root = Germplasm.objects.select_related(
+            "program", "parent_female__program", "parent_male__program"
+        ).get(pk=germplasm_id)
+    except Germplasm.DoesNotExist:
+        return None
+
+    def serialize_node(obj):
+        if not obj:
+            return None
+        return {
+            "id": obj.id,
+            "name": obj.name,
+            "germplasm_db_id": obj.germplasm_db_id,
+            "species": obj.species,
+            "program_id": obj.program_id,
+            "program_name": obj.program.name if obj.program else "",
+            "cross_type": obj.cross_type,
+            "generation": obj.generation,
+            "generation_label": format_generation_label(obj.generation),
+            "pedigree_string": obj.pedigree_string,
+            "year_developed": obj.year_developed,
+            "parent_female": None,
+            "parent_male": None,
+            "progeny": [],
+        }
+
+    def fetch_ancestors(current_node_id, current_depth, visited):
+        if current_depth > depth or current_node_id in visited:
+            return None
+        
+        visited_branch = visited | {current_node_id}
+        
+        try:
+            node = Germplasm.objects.select_related(
+                "program", "parent_female__program", "parent_male__program"
+            ).get(pk=current_node_id)
+        except Germplasm.DoesNotExist:
+            return None
+
+        data = serialize_node(node)
+
+        if current_depth < depth:
+            if node.parent_female_id and node.parent_female_id not in visited_branch:
+                data["parent_female"] = fetch_ancestors(
+                    node.parent_female_id, current_depth + 1, visited_branch
+                )
+            elif node.parent_female_id:
+                # Cycle detected
+                data["parent_female"] = serialize_node(node.parent_female)
+                if data["parent_female"]:
+                    data["parent_female"]["has_cycle"] = True
+
+            if node.parent_male_id and node.parent_male_id not in visited_branch:
+                data["parent_male"] = fetch_ancestors(
+                    node.parent_male_id, current_depth + 1, visited_branch
+                )
+            elif node.parent_male_id:
+                # Cycle detected
+                data["parent_male"] = serialize_node(node.parent_male)
+                if data["parent_male"]:
+                    data["parent_male"]["has_cycle"] = True
+
+        return data
+
+    def fetch_progeny(current_node_id, current_depth, visited):
+        if current_depth > depth or current_node_id in visited:
+            return []
+        
+        visited_branch = visited | {current_node_id}
+        
+        children = Germplasm.objects.filter(
+            models.Q(parent_female_id=current_node_id) | models.Q(parent_male_id=current_node_id)
+        ).select_related("program")[:20]
+
+        result = []
+        for child in children:
+            child_data = serialize_node(child)
+            if current_depth < depth and child.id not in visited_branch:
+                child_data["progeny"] = fetch_progeny(
+                    child.id, current_depth + 1, visited_branch
+                )
+            result.append(child_data)
+        return result
+
+    # Build tree according to direction
+    root_data = serialize_node(root)
+    
+    if direction in ("ancestors", "both"):
+        ancestor_tree = fetch_ancestors(root.id, 1, set())
+        if ancestor_tree:
+            root_data["parent_female"] = ancestor_tree.get("parent_female")
+            root_data["parent_male"] = ancestor_tree.get("parent_male")
+
+    if direction in ("progeny", "both"):
+        root_data["progeny"] = fetch_progeny(root.id, 1, set())
+
+    return root_data

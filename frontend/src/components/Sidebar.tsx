@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/',             label: 'Dashboard',        icon: '🏠',  roles: null },
   { to: '/germplasm',    label: 'Germplasm',         icon: '🌱',  roles: null },
   { to: '/crosses',      label: 'Crossing Block',    icon: '✂️',  roles: new Set(['admin', 'breeder']) },
+  { to: '/seed-inventory',label: 'Seed Inventory',   icon: '📦',  roles: null },
   { to: '/trials',       label: 'Trials',            icon: '⊞',  roles: null },
   { to: '/observations', label: 'Observation Entry', icon: '📝', roles: null },
   { to: '/traits',       label: 'Traits',            icon: '📊',  roles: new Set(['admin', 'breeder']) },

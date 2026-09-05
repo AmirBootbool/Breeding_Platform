@@ -2,11 +2,37 @@ from django.conf import settings
 from django.db import models
 
 
+CROP_CHOICES = [
+    ("wheat", "Bread Wheat (Triticum aestivum)"),
+    ("durum_wheat", "Durum Wheat (Triticum durum)"),
+    ("barley", "Barley (Hordeum vulgare)"),
+    ("triticale", "Triticale (x Triticosecale)"),
+    ("oats", "Oats (Avena sativa)"),
+    ("rye", "Rye (Secale cereale)"),
+    ("other", "Other Crop"),
+]
+
+CROP_SPECIES_MAP = {
+    "wheat": "Triticum aestivum",
+    "durum_wheat": "Triticum durum",
+    "barley": "Hordeum vulgare",
+    "triticale": "x Triticosecale",
+    "oats": "Avena sativa",
+    "rye": "Secale cereale",
+}
+
+
+def get_default_species_for_crop(crop_name):
+    """Returns standardized botanical species name for a given crop code."""
+    return CROP_SPECIES_MAP.get(crop_name, "Triticum aestivum")
+
+
 class Program(models.Model):
     name = models.CharField(max_length=255, unique=True)
-    crop = models.CharField(max_length=255, default="wheat")
+    crop = models.CharField(max_length=255, choices=CROP_CHOICES, default="wheat")
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

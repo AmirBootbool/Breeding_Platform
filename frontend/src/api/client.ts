@@ -88,6 +88,44 @@ export interface PedigreeNode {
   progeny?: PedigreeNode[]
 }
 
+export interface SeedTransaction {
+  id: number
+  seed_lot: number
+  transaction_type: 'initial_deposit' | 'harvest_deposit' | 'planting_deduction' | 'distribution' | 'adjustment'
+  quantity_grams: number
+  transaction_date: string
+  destination_trial?: number | null
+  destination_trial_name?: string | null
+  notes: string
+  created_by?: number | null
+  created_by_username?: string | null
+  created_at: string
+}
+
+export interface SeedLot {
+  id: number
+  germplasm: number
+  germplasm_name: string
+  germplasm_db_id: string
+  program: number
+  program_name: string
+  lot_code: string
+  quantity_grams: number
+  seed_count: number | null
+  storage_location: string
+  harvest_date: string | null
+  source_plot: number | null
+  source_plot_number: number | null
+  germination_rate: number | null
+  status: 'available' | 'depleted' | 'reserved' | 'quarantine'
+  is_low_stock: boolean
+  notes: string
+  recent_transactions: SeedTransaction[]
+  created_at: string
+  updated_at: string
+  created_by_username?: string | null
+}
+
 export interface Trial {
   id: number
   name: string
@@ -615,4 +653,45 @@ export const crossingBlocks = {
   getCrossingMap: (id: number) =>
     apiFetch<{ map: CrossingMapEntry[] }>(`/crossing-blocks/${id}/crossing_map/`),
   exportMap: (id: number) => downloadFile(`/crossing-blocks/${id}/export_map/`, `crossing_map.csv`),
+}
+
+export interface BarcodeLabelData {
+  lot_code: string
+  germplasm_name: string
+  germplasm_db_id: string
+  species: string
+  program_name: string
+  quantity_grams: number
+  storage_location: string
+  harvest_date: string
+  source_plot: string | number
+  barcode_text: string
+  qr_payload: string
+}
+
+export const seedLots = {
+  list: (params: string = '') =>
+    apiFetch<PaginatedResponse<SeedLot>>(`/seed-lots/?page_size=100${params}`),
+  detail: (id: number) =>
+    apiFetch<SeedLot>(`/seed-lots/${id}/`),
+  create: (data: Partial<SeedLot>) =>
+    apiFetch<SeedLot>('/seed-lots/', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<SeedLot>) =>
+    apiFetch<SeedLot>(`/seed-lots/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  destroy: (id: number) =>
+    apiFetch<void>(`/seed-lots/${id}/`, { method: 'DELETE' }),
+  adjust: (id: number, data: { transaction_type?: string; quantity_grams: number; destination_trial?: number | null; notes?: string }) =>
+    apiFetch<{ status: string; transaction: SeedTransaction; seed_lot: SeedLot }>(
+      `/seed-lots/${id}/adjust/`,
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
+  getLabelData: (id: number) =>
+    apiFetch<BarcodeLabelData>(`/seed-lots/${id}/label/`),
+  getLowStock: (threshold: number = 50.0) =>
+    apiFetch<SeedLot[]>(`/seed-lots/low_stock/?threshold=${threshold}`),
+}
+
+export const seedTransactions = {
+  list: (params: string = '') =>
+    apiFetch<PaginatedResponse<SeedTransaction>>(`/seed-transactions/?page_size=100${params}`),
 }

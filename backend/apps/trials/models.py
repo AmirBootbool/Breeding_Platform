@@ -155,6 +155,12 @@ class ObservationVariable(models.Model):
     )
     min_value = models.FloatField(null=True, blank=True)
     max_value = models.FloatField(null=True, blank=True)
+    crop = models.CharField(
+        max_length=64,
+        default="all",
+        blank=True,
+        help_text="Standard crop scope (e.g. wheat, barley, or 'all')",
+    )
     is_required = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

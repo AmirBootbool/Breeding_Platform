@@ -234,3 +234,144 @@ class Cross(models.Model):
     class Meta:
         ordering = ["-cross_date"]
         verbose_name_plural = "crosses"
+
+
+class SeedLot(models.Model):
+    STATUS_CHOICES = [
+        ("available", "Available"),
+        ("depleted", "Depleted"),
+        ("reserved", "Reserved"),
+        ("quarantine", "Quarantine"),
+    ]
+
+    germplasm = models.ForeignKey(
+        Germplasm,
+        on_delete=models.PROTECT,
+        related_name="seed_lots",
+    )
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.CASCADE,
+        related_name="seed_lots",
+    )
+    lot_code = models.CharField(
+        max_length=100,
+        unique=True,
+        db_index=True,
+        help_text="Unique seed packet identifier, e.g. LOT-2026-0042",
+    )
+    quantity_grams = models.FloatField(default=0.0)
+    seed_count = models.PositiveIntegerField(null=True, blank=True)
+    storage_location = models.CharField(
+        max_length=200,
+        help_text="Physical location: e.g. Cold Room 1, Rack C, Box 12",
+    )
+    harvest_date = models.DateField(null=True, blank=True)
+    source_plot = models.ForeignKey(
+        "trials.Plot",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="harvested_seed_lots",
+    )
+    germination_rate = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Germination rate percentage (0.0 to 100.0)",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="available",
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.lot_code:
+            from django.db import connection
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT nextval(pg_get_serial_sequence("
+                        "'germplasm_seedlot', 'id'))"
+                    )
+                    next_id = cursor.fetchone()[0]
+                self.id = next_id
+                self.lot_code = f"LOT-{next_id:06d}"
+                super().save(*args, **kwargs)
+            else:
+                super().save(*args, **kwargs)
+                self.lot_code = f"LOT-{self.pk:06d}"
+                SeedLot.objects.filter(pk=self.pk).update(lot_code=self.lot_code)
+        else:
+            super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.lot_code}: {self.germplasm.name} ({self.quantity_grams}g @ {self.storage_location})"
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Seed Lot"
+        verbose_name_plural = "Seed Lots"
+
+
+class SeedTransaction(models.Model):
+    TRANSACTION_TYPE_CHOICES = [
+        ("initial_deposit", "Initial Deposit"),
+        ("harvest_deposit", "Harvest Deposit"),
+        ("planting_deduction", "Planting Deduction"),
+        ("distribution", "Distribution"),
+        ("adjustment", "Inventory Adjustment"),
+    ]
+
+    seed_lot = models.ForeignKey(
+        SeedLot,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+    )
+    transaction_type = models.CharField(
+        max_length=30,
+        choices=TRANSACTION_TYPE_CHOICES,
+    )
+    quantity_grams = models.FloatField(
+        help_text="Delta in grams (positive for deposit, negative for deduction)",
+    )
+    transaction_date = models.DateField(auto_now_add=True)
+    destination_trial = models.ForeignKey(
+        "trials.Trial",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="seed_transactions",
+    )
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.transaction_type} ({self.quantity_grams}g) on {self.seed_lot.lot_code}"
+
+    class Meta:
+        ordering = ["-created_at"]

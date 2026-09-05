@@ -11,6 +11,7 @@ import DataExport from './pages/DataExport'
 import Setup from './pages/Setup'
 import MultiEnvironmentAnalysis from './pages/MultiEnvironmentAnalysis'
 import Traits from './pages/Traits'
+import SeedInventory from './pages/SeedInventory'
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
@@ -23,6 +24,7 @@ function ProtectedLayout() {
           <Route path="/"             element={<Dashboard />} />
           <Route path="/germplasm"    element={<GermplasmBrowser />} />
           <Route path="/crosses"      element={<CrossingBlock />} />
+          <Route path="/seed-inventory" element={<SeedInventory />} />
           <Route path="/trials"       element={<TrialManager />} />
           <Route path="/observations" element={<ObservationEntry />} />
           <Route path="/export"       element={<DataExport />} />

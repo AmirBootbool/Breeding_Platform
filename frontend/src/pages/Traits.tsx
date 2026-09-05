@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { observationVariables, ObservationVariable, ApiError } from '../api/client'
+import { observationVariables, ObservationVariable, ApiError, CROP_CHOICES } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
@@ -25,6 +25,7 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
     name: variable?.name ?? '',
     variable_code: variable?.variable_code ?? '',
     data_type: variable?.data_type ?? 'numeric',
+    crop: variable?.crop ?? 'all',
     unit: variable?.unit ?? '',
     min_value: variable?.min_value?.toString() ?? '',
     max_value: variable?.max_value?.toString() ?? '',
@@ -44,6 +45,7 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
       name: formData.name.trim(),
       variable_code: formData.variable_code.trim(),
       data_type: formData.data_type,
+      crop: formData.crop,
       unit: formData.unit.trim(),
       description: formData.description.trim(),
       is_required: formData.is_required,
@@ -119,6 +121,23 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
         </div>
 
         <div>
+          <label className="form-label">Crop Scope</label>
+          <select
+            id="trait-crop"
+            className="form-input"
+            value={formData.crop}
+            onChange={e => setFormData({ ...formData, crop: e.target.value })}
+          >
+            <option value="all">Universal (All Crops)</option>
+            {CROP_CHOICES.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ gap: 'var(--space-4)' }}>
+        <div>
           <label className="form-label">Unit of Measure</label>
           <input
             id="trait-unit"
@@ -129,36 +148,33 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
             placeholder="e.g., cm, t/ha, g, %"
           />
         </div>
-      </div>
 
-      {isNumeric && (
-        <div className="grid-2" style={{ gap: 'var(--space-4)' }}>
+        {isNumeric ? (
           <div>
-            <label className="form-label">Min Allowed Value</label>
-            <input
-              id="trait-min-val"
-              type="number"
-              step="any"
-              className="form-input"
-              value={formData.min_value}
-              onChange={e => setFormData({ ...formData, min_value: e.target.value })}
-              placeholder="Optional lower bound"
-            />
+            <label className="form-label">Allowed Range (Min – Max)</label>
+            <div className="flex gap-2">
+              <input
+                id="trait-min-val"
+                type="number"
+                step="any"
+                className="form-input"
+                value={formData.min_value}
+                onChange={e => setFormData({ ...formData, min_value: e.target.value })}
+                placeholder="Min"
+              />
+              <input
+                id="trait-max-val"
+                type="number"
+                step="any"
+                className="form-input"
+                value={formData.max_value}
+                onChange={e => setFormData({ ...formData, max_value: e.target.value })}
+                placeholder="Max"
+              />
+            </div>
           </div>
-          <div>
-            <label className="form-label">Max Allowed Value</label>
-            <input
-              id="trait-max-val"
-              type="number"
-              step="any"
-              className="form-input"
-              value={formData.max_value}
-              onChange={e => setFormData({ ...formData, max_value: e.target.value })}
-              placeholder="Optional upper bound"
-            />
-          </div>
-        </div>
-      )}
+        ) : <div />}
+      </div>
 
       <div>
         <label className="form-label">Description & Protocol Notes</label>
@@ -198,6 +214,7 @@ export default function Traits() {
   const role = useAuthStore(s => s.role)
   const canWrite = role === 'admin' || role === 'breeder'
 
+  const [selectedCrop, setSelectedCrop] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [editVariable, setEditVariable] = useState<ObservationVariable | null>(null)
   const [deleteVariable, setDeleteVariable] = useState<ObservationVariable | null>(null)
@@ -205,6 +222,11 @@ export default function Traits() {
   const { data, isLoading } = useQuery({
     queryKey: ['observation-variables'],
     queryFn: () => observationVariables.list(),
+  })
+
+  const variableList = (data?.results ?? []).filter(v => {
+    if (selectedCrop === 'all') return true
+    return v.crop === selectedCrop || v.crop === 'all' || !v.crop
   })
 
   const handleEdit = (v: ObservationVariable) => {
@@ -242,14 +264,33 @@ export default function Traits() {
         }
       />
 
+      {/* Toolbar with Crop Filter */}
+      <div className="toolbar">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-muted">Crop Scope:</span>
+          <select
+            id="crop-scope-filter"
+            className="form-input"
+            style={{ width: 220 }}
+            value={selectedCrop}
+            onChange={e => setSelectedCrop(e.target.value)}
+          >
+            <option value="all">All Crops (Universal)</option>
+            {CROP_CHOICES.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <main className="content">
         <div className="table-container">
           {isLoading ? (
             <div className="loading-spinner"><div className="spinner" /> Loading traits…</div>
-          ) : data?.results.length === 0 ? (
+          ) : variableList.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📊</div>
-              <p>No observation variables defined yet.</p>
+              <p>No observation variables defined for selected crop scope.</p>
               {canWrite && (
                 <button className="btn btn-secondary mt-4" onClick={() => setShowModal(true)}>
                   Create the first trait
@@ -260,17 +301,18 @@ export default function Traits() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: 100 }}>Code</th>
+                  <th style={{ width: 90 }}>Code</th>
                   <th>Trait Name</th>
+                  <th>Crop</th>
                   <th>Type</th>
                   <th>Unit</th>
                   <th>Allowed Range</th>
                   <th>Description</th>
-                  {canWrite && <th style={{ width: 120 }}>Actions</th>}
+                  {canWrite && <th style={{ width: 100 }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {data?.results.map(v => (
+                {variableList.map(v => (
                   <tr key={v.id}>
                     <td>
                       {v.variable_code ? (
@@ -282,6 +324,11 @@ export default function Traits() {
                       )}
                     </td>
                     <td><strong>{v.name}</strong></td>
+                    <td>
+                      <span className="badge badge-gray" style={{ fontSize: '0.72rem' }}>
+                        {v.crop && v.crop !== 'all' ? v.crop : 'Universal'}
+                      </span>
+                    </td>
                     <td>
                       <span className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
                         {DATA_TYPES[v.data_type as keyof typeof DATA_TYPES] || v.data_type}

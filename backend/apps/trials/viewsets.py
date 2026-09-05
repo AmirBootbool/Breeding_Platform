@@ -360,7 +360,7 @@ class ObservationVariableViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "variable_code", "description"]
     ordering_fields = ["name", "data_type", "created_at"]
-    filterset_fields = ["data_type", "is_required"]
+    filterset_fields = ["crop", "data_type", "is_required"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)

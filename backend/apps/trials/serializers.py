@@ -144,6 +144,7 @@ class ObservationVariableSerializer(AuditSerializerMixin, serializers.ModelSeria
             "data_type",
             "min_value",
             "max_value",
+            "crop",
             "is_required",
             "created_at",
             "updated_at",

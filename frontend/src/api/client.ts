@@ -172,6 +172,7 @@ export interface ObservationVariable {
   variable_code: string
   unit: string
   data_type: string
+  crop?: string
   min_value: number | null
   max_value: number | null
   is_required: boolean
@@ -181,6 +182,16 @@ export interface ObservationVariable {
   created_by_username?: string | null
   updated_by_username?: string | null
 }
+
+export const CROP_CHOICES = [
+  { value: 'wheat', label: 'Bread Wheat (Triticum aestivum)' },
+  { value: 'durum_wheat', label: 'Durum Wheat (Triticum durum)' },
+  { value: 'barley', label: 'Barley (Hordeum vulgare)' },
+  { value: 'triticale', label: 'Triticale (x Triticosecale)' },
+  { value: 'oats', label: 'Oats (Avena sativa)' },
+  { value: 'rye', label: 'Rye (Secale cereale)' },
+  { value: 'other', label: 'Other Crop' },
+]
 
 export type Trait = ObservationVariable
 

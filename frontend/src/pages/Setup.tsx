@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   programs, locations, seasons, observationVariables, audit,
-  Program, Location, Season, ObservationVariable, ApiError
+  Program, Location, Season, ObservationVariable, ApiError, CROP_CHOICES
 } from '../api/client'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
@@ -53,8 +53,12 @@ function ProgramForm({
         <input id="prog-name" className="form-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
       </div>
       <div className="form-group mb-4">
-        <label className="form-label">Crop</label>
-        <input id="prog-crop" className="form-input" value={form.crop} onChange={e => setForm(p => ({ ...p, crop: e.target.value }))} />
+        <label className="form-label">Target Crop <span style={{ color: 'var(--status-danger)' }}>*</span></label>
+        <select id="prog-crop" className="form-input" value={form.crop} onChange={e => setForm(p => ({ ...p, crop: e.target.value }))}>
+          {CROP_CHOICES.map(c => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
       </div>
       <div className="form-group">
         <label className="form-label">Description</label>

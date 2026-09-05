@@ -4,7 +4,7 @@ import io
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
-from apps.core.models import Program
+from apps.core.models import Program, get_default_species_for_crop
 from apps.germplasm.models import Germplasm
 
 
@@ -46,7 +46,10 @@ def import_germplasm_csv(file_obj, program_name, dry_run=False):
             try:
                 germplasm = Germplasm(
                     name=name,
-                    species=row.get("species", "").strip() or "Triticum aestivum",
+                    species=(
+                        row.get("species", "").strip()
+                        or get_default_species_for_crop(program.crop)
+                    ),
                     program=program,
                     pedigree_string=row.get("pedigree_string", "").strip(),
                     cross_type=row.get("cross_type", "").strip() or "unknown",

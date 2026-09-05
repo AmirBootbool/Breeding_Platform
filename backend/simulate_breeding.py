@@ -62,9 +62,15 @@ def run_simulation():
 
     # 0. Cleanup previous simulation data
     print("Cleaning up previous simulation data...")
-    Trial.objects.filter(trial_code__startswith="SIM-").delete()
-    Cross.objects.filter(cross_code__startswith="SIM-").delete()
-    Germplasm.objects.filter(name__startswith="Line ").delete()
+    from apps.germplasm.models import SeedLot, SeedTransaction
+    SeedTransaction.objects.filter(seed_lot__program__name="Simulation Program").delete()
+    SeedLot.objects.filter(program__name="Simulation Program").delete()
+    Observation.objects.filter(plot__trial__program__name="Simulation Program").delete()
+    Plot.objects.filter(trial__program__name="Simulation Program").delete()
+    Trial.objects.filter(program__name="Simulation Program").delete()
+    Cross.objects.filter(female_parent__program__name="Simulation Program").delete()
+    Cross.objects.filter(male_parent__program__name="Simulation Program").delete()
+    Germplasm.objects.filter(program__name="Simulation Program").delete()
     Program.objects.filter(name="Simulation Program").delete()
     Location.objects.filter(name="Simulation Station").delete()
     ObservationVariable.objects.filter(name__in=["Yield", "Disease Resistance", "Lodging Severity", "Heading Date", "Protein"]).delete()

@@ -471,6 +471,8 @@ export const trials = {
       method: 'POST',
       body: JSON.stringify({ plot_ids, method, ssd_count }),
     }),
+  getSpatialHeatmap: (trialId: number, variableId: number) =>
+    apiFetch<SpatialHeatmapData>(`/trials/${trialId}/spatial_heatmap/?variable_id=${variableId}`),
 }
 
 // ---- Plots -----------------------------------------------------------------
@@ -529,15 +531,34 @@ export interface AuditLogEntry {
   model: string
   id: number
   label: string
+  action?: string
   created_by: string | null
   updated_by: string | null
   created_at: string | null
   updated_at: string | null
 }
 
+export interface AuditFilterParams {
+  model?: string
+  user?: string
+  search?: string
+  limit?: number
+}
+
 export const audit = {
   recentChanges: (limit = 50) =>
     apiFetch<AuditLogEntry[]>(`/audit/recent_changes/?limit=${limit}`),
+  getRecentChanges: (params?: AuditFilterParams) => {
+    const searchParams = new URLSearchParams()
+    if (params?.model) searchParams.set('model', params.model)
+    if (params?.user) searchParams.set('user', params.user)
+    if (params?.search) searchParams.set('search', params.search)
+    if (params?.limit) searchParams.set('limit', params.limit.toString())
+    const qs = searchParams.toString() ? `?${searchParams.toString()}` : ''
+    return apiFetch<AuditLogEntry[]>(`/audit/recent_changes/${qs}`)
+  },
+  getEntityHistory: (model: string, id: number) =>
+    apiFetch<AuditLogEntry[]>(`/audit/entity_history/?model=${encodeURIComponent(model)}&id=${id}`),
 }
 
 // ---- Analysis Sets ----------------------------------------------------------
@@ -706,3 +727,53 @@ export const seedTransactions = {
   list: (params: string = '') =>
     apiFetch<PaginatedResponse<SeedTransaction>>(`/seed-transactions/?page_size=100${params}`),
 }
+
+export interface SpatialPlotCell {
+  plot_id: number
+  plot_number: number
+  row: number
+  column: number
+  rep: number
+  block: number | null
+  germplasm_id: number
+  germplasm_name: string
+  is_check: boolean
+  status: string
+  raw_value: number | null
+  normalized_value: number | null
+  notes: string
+}
+
+export interface SpatialMarginSummary {
+  row?: number
+  column?: number
+  mean: number | null
+  count: number
+}
+
+export interface SpatialHeatmapData {
+  trial_id: number
+  trial_code: string
+  variable: {
+    id: number
+    name: string
+    unit: string
+    data_type: string
+  }
+  stats: {
+    min: number | null
+    max: number | null
+    mean: number | null
+    count: number
+  }
+  dimensions: {
+    rows: number
+    columns: number
+    coordinate_type: string
+  }
+  row_margins: SpatialMarginSummary[]
+  col_margins: SpatialMarginSummary[]
+  cells: SpatialPlotCell[]
+}
+
+

@@ -331,6 +331,158 @@ class TrialViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @action(detail=True, methods=["get"], url_path="spatial_heatmap")
+    def spatial_heatmap(self, request, pk=None):
+        """Generate a 2D spatial heatmap matrix of plot observation values and margin gradients."""
+        trial = self.get_object()
+        variable_id = request.query_params.get("variable_id")
+        if not variable_id:
+            return Response(
+                {"detail": "variable_id query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            variable = ObservationVariable.objects.get(pk=variable_id)
+        except (ObservationVariable.DoesNotExist, ValueError):
+            return Response(
+                {"detail": f"ObservationVariable with id {variable_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        plots = (
+            Plot.objects.filter(trial=trial)
+            .select_related("germplasm")
+            .order_by("rep", "plot_number")
+        )
+        if not plots.exists():
+            return Response(
+                {
+                    "trial_id": trial.id,
+                    "trial_code": trial.trial_code,
+                    "variable": {
+                        "id": variable.id,
+                        "name": variable.name,
+                        "unit": variable.unit,
+                        "data_type": variable.data_type,
+                    },
+                    "stats": {"min": None, "max": None, "mean": None, "count": 0},
+                    "dimensions": {"rows": 0, "columns": 0, "coordinate_type": "none"},
+                    "row_margins": [],
+                    "col_margins": [],
+                    "cells": [],
+                }
+            )
+
+        obs_qs = Observation.objects.filter(
+            plot__trial=trial, variable=variable
+        ).select_related("plot")
+        obs_map = {obs.plot_id: obs for obs in obs_qs}
+
+        has_rc = any(p.row is not None and p.column is not None for p in plots)
+        coordinate_type = "row_col" if has_rc else "rep_plot"
+
+        numeric_values = []
+        for p in plots:
+            obs = obs_map.get(p.id)
+            if obs and obs.value_numeric is not None:
+                numeric_values.append(float(obs.value_numeric))
+
+        min_val = min(numeric_values) if numeric_values else None
+        max_val = max(numeric_values) if numeric_values else None
+        mean_val = (sum(numeric_values) / len(numeric_values)) if numeric_values else None
+        val_range = (
+            (max_val - min_val)
+            if (min_val is not None and max_val is not None and max_val > min_val)
+            else 1.0
+        )
+
+        cells = []
+        row_buckets = {}
+        col_buckets = {}
+
+        for p in plots:
+            obs = obs_map.get(p.id)
+            raw_val = (
+                float(obs.value_numeric)
+                if (obs and obs.value_numeric is not None)
+                else None
+            )
+            norm_val = None
+            if raw_val is not None:
+                if max_val is not None and min_val is not None and max_val > min_val:
+                    norm_val = round((raw_val - min_val) / val_range, 4)
+                else:
+                    norm_val = 0.5
+
+            if coordinate_type == "row_col":
+                r_idx = p.row if p.row is not None else p.rep
+                c_idx = p.column if p.column is not None else p.plot_number
+            else:
+                r_idx = p.rep
+                c_idx = p.plot_number
+
+            cells.append(
+                {
+                    "plot_id": p.id,
+                    "plot_number": p.plot_number,
+                    "row": r_idx,
+                    "column": c_idx,
+                    "rep": p.rep,
+                    "block": p.block,
+                    "germplasm_id": p.germplasm.id,
+                    "germplasm_name": p.germplasm.name,
+                    "is_check": p.is_check,
+                    "status": p.status,
+                    "raw_value": raw_val,
+                    "normalized_value": norm_val,
+                    "notes": obs.notes if obs else "",
+                }
+            )
+
+            if raw_val is not None:
+                row_buckets.setdefault(r_idx, []).append(raw_val)
+                col_buckets.setdefault(c_idx, []).append(raw_val)
+
+        row_margins = [
+            {"row": r, "mean": round(sum(vals) / len(vals), 2), "count": len(vals)}
+            for r, vals in sorted(row_buckets.items())
+        ]
+        col_margins = [
+            {"column": c, "mean": round(sum(vals) / len(vals), 2), "count": len(vals)}
+            for c, vals in sorted(col_buckets.items())
+        ]
+
+        distinct_rows = sorted({c["row"] for c in cells if c["row"] is not None})
+        distinct_cols = sorted({c["column"] for c in cells if c["column"] is not None})
+
+        return Response(
+            {
+                "trial_id": trial.id,
+                "trial_code": trial.trial_code,
+                "variable": {
+                    "id": variable.id,
+                    "name": variable.name,
+                    "unit": variable.unit,
+                    "data_type": variable.data_type,
+                },
+                "stats": {
+                    "min": min_val,
+                    "max": max_val,
+                    "mean": round(mean_val, 2) if mean_val is not None else None,
+                    "count": len(numeric_values),
+                },
+                "dimensions": {
+                    "rows": len(distinct_rows),
+                    "columns": len(distinct_cols),
+                    "coordinate_type": coordinate_type,
+                },
+                "row_margins": row_margins,
+                "col_margins": col_margins,
+                "cells": cells,
+            }
+        )
+
 
 class PlotViewSet(viewsets.ModelViewSet):
     serializer_class = PlotSerializer

@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/traits',       label: 'Traits',            icon: '📊',  roles: new Set(['admin', 'breeder']) },
   { to: '/export',       label: 'Data Export',       icon: '⬇️',  roles: null },
   { to: '/analysis',     label: 'Multi-Env Analysis',icon: '📈',  roles: new Set(['admin', 'breeder']) },
+  { to: '/audit',        label: 'Audit Trail',       icon: '🛡️',  roles: new Set(['admin', 'breeder']) },
   { to: '/setup',        label: 'Setup',             icon: '⚙️',  roles: new Set(['admin', 'breeder']) },
 ]
 

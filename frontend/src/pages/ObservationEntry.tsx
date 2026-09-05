@@ -3,12 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { trials, plots, observationVariables, observations, Trial, Plot, ObservationVariable, ApiError } from '../api/client'
 import TopBar from '../components/TopBar'
 import ObservationGrid from '../components/ObservationGrid'
+import OfflineSyncBadge from '../components/common/OfflineSyncBadge'
+import { offlineStorage } from '../services/offlineStorage'
 
 // ---- Observation form for a single plot -------------------------------------
 function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariable[] }) {
   const queryClient = useQueryClient()
   const [values, setValues] = useState<Record<number, string>>({})
   const [success, setSuccess] = useState(false)
+  const [isOfflineSaved, setIsOfflineSaved] = useState(false)
   const [errors, setErrors] = useState<Record<number, string>>({})
 
   const mutation = useMutation({
@@ -23,6 +26,27 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
         if (v.min_value !== null && num < v.min_value) throw new Error(`${v.name} must be ≥ ${v.min_value}`)
         if (v.max_value !== null && num > v.max_value) throw new Error(`${v.name} must be ≤ ${v.max_value}`)
       }
+
+      // Check offline mode
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        variables
+          .filter(v => values[v.id] !== undefined && values[v.id] !== '')
+          .forEach(v => {
+            offlineStorage.queueObservation({
+              plot: plot.id,
+              variable: v.id,
+              variable_name: v.name,
+              value_numeric: v.data_type === 'numeric' ? parseFloat(values[v.id]) : null,
+              value_text: v.data_type === 'text' ? values[v.id] : '',
+              value_date: v.data_type === 'date' ? values[v.id] : null,
+              observation_time: new Date().toISOString(),
+              notes: '',
+            })
+          })
+        setIsOfflineSaved(true)
+        return
+      }
+
       // Submit each filled variable
       const promises = variables
         .filter(v => values[v.id] !== undefined && values[v.id] !== '')
@@ -34,6 +58,7 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
           return observations.create(payload)
         })
       await Promise.all(promises)
+      setIsOfflineSaved(false)
     },
     onSuccess: () => {
       setSuccess(true)
@@ -43,6 +68,30 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
       setTimeout(() => setSuccess(false), 3000)
     },
     onError: (err) => {
+      // If network failure, save to offline storage fallback
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        variables
+          .filter(v => values[v.id] !== undefined && values[v.id] !== '')
+          .forEach(v => {
+            offlineStorage.queueObservation({
+              plot: plot.id,
+              variable: v.id,
+              variable_name: v.name,
+              value_numeric: v.data_type === 'numeric' ? parseFloat(values[v.id]) : null,
+              value_text: v.data_type === 'text' ? values[v.id] : '',
+              value_date: v.data_type === 'date' ? values[v.id] : null,
+              observation_time: new Date().toISOString(),
+              notes: '',
+            })
+          })
+        setIsOfflineSaved(true)
+        setSuccess(true)
+        setValues({})
+        setErrors({})
+        setTimeout(() => setSuccess(false), 3000)
+        return
+      }
+
       if (err instanceof ApiError) {
         setErrors({ _: JSON.stringify(err.detail) } as Record<number, string>)
       } else {
@@ -70,7 +119,7 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
       {success && (
         <div className="alert alert-success mb-4">
           <span>✓</span>
-          <span>Observations saved successfully.</span>
+          <span>{isOfflineSaved ? 'Observations queued locally (offline mode).' : 'Observations saved successfully.'}</span>
         </div>
       )}
 
@@ -155,22 +204,27 @@ export default function ObservationEntry() {
       <TopBar
         title="Observation Entry"
         subtitle="Record phenotypic data by trial and plot"
-        actions={selectedTrial ? (
-          <div className="flex gap-2">
-            <button
-              className={`btn ${!isGridView ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setIsGridView(false)}
-            >
-              Single Plot Form
-            </button>
-            <button
-              className={`btn ${isGridView ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setIsGridView(true)}
-            >
-              Spreadsheet Grid View
-            </button>
+        actions={
+          <div className="flex items-center gap-3">
+            <OfflineSyncBadge />
+            {selectedTrial && (
+              <div className="flex gap-2">
+                <button
+                  className={`btn ${!isGridView ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setIsGridView(false)}
+                >
+                  Single Plot Form
+                </button>
+                <button
+                  className={`btn ${isGridView ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setIsGridView(true)}
+                >
+                  Spreadsheet Grid View
+                </button>
+              </div>
+            )}
           </div>
-        ) : undefined}
+        }
       />
 
       {!selectedTrial ? (

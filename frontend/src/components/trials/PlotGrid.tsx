@@ -1,13 +1,21 @@
+import { useState } from 'react'
 import { Plot } from '../../api/client'
 import { colorForIndex, StatusBadge } from './types'
+import SpatialHeatmapModal from './SpatialHeatmapModal'
 
 interface PlotGridProps {
   plotList: Plot[]
   selectedPlots?: number[]
   onSelectPlot?: (id: number) => void
+  trialId?: number
+  trialCode?: string
 }
 
-export default function PlotGrid({ plotList, selectedPlots, onSelectPlot }: PlotGridProps) {
+export default function PlotGrid({ plotList, selectedPlots, onSelectPlot, trialId, trialCode }: PlotGridProps) {
+  const [showHeatmap, setShowHeatmap] = useState(false)
+  const actualTrialId = trialId || plotList[0]?.trial
+  const actualTrialCode = trialCode || `Trial #${actualTrialId || ''}`
+
   const germplasmIds = [...new Set(plotList.map(p => p.germplasm))]
   const colorMap: Record<number, number> = {}
   germplasmIds.forEach((id, idx) => { colorMap[id] = idx })
@@ -21,9 +29,28 @@ export default function PlotGrid({ plotList, selectedPlots, onSelectPlot }: Plot
     const cols = [...new Set(plotList.map(p => p.column as number))].sort((a, b) => a - b)
     return (
       <div>
-        <div className="card-title" style={{ marginBottom: 'var(--space-4)' }}>
-          Plot Layout — {plotList.length} plots (Latin Square)
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          <div className="card-title">
+            Plot Layout — {plotList.length} plots (Latin Square)
+          </div>
+          {actualTrialId && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setShowHeatmap(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}
+            >
+              <span>🌿 Spatial Heatmap</span>
+            </button>
+          )}
         </div>
+        {actualTrialId && (
+          <SpatialHeatmapModal
+            trialId={actualTrialId}
+            trialCode={actualTrialCode}
+            isOpen={showHeatmap}
+            onClose={() => setShowHeatmap(false)}
+          />
+        )}
         <div className="plot-grid" style={{ gridTemplateColumns: `repeat(${cols.length}, 1fr)`, gap: 'var(--space-2)' }}>
           {rows.map(r => 
             cols.map(c => {
@@ -55,9 +82,28 @@ export default function PlotGrid({ plotList, selectedPlots, onSelectPlot }: Plot
 
   return (
     <div>
-      <div className="card-title" style={{ marginBottom: 'var(--space-4)' }}>
-        Plot Layout — {plotList.length} plots
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+        <div className="card-title">
+          Plot Layout — {plotList.length} plots
+        </div>
+        {actualTrialId && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setShowHeatmap(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}
+          >
+            <span>🌿 Spatial Heatmap</span>
+          </button>
+        )}
       </div>
+      {actualTrialId && (
+        <SpatialHeatmapModal
+          trialId={actualTrialId}
+          trialCode={actualTrialCode}
+          isOpen={showHeatmap}
+          onClose={() => setShowHeatmap(false)}
+        />
+      )}
       {reps.map(repNum => {
         const repPlots = plotList.filter(p => p.rep === repNum).sort((a, b) => a.plot_number - b.plot_number)
         const blocks = isAlpha 

@@ -721,6 +721,11 @@ export const crossingBlocks = {
   getCrossingMap: (id: number) =>
     apiFetch<{ map: CrossingMapEntry[] }>(`/crossing-blocks/${id}/crossing_map/`),
   exportMap: (id: number) => downloadFile(`/crossing-blocks/${id}/export_map/`, `crossing_map.csv`),
+  bulkUpdateStatus: (id: number, data: { cross_ids: number[]; status: string; notes?: string }) =>
+    apiFetch<{ updated_count: number; status: string }>(
+      `/crossing-blocks/${id}/bulk_status/`,
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
 }
 
 export interface BarcodeLabelData {
@@ -753,8 +758,18 @@ export const seedLots = {
       `/seed-lots/${id}/adjust/`,
       { method: 'POST', body: JSON.stringify(data) }
     ),
+  split: (id: number, data: { quantity_grams: number; storage_location?: string; notes?: string }) =>
+    apiFetch<{ status: string; parent_lot: SeedLot; new_lot: SeedLot }>(
+      `/seed-lots/${id}/split/`,
+      { method: 'POST', body: JSON.stringify(data) }
+    ),
   getLabelData: (id: number) =>
     apiFetch<BarcodeLabelData>(`/seed-lots/${id}/label/`),
+  getBulkLabels: (lotIds: number[]) =>
+    apiFetch<{ labels: BarcodeLabelData[]; count: number }>(
+      '/seed-lots/bulk-labels/',
+      { method: 'POST', body: JSON.stringify({ lot_ids: lotIds }) }
+    ),
   getLowStock: (threshold: number = 50.0) =>
     apiFetch<SeedLot[]>(`/seed-lots/low_stock/?threshold=${threshold}`),
 }

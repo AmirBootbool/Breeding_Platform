@@ -94,6 +94,81 @@ class SeedLotViewSet(viewsets.ModelViewSet):
         data = build_barcode_label_data(seed_lot)
         return Response(data)
 
+    @action(detail=False, methods=["post"], url_path="bulk-labels")
+    def bulk_labels(self, request):
+        lot_ids = request.data.get("lot_ids", [])
+        if not lot_ids:
+            return Response({"detail": "lot_ids list is required."}, status=status.HTTP_400_BAD_REQUEST)
+        lots = self.get_queryset().filter(id__in=lot_ids)
+        labels = [build_barcode_label_data(lot) for lot in lots]
+        return Response({"labels": labels, "count": len(labels)})
+
+    @action(detail=True, methods=["post"], url_path="split")
+    def split_lot(self, request, pk=None):
+        parent_lot = self.get_object()
+        quantity = request.data.get("quantity_grams")
+        new_storage = request.data.get("storage_location", parent_lot.storage_location)
+        notes = request.data.get("notes", f"Split from {parent_lot.lot_code}")
+
+        if quantity is None:
+            return Response({"detail": "quantity_grams is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            quantity = float(quantity)
+        except (ValueError, TypeError):
+            return Response({"detail": "quantity_grams must be a number."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quantity <= 0:
+            return Response({"detail": "Quantity must be greater than 0."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quantity >= parent_lot.quantity_grams:
+            return Response(
+                {"detail": f"Split quantity ({quantity}g) must be strictly less than current available quantity ({parent_lot.quantity_grams}g)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        parent_lot.quantity_grams -= quantity
+        parent_lot.save(update_fields=["quantity_grams", "updated_at"])
+
+        SeedTransaction.objects.create(
+            seed_lot=parent_lot,
+            transaction_type="adjustment",
+            quantity_grams=-quantity,
+            notes=f"Split {quantity}g to new lot",
+            created_by=request.user,
+        )
+
+        new_lot = SeedLot.objects.create(
+            germplasm=parent_lot.germplasm,
+            program=parent_lot.program,
+            quantity_grams=quantity,
+            storage_location=new_storage,
+            harvest_date=parent_lot.harvest_date,
+            germination_rate=parent_lot.germination_rate,
+            germination_date=parent_lot.germination_date,
+            status="available",
+            notes=notes,
+            created_by=request.user,
+            updated_by=request.user,
+        )
+
+        SeedTransaction.objects.create(
+            seed_lot=new_lot,
+            transaction_type="initial_deposit",
+            quantity_grams=quantity,
+            notes=f"Created via split from {parent_lot.lot_code}",
+            created_by=request.user,
+        )
+
+        return Response(
+            {
+                "status": "success",
+                "parent_lot": SeedLotSerializer(parent_lot).data,
+                "new_lot": SeedLotSerializer(new_lot).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
     @action(detail=False, methods=["get"], url_path="low_stock")
     def low_stock(self, request):
         threshold = float(request.query_params.get("threshold", 50.0))

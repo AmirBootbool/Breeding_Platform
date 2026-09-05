@@ -38,8 +38,6 @@ function GermplasmPanel({
     )
   }, [entries, searchTerm, programFilter])
 
-
-
   return (
     <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 360 }}>
       <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -91,12 +89,10 @@ function GermplasmPanel({
   )
 }
 
-// ---- Cross preview row ------------------------------------------------------
 function crossPreviewName(fName: string, mName: string) {
   return `${fName}/${mName}`
 }
 
-// ---- Create/Edit block modal ------------------------------------------------
 function BlockFormModal({
   programList, locationList, seasonList,
   initial, onClose, onSaved,
@@ -162,28 +158,37 @@ function BlockFormModal({
           <label className="form-label">Season</label>
           <select id="cb-season" className="form-input" value={form.season} onChange={e => setForm(f => ({ ...f, season: e.target.value }))}>
             <option value="">— None —</option>
-            {seasonList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {seasonList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.year})</option>)}
           </select>
         </div>
         <div className="form-group">
-          <label className="form-label">Map Pattern</label>
-          <select id="cb-pattern" className="form-input" value={form.map_pattern} onChange={e => setForm(f => ({ ...f, map_pattern: e.target.value as 'male_first' | 'female_first' | 'alternating' }))}>
+          <label className="form-label">Sowing Map Pattern</label>
+          <select id="cb-pattern" className="form-input" value={form.map_pattern} onChange={e => setForm(f => ({ ...f, map_pattern: e.target.value as any }))}>
             {MAP_PATTERNS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
-        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <input id="cb-reciprocals" type="checkbox" checked={form.include_reciprocals} onChange={e => setForm(f => ({ ...f, include_reciprocals: e.target.checked }))} style={{ accentColor: 'var(--brand-400)' }} />
-          <label htmlFor="cb-reciprocals" className="form-label" style={{ marginBottom: 0 }}>Include reciprocal crosses</label>
+        <div className="form-group" style={{ gridColumn: '1/-1', flexDirection: 'row', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <input
+            id="cb-reciprocals"
+            type="checkbox"
+            checked={form.include_reciprocals}
+            onChange={e => setForm(f => ({ ...f, include_reciprocals: e.target.checked }))}
+          />
+          <label htmlFor="cb-reciprocals" className="form-label" style={{ marginBottom: 0, cursor: 'pointer' }}>
+            Include reciprocal crosses (♀ ↔ ♂)
+          </label>
         </div>
         <div className="form-group" style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Notes</label>
-          <textarea id="cb-notes" className="form-input" rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+          <textarea id="cb-notes" className="form-input" rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: 'vertical' }} />
         </div>
       </div>
       <div className="modal-footer">
         <button className="btn btn-secondary" onClick={onClose} disabled={mutation.isPending}>Cancel</button>
-        <button id="cb-save-btn" className="btn btn-primary"
-          onClick={() => { if (!form.name || !form.program) { setError('Name and Program are required.'); return }; mutation.mutate() }}
+        <button
+          id="cb-save-btn"
+          className="btn btn-primary"
+          onClick={() => { if (!form.name || !form.program) { setError('Name and Program are required.'); return } mutation.mutate() }}
           disabled={mutation.isPending}
         >
           {mutation.isPending ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Saving…</> : (initial?.id ? 'Save Changes' : 'Create Block')}
@@ -193,18 +198,16 @@ function BlockFormModal({
   )
 }
 
-// ---- Main page ==============================================================
-export default function CrossingBlockPage() {
+export default function CrossingBlock() {
   const role = useAuthStore(s => s.role)
   const canWrite = role === 'admin' || role === 'breeder'
-  const qc = useQueryClient()
 
-  // State
-  const [showCreate, setShowCreate] = useState(false)
   const [activeBlock, setActiveBlock] = useState<CB | null>(null)
+  const [activeTab, setActiveTab] = useState<'table' | 'matrix' | 'map'>('table')
+  const [showCreate, setShowCreate] = useState(false)
   const [deleteBlock, setDeleteBlock] = useState<CB | null>(null)
 
-  // Parent selection state
+  // Selection states
   const [femaleSelected, setFemaleSelected] = useState<Set<number>>(new Set())
   const [maleSelected, setMaleSelected] = useState<Set<number>>(new Set())
   const [femaleSearch, setFemaleSearch] = useState('')
@@ -212,92 +215,56 @@ export default function CrossingBlockPage() {
   const [femaleProgramFilter] = useState('')
   const [maleProgramFilter] = useState('')
 
-  // Cross preview and map
+  // Crosses in active block
   const [plannedCrosses, setPlannedCrosses] = useState<CrossEntry[]>([])
+  const [selectedCrossIds, setSelectedCrossIds] = useState<number[]>([])
   const [mapEntries, setMapEntries] = useState<CrossingMapEntry[]>([])
-  const [executionResult, setExecutionResult] = useState<{ executed_count: number; progeny: { id: number; name: string }[] } | null>(null)
+  const [executionResult, setExecutionResult] = useState<{ executed_count: number } | null>(null)
 
-  // Queries
+  const qc = useQueryClient()
+
   const { data: blocksData, isLoading: blocksLoading } = useQuery({
     queryKey: ['crossing-blocks'],
     queryFn: () => crossingBlocks.list(),
   })
-  const { data: germplasmData, isLoading: germplasmLoading } = useQuery({
-    queryKey: ['germplasm-all-crosses'],
-    queryFn: () => germplasm.listAll(),
-    enabled: !!activeBlock,
-  })
   const { data: programsData } = useQuery({ queryKey: ['programs'], queryFn: () => programs.list() })
   const { data: locationsData } = useQuery({ queryKey: ['locations'], queryFn: () => locations.list() })
   const { data: seasonsData } = useQuery({ queryKey: ['seasons'], queryFn: () => seasons.list() })
+  const { data: allGermplasmData, isLoading: germplasmLoading } = useQuery({
+    queryKey: ['germplasm-all'],
+    queryFn: () => germplasm.listAll(),
+    enabled: !!activeBlock,
+  })
 
   const programList = programsData?.results ?? []
   const locationList = locationsData?.results ?? []
   const seasonList = seasonsData?.results ?? []
-  const allGermplasm = germplasmData?.results ?? []
+  const allGermplasm = allGermplasmData?.results ?? []
 
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: () => crossingBlocks.destroy(deleteBlock!.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['crossing-blocks'] })
-      setDeleteBlock(null)
-      if (activeBlock?.id === deleteBlock?.id) { setActiveBlock(null); setPlannedCrosses([]); setMapEntries([]) }
-    },
-  })
-
-  // Plan crosses mutation
-  const planMutation = useMutation({
-    mutationFn: () =>
-      crossingBlocks.planCrosses(activeBlock!.id, {
-        female_ids: [...femaleSelected],
-        male_ids: [...maleSelected],
-      }),
-    onSuccess: (data) => {
-      setPlannedCrosses(data.crosses)
-      qc.invalidateQueries({ queryKey: ['crossing-blocks'] })
-      // Load map
-      crossingBlocks.getCrossingMap(activeBlock!.id).then(r => setMapEntries(r.map))
-    },
-  })
-
-  // Execute mutation
-  const executeMutation = useMutation({
-    mutationFn: () => crossingBlocks.executeAll(activeBlock!.id),
-    onSuccess: (data) => {
-      setExecutionResult(data)
-      qc.invalidateQueries({ queryKey: ['crossing-blocks'] })
-      qc.invalidateQueries({ queryKey: ['germplasm'] })
-      // Reload block detail
-      crossingBlocks.detail(activeBlock!.id).then(b => {
-        setActiveBlock(b)
-        setPlannedCrosses(b.crosses ?? [])
-      })
-    },
-  })
-
-  // Helpers
   function toggleFemale(id: number) {
     setFemaleSelected(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
+
   function toggleMale(id: number) {
     setMaleSelected(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
+
   function swapSelections() {
-    const tempF = new Set(femaleSelected)
-    setFemaleSelected(new Set(maleSelected))
-    setMaleSelected(tempF)
+    const f = new Set(femaleSelected)
+    setFemaleSelected(maleSelected)
+    setMaleSelected(f)
   }
 
-  // Client-side cross preview
   const crossPreview = useMemo(() => {
     if (!activeBlock) return []
     const femaleEntries = allGermplasm.filter(g => femaleSelected.has(g.id))
@@ -318,6 +285,50 @@ export default function CrossingBlockPage() {
     return pairs
   }, [femaleSelected, maleSelected, allGermplasm, activeBlock])
 
+  const planMutation = useMutation({
+    mutationFn: () => crossingBlocks.planCrosses(activeBlock!.id, {
+      female_ids: Array.from(femaleSelected),
+      male_ids: Array.from(maleSelected),
+    }),
+    onSuccess: (res) => {
+      setPlannedCrosses(res.crosses)
+      qc.invalidateQueries({ queryKey: ['crossing-blocks'] })
+      crossingBlocks.getCrossingMap(activeBlock!.id).then(r => setMapEntries(r.map))
+    },
+  })
+
+  const executeMutation = useMutation({
+    mutationFn: () => crossingBlocks.executeAll(activeBlock!.id),
+    onSuccess: (res) => {
+      setExecutionResult(res)
+      qc.invalidateQueries({ queryKey: ['crossing-blocks'] })
+      qc.invalidateQueries({ queryKey: ['germplasm'] })
+      if (activeBlock) {
+        crossingBlocks.detail(activeBlock.id).then(b => {
+          if (b.crosses) setPlannedCrosses(b.crosses)
+        })
+      }
+    },
+  })
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: (newStatus: string) =>
+      crossingBlocks.bulkUpdateStatus(activeBlock!.id, { cross_ids: selectedCrossIds, status: newStatus }),
+    onSuccess: () => {
+      setSelectedCrossIds([])
+      if (activeBlock) {
+        crossingBlocks.detail(activeBlock.id).then(b => {
+          if (b.crosses) setPlannedCrosses(b.crosses)
+        })
+      }
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => crossingBlocks.destroy(deleteBlock!.id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['crossing-blocks'] }); setDeleteBlock(null) },
+  })
+
   function selectBlock(block: CB) {
     setActiveBlock(block)
     setFemaleSelected(new Set())
@@ -325,7 +336,8 @@ export default function CrossingBlockPage() {
     setPlannedCrosses([])
     setMapEntries([])
     setExecutionResult(null)
-    // Load existing crosses if any
+    setSelectedCrossIds([])
+    setActiveTab('table')
     crossingBlocks.detail(block.id).then(b => {
       if (b.crosses && b.crosses.length > 0) {
         setPlannedCrosses(b.crosses)
@@ -334,12 +346,39 @@ export default function CrossingBlockPage() {
     })
   }
 
-  // ---- Render ----------------------------------------------------------------
+  // Cross matrix computed data
+  const matrixData = useMemo(() => {
+    if (plannedCrosses.length === 0) return null
+    const femaleNames = [...new Set(plannedCrosses.map(c => c.female_parent_name))].sort()
+    const maleNames = [...new Set(plannedCrosses.map(c => c.male_parent_name))].sort()
+    const grid: Record<string, Record<string, CrossEntry | undefined>> = {}
+    
+    femaleNames.forEach(f => {
+      grid[f] = {}
+      maleNames.forEach(m => {
+        const match = plannedCrosses.find(c => c.female_parent_name === f && c.male_parent_name === m)
+        grid[f][m] = match
+      })
+    })
+
+    return { femaleNames, maleNames, grid }
+  }, [plannedCrosses])
+
+  // Statistics
+  const stats = useMemo(() => {
+    const total = plannedCrosses.length
+    const pollinated = plannedCrosses.filter(c => c.status === 'pollinated').length
+    const harvested = plannedCrosses.filter(c => c.status === 'harvested').length
+    const failed = plannedCrosses.filter(c => c.status === 'failed').length
+    const successRate = total > 0 ? Math.round((harvested / total) * 100) : 0
+    return { total, pollinated, harvested, failed, successRate }
+  }, [plannedCrosses])
+
   return (
     <div className="page-shell">
       <TopBar
-        title="Crossing Block"
-        subtitle={activeBlock ? activeBlock.name : `${blocksData?.count ?? '…'} blocks`}
+        title="Crossing Block & Matrix"
+        subtitle={activeBlock ? activeBlock.name : `${blocksData?.count ?? '…'} blocks registered`}
         actions={canWrite ? (
           <div className="flex gap-2">
             {activeBlock && (
@@ -354,7 +393,7 @@ export default function CrossingBlockPage() {
         ) : undefined}
       />
 
-      {/* ============== LIST VIEW ============== */}
+      {/* List View */}
       {!activeBlock && (
         <>
           {blocksLoading ? (
@@ -404,33 +443,47 @@ export default function CrossingBlockPage() {
         </>
       )}
 
-      {/* ============== DETAIL VIEW ============== */}
+      {/* Detail View */}
       {activeBlock && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-
-          {/* Block info bar */}
-          <div className="card" style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div>
-              <span className="text-xs text-muted">Program</span>
-              <div className="text-sm" style={{ fontWeight: 600 }}>{activeBlock.program_name}</div>
-            </div>
-            <div>
-              <span className="text-xs text-muted">Pattern</span>
-              <div><span className="badge badge-blue">{MAP_PATTERNS.find(p => p.value === activeBlock.map_pattern)?.label}</span></div>
-            </div>
-            <div>
-              <span className="text-xs text-muted">Reciprocals</span>
-              <div>{activeBlock.include_reciprocals ? <span className="badge badge-amber">Enabled</span> : <span className="badge badge-gray">Disabled</span>}</div>
-            </div>
-            {activeBlock.location_name && (
+          {/* Block info bar & Metrics */}
+          <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center', flexWrap: 'wrap' }}>
               <div>
-                <span className="text-xs text-muted">Location</span>
-                <div className="text-sm">{activeBlock.location_name}</div>
+                <span className="text-xs text-muted">Program</span>
+                <div className="text-sm" style={{ fontWeight: 600 }}>{activeBlock.program_name}</div>
+              </div>
+              <div>
+                <span className="text-xs text-muted">Pattern</span>
+                <div><span className="badge badge-blue">{MAP_PATTERNS.find(p => p.value === activeBlock.map_pattern)?.label}</span></div>
+              </div>
+              <div>
+                <span className="text-xs text-muted">Reciprocals</span>
+                <div>{activeBlock.include_reciprocals ? <span className="badge badge-amber">Enabled</span> : <span className="badge badge-gray">Disabled</span>}</div>
+              </div>
+            </div>
+
+            {plannedCrosses.length > 0 && (
+              <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="text-xs text-muted">Total Crosses</div>
+                  <div className="font-bold text-sm">{stats.total}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="text-xs text-muted">Harvested</div>
+                  <div className="font-bold text-sm" style={{ color: 'var(--brand-300)' }}>{stats.harvested}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div className="text-xs text-muted">Success Rate</div>
+                  <div className="font-bold text-sm" style={{ color: stats.successRate >= 70 ? '#4ade80' : '#f59e0b' }}>
+                    {stats.successRate}%
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Dual panel germplasm selectors */}
+          {/* Dual panel parent selectors if planning */}
           {plannedCrosses.length === 0 && (
             <>
               <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'stretch' }}>
@@ -458,12 +511,7 @@ export default function CrossingBlockPage() {
               {crossPreview.length > 0 && (
                 <div className="card">
                   <div className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
-                    Cross Preview — {crossPreview.length} crosses
-                    {activeBlock.include_reciprocals && (
-                      <span className="text-xs text-muted" style={{ marginLeft: 'var(--space-2)' }}>
-                        (incl. {crossPreview.filter(c => c.reciprocal).length} reciprocals)
-                      </span>
-                    )}
+                    Cross Preview — {crossPreview.length} planned crosses
                   </div>
                   <div className="table-container" style={{ maxHeight: 300, overflowY: 'auto' }}>
                     <table className="data-table">
@@ -504,106 +552,226 @@ export default function CrossingBlockPage() {
             </>
           )}
 
-          {/* Planned crosses table (after saving) */}
+          {/* Active Tabs when Crosses are planned */}
           {plannedCrosses.length > 0 && (
-            <div className="card">
-              <div className="card-title" style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                Planned Crosses — {plannedCrosses.length}
-                {executionResult && (
-                  <span className="badge badge-green" style={{ marginLeft: 'auto' }}>
-                    ✓ {executionResult.executed_count} progeny created
-                  </span>
-                )}
-              </div>
-              <div className="table-container" style={{ maxHeight: 400, overflowY: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 40 }}>Pos</th>
-                      <th>Code</th>
-                      <th>♀ Female</th>
-                      <th>♂ Male</th>
-                      <th>Progeny</th>
-                      <th>Status</th>
-                      <th style={{ width: 50 }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plannedCrosses.sort((a, b) => (a.map_position ?? 0) - (b.map_position ?? 0)).map(cross => (
-                      <tr key={cross.id}>
-                        <td className="text-sm text-muted">{cross.map_position ?? '—'}</td>
-                        <td className="font-mono text-sm">{cross.cross_code}</td>
-                        <td><strong>{cross.female_parent_name}</strong></td>
-                        <td><strong>{cross.male_parent_name}</strong></td>
-                        <td className="font-mono text-sm" style={{ color: cross.progeny_name ? 'var(--brand-300)' : 'var(--text-muted)' }}>
-                          {cross.progeny_name ?? crossPreviewName(cross.female_parent_name, cross.male_parent_name)}
-                        </td>
-                        <td><span className={`badge ${STATUS_COLORS[cross.status] ?? 'badge-gray'}`}>{cross.status}</span></td>
-                        <td>{cross.is_reciprocal && <span className="badge badge-amber">R</span>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="modal-footer" style={{ justifyContent: 'flex-end', paddingTop: 'var(--space-4)', gap: 'var(--space-2)' }}>
+            <div>
+              {/* Tab Selector */}
+              <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
                 <button
-                  className="btn btn-secondary"
-                  onClick={() => crossingBlocks.exportMap(activeBlock.id)}
+                  className={`btn btn-sm ${activeTab === 'table' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('table')}
                 >
-                  ⬇ Export Map CSV
+                  📋 Planned Crosses ({plannedCrosses.length})
                 </button>
-                {!executionResult && (
-                  <button
-                    id="execute-crosses-btn"
-                    className="btn btn-primary"
-                    disabled={executeMutation.isPending}
-                    onClick={() => executeMutation.mutate()}
-                  >
-                    {executeMutation.isPending ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Executing…</> : `Execute All Crosses`}
-                  </button>
-                )}
+                <button
+                  className={`btn btn-sm ${activeTab === 'matrix' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('matrix')}
+                >
+                  🔲 Diallel / Cross Matrix
+                </button>
+                <button
+                  className={`btn btn-sm ${activeTab === 'map' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('map')}
+                >
+                  🗺️ Field Sowing Map
+                </button>
               </div>
-            </div>
-          )}
 
-          {/* Crossing map visualization */}
-          {mapEntries.length > 0 && (
-            <div className="card">
-              <div className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
-                Crossing Map — {MAP_PATTERNS.find(p => p.value === activeBlock.map_pattern)?.label}
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', padding: 'var(--space-2) 0' }}>
-                {mapEntries.map(entry => (
-                  <div
-                    key={entry.position}
-                    style={{
-                      minWidth: 120,
-                      padding: 'var(--space-3)',
-                      borderRadius: 'var(--radius-md)',
-                      textAlign: 'center',
-                      border: '1px solid',
-                      borderColor: entry.type === 'parent' ? 'var(--brand-400)' : 'var(--border-subtle)',
-                      background: entry.type === 'parent'
-                        ? 'linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(96, 165, 250, 0.05))'
-                        : 'linear-gradient(135deg, rgba(74, 222, 128, 0.10), rgba(74, 222, 128, 0.03))',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div className="text-xs text-muted" style={{ marginBottom: 4 }}>Pos {entry.position}</div>
-                    <div style={{ fontWeight: 700, fontSize: '0.8rem', wordBreak: 'break-word' }}>
-                      {entry.entry_name}
+              {/* Tab 1: Planned Crosses Table */}
+              {activeTab === 'table' && (
+                <div className="card">
+                  {/* Bulk Actions Header */}
+                  {selectedCrossIds.length > 0 && (
+                    <div className="alert alert-info mb-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{selectedCrossIds.length} crosses selected</span>
+                      <div className="flex gap-2">
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => bulkStatusMutation.mutate('pollinated')}
+                          disabled={bulkStatusMutation.isPending}
+                        >
+                          Mark Pollinated 🌸
+                        </button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => bulkStatusMutation.mutate('harvested')}
+                          disabled={bulkStatusMutation.isPending}
+                        >
+                          Mark Harvested 🌾
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ color: 'var(--status-danger)' }}
+                          onClick={() => bulkStatusMutation.mutate('failed')}
+                          disabled={bulkStatusMutation.isPending}
+                        >
+                          Mark Failed ✕
+                        </button>
+                      </div>
                     </div>
-                    {entry.cross_code && (
-                      <div className="font-mono text-xs text-muted" style={{ marginTop: 4 }}>{entry.cross_code}</div>
-                    )}
-                    <div style={{ marginTop: 4 }}>
-                      <span className={`badge ${entry.type === 'parent' ? 'badge-blue' : 'badge-green'}`} style={{ fontSize: '0.65rem' }}>
-                        {entry.type === 'parent' ? 'Pollen' : 'Cross'}
-                      </span>
-                    </div>
+                  )}
+
+                  <div className="table-container" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 40 }}>
+                            <input
+                              type="checkbox"
+                              checked={plannedCrosses.length > 0 && selectedCrossIds.length === plannedCrosses.length}
+                              onChange={e => setSelectedCrossIds(e.target.checked ? plannedCrosses.map(c => c.id) : [])}
+                            />
+                          </th>
+                          <th style={{ width: 40 }}>Pos</th>
+                          <th>Code</th>
+                          <th>♀ Female</th>
+                          <th>♂ Male</th>
+                          <th>Progeny Name</th>
+                          <th>Status</th>
+                          <th style={{ width: 40 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {plannedCrosses.sort((a, b) => (a.map_position ?? 0) - (b.map_position ?? 0)).map(cross => (
+                          <tr key={cross.id}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedCrossIds.includes(cross.id)}
+                                onChange={e => {
+                                  if (e.target.checked) setSelectedCrossIds(prev => [...prev, cross.id])
+                                  else setSelectedCrossIds(prev => prev.filter(id => id !== cross.id))
+                                }}
+                              />
+                            </td>
+                            <td className="text-sm text-muted">{cross.map_position ?? '—'}</td>
+                            <td className="font-mono text-sm">{cross.cross_code}</td>
+                            <td><strong>{cross.female_parent_name}</strong></td>
+                            <td><strong>{cross.male_parent_name}</strong></td>
+                            <td className="font-mono text-sm" style={{ color: cross.progeny_name ? 'var(--brand-300)' : 'var(--text-muted)' }}>
+                              {cross.progeny_name ?? crossPreviewName(cross.female_parent_name, cross.male_parent_name)}
+                            </td>
+                            <td><span className={`badge ${STATUS_COLORS[cross.status] ?? 'badge-gray'}`}>{cross.status}</span></td>
+                            <td>{cross.is_reciprocal && <span className="badge badge-amber">R</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
-              </div>
+
+                  <div className="modal-footer" style={{ justifyContent: 'space-between', paddingTop: 'var(--space-4)', gap: 'var(--space-2)' }}>
+                    <button className="btn btn-secondary" onClick={() => crossingBlocks.exportMap(activeBlock.id)}>
+                      ⬇ Export Map CSV
+                    </button>
+                    {!executionResult && (
+                      <button
+                        id="execute-crosses-btn"
+                        className="btn btn-primary"
+                        disabled={executeMutation.isPending}
+                        onClick={() => executeMutation.mutate()}
+                      >
+                        {executeMutation.isPending ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Executing Progeny…</> : `Execute All Crosses & Harvest`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Diallel Matrix Visualizer */}
+              {activeTab === 'matrix' && matrixData && (
+                <div className="card">
+                  <div className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
+                    Diallel Cross Matrix (♀ Rows × ♂ Columns)
+                  </div>
+                  <div className="table-container" style={{ overflowX: 'auto', maxHeight: '480px' }}>
+                    <table className="data-table" style={{ textAlign: 'center' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ minWidth: 120, textAlign: 'left' }}>♀ / ♂</th>
+                          {matrixData.maleNames.map(m => (
+                            <th key={m} style={{ minWidth: 100, fontSize: '0.8rem' }}>{m}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrixData.femaleNames.map(f => (
+                          <tr key={f}>
+                            <td style={{ fontWeight: 700, textAlign: 'left' }}>{f}</td>
+                            {matrixData.maleNames.map(m => {
+                              const cross = matrixData.grid[f]?.[m]
+                              if (f === m) {
+                                return (
+                                  <td key={m} style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                    — Self —
+                                  </td>
+                                )
+                              }
+                              if (!cross) {
+                                return (
+                                  <td key={m} style={{ opacity: 0.3, fontSize: '0.75rem' }}>
+                                    —
+                                  </td>
+                                )
+                              }
+                              return (
+                                <td key={m} style={{ padding: '6px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                    <span className={`badge ${STATUS_COLORS[cross.status] ?? 'badge-gray'}`} style={{ fontSize: '0.65rem' }}>
+                                      {cross.status}
+                                    </span>
+                                    <span className="font-mono text-xs text-muted">{cross.cross_code}</span>
+                                  </div>
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: Sowing Map Visualization */}
+              {activeTab === 'map' && mapEntries.length > 0 && (
+                <div className="card">
+                  <div className="card-title" style={{ marginBottom: 'var(--space-3)' }}>
+                    Field Sowing Pattern Map — {MAP_PATTERNS.find(p => p.value === activeBlock.map_pattern)?.label}
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', padding: 'var(--space-2) 0' }}>
+                    {mapEntries.map(entry => (
+                      <div
+                        key={entry.position}
+                        style={{
+                          minWidth: 130,
+                          padding: 'var(--space-3)',
+                          borderRadius: 'var(--radius-md)',
+                          textAlign: 'center',
+                          border: '1px solid',
+                          borderColor: entry.type === 'parent' ? 'var(--brand-400)' : 'var(--border-subtle)',
+                          background: entry.type === 'parent'
+                            ? 'linear-gradient(135deg, rgba(96, 165, 250, 0.15), rgba(96, 165, 250, 0.05))'
+                            : 'linear-gradient(135deg, rgba(74, 222, 128, 0.10), rgba(74, 222, 128, 0.03))',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div className="text-xs text-muted" style={{ marginBottom: 4 }}>Pos {entry.position}</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.8rem', wordBreak: 'break-word' }}>
+                          {entry.entry_name}
+                        </div>
+                        {entry.cross_code && (
+                          <div className="font-mono text-xs text-muted" style={{ marginTop: 4 }}>{entry.cross_code}</div>
+                        )}
+                        <div style={{ marginTop: 4 }}>
+                          <span className={`badge ${entry.type === 'parent' ? 'badge-blue' : 'badge-green'}`} style={{ fontSize: '0.65rem' }}>
+                            {entry.type === 'parent' ? 'Pollen' : 'Cross'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

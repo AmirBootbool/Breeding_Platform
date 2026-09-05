@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { plots, observationVariables, observations, Trial, ObservationVariable, ApiError } from '../api/client'
+import {
+  plots, observationVariables, observations, traitPanels,
+  Trial, ObservationVariable, ApiError
+} from '../api/client'
+import Modal from './Modal'
 
 interface ObservationGridProps {
   trial: Trial
@@ -12,6 +16,14 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
   const [initialValues, setInitialValues] = useState<Record<string, string>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [success, setSuccess] = useState(false)
+
+  // Filters
+  const [selectedPanelId, setSelectedPanelId] = useState<number | ''>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [showBatchFill, setShowBatchFill] = useState(false)
+  const [batchVariableId, setBatchVariableId] = useState<number | null>(null)
+  const [batchValue, setBatchValue] = useState<string>('')
+  const [batchScope, setBatchScope] = useState<'empty' | 'all'>('empty')
 
   // Fetch plots for this trial
   const { data: plotData, isLoading: plotsLoading } = useQuery({
@@ -25,6 +37,12 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
     queryFn: () => observationVariables.list(),
   })
 
+  // Fetch trait panels
+  const { data: panelsData } = useQuery({
+    queryKey: ['trait-panels'],
+    queryFn: () => traitPanels.list(),
+  })
+
   // Fetch existing observations for this trial
   const { data: obsData, isLoading: obsLoading } = useQuery({
     queryKey: ['observations-for-trial', trial.id],
@@ -32,22 +50,36 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
   })
 
   const plotList = plotData?.results ?? []
-  const variableList = variablesData?.results ?? []
+  const allVariables = variablesData?.results ?? []
+  const panelList = panelsData?.results ?? []
   const existingObsList = obsData?.results ?? []
+
+  // Filter variables by panel and/or category
+  const variableList = useMemo(() => {
+    let vars = allVariables
+    if (selectedPanelId) {
+      const panel = panelList.find(p => p.id === selectedPanelId)
+      if (panel) {
+        vars = vars.filter(v => panel.variable_ids.includes(v.id))
+      }
+    }
+    if (selectedCategory) {
+      vars = vars.filter(v => v.category === selectedCategory)
+    }
+    return vars
+  }, [allVariables, panelList, selectedPanelId, selectedCategory])
 
   // Initialize values when data is loaded
   useEffect(() => {
-    if (plotList.length && variableList.length) {
+    if (plotList.length && allVariables.length) {
       const vals: Record<string, string> = {}
       
-      // Initialize with empty strings
       plotList.forEach(p => {
-        variableList.forEach(v => {
+        allVariables.forEach(v => {
           vals[`${p.id}-${v.id}`] = ''
         })
       })
 
-      // Populate with existing observations
       existingObsList.forEach(obs => {
         const key = `${obs.plot}-${obs.variable}`
         if (obs.value_numeric !== null) {
@@ -64,6 +96,49 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
       setErrors({})
     }
   }, [plotData, variablesData, obsData])
+
+  // Compute column statistics
+  const columnStats = useMemo(() => {
+    const stats: Record<number, { count: number; mean: number | null; min: number | null; max: number | null; missing: number }> = {}
+    
+    variableList.forEach(v => {
+      const numericVals: number[] = []
+      let filledCount = 0
+
+      plotList.forEach(p => {
+        const val = currentValues[`${p.id}-${v.id}`]
+        if (val !== undefined && val.trim() !== '') {
+          filledCount++
+          if (v.data_type === 'numeric' || v.data_type === 'integer') {
+            const num = parseFloat(val)
+            if (!isNaN(num)) numericVals.push(num)
+          }
+        }
+      })
+
+      const missing = plotList.length - filledCount
+      if (numericVals.length > 0) {
+        const sum = numericVals.reduce((a, b) => a + b, 0)
+        stats[v.id] = {
+          count: filledCount,
+          mean: parseFloat((sum / numericVals.length).toFixed(2)),
+          min: Math.min(...numericVals),
+          max: Math.max(...numericVals),
+          missing,
+        }
+      } else {
+        stats[v.id] = {
+          count: filledCount,
+          mean: null,
+          min: null,
+          max: null,
+          missing,
+        }
+      }
+    })
+
+    return stats
+  }, [variableList, plotList, currentValues])
 
   const mutation = useMutation({
     mutationFn: async (payload: any[]) => {
@@ -82,8 +157,6 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
         if (errDetail?.errors) {
           const newErrors: Record<string, string> = {}
           errDetail.errors.forEach(e => {
-            // Get the original dirty payload index to identify which plot/variable failed
-            // We'll map the index back to the cell key when constructing the payload
             const fieldKeys = Object.keys(e.detail)
             const detailMsg = fieldKeys.map(k => `${k}: ${JSON.stringify(e.detail[k])}`).join(', ')
             newErrors[`row-${e.index}`] = detailMsg
@@ -98,43 +171,18 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
     },
   })
 
-  if (plotsLoading || variablesLoading || obsLoading) {
-    return <div className="loading-spinner"><div className="spinner" /> Loading grid data…</div>
-  }
-
-  if (plotList.length === 0) {
-    return (
-      <div className="empty-state">
-        <div className="empty-icon">📋</div>
-        <p>No plots generated for this trial yet. Go to Trial Manager to create layout.</p>
-      </div>
-    )
-  }
-
-  if (variableList.length === 0) {
-    return (
-      <div className="empty-state">
-        <div className="empty-icon">⚙</div>
-        <p>No observation variables defined. Add them in the Setup page.</p>
-      </div>
-    )
-  }
-
-  // Find dirty cells and save
   const handleSave = () => {
     setErrors({})
     setSuccess(false)
     const dirtyPayload: any[] = []
-    const keyMapping: string[] = [] // maps index of dirtyPayload to cell key
+    const keyMapping: string[] = []
 
     Object.keys(currentValues).forEach(key => {
       if (currentValues[key] !== initialValues[key]) {
         const [plotId, varId] = key.split('-').map(Number)
-        const v = variableList.find(x => x.id === varId)
+        const v = allVariables.find(x => x.id === varId)
         const val = currentValues[key].trim()
 
-        // If value was cleared and it wasn't empty initially, we can submit an empty object,
-        // but let's only submit if there is a value or if we want to clear it (we set null/empty)
         const payloadItem: any = { plot: plotId, variable: varId }
         
         if (val === '') {
@@ -160,7 +208,6 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
       return
     }
 
-    // Pass keyMapping to mutation so we can highlight correct cells on error
     mutation.mutate(dirtyPayload, {
       onError: (err) => {
         if (err instanceof ApiError) {
@@ -187,7 +234,7 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
   }
 
   const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
+    e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
     rowIndex: number,
     colIndex: number
   ) => {
@@ -224,29 +271,101 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
       const nextInput = document.getElementById(`grid-cell-${targetRow}-${targetCol}`) as HTMLInputElement | null
       if (nextInput) {
         nextInput.focus()
-        nextInput.select()
+        if ('select' in nextInput) nextInput.select()
       }
     }
+  }
+
+  const applyBatchFill = () => {
+    if (!batchVariableId || batchValue === '') return
+    const newVals = { ...currentValues }
+    plotList.forEach(p => {
+      const key = `${p.id}-${batchVariableId}`
+      if (batchScope === 'all' || !newVals[key] || newVals[key].trim() === '') {
+        newVals[key] = batchValue
+      }
+    })
+    setCurrentValues(newVals)
+    setShowBatchFill(false)
+    setBatchValue('')
+  }
+
+  if (plotsLoading || variablesLoading || obsLoading) {
+    return <div className="loading-spinner"><div className="spinner" /> Loading grid data…</div>
+  }
+
+  if (plotList.length === 0) {
+    return (
+      <div className="empty-state">
+        <div className="empty-icon">📋</div>
+        <p>No plots generated for this trial yet. Go to Trial Manager to create layout.</p>
+      </div>
+    )
   }
 
   const isDirty = Object.keys(currentValues).some(k => currentValues[k] !== initialValues[k])
 
   return (
     <div className="card fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      <div className="flex justify-between items-center">
+      {/* Top Header & Filters */}
+      <div className="flex justify-between items-center flex-wrap gap-3">
         <div>
-          <h3 className="card-title">Grid Entry — {trial.trial_code}</h3>
+          <h3 className="card-title">Grid Entry & Trait Panels — {trial.trial_code}</h3>
           <p className="text-xs text-muted">
-            Enter observations directly in the spreadsheet below. Use <kbd>Enter</kbd> / <kbd>↓</kbd> / <kbd>↑</kbd> / <kbd>→</kbd> / <kbd>Tab</kbd> for fast scoring.
+            Enter observations directly. Navigate with <kbd>Enter</kbd> / <kbd>Arrows</kbd> / <kbd>Tab</kbd>.
           </p>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={mutation.isPending || !isDirty}
-        >
-          {mutation.isPending ? <><div className="spinner" /> Saving…</> : 'Save All Changes'}
-        </button>
+
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Panel filter */}
+          <select
+            className="form-input"
+            style={{ width: 160, padding: '4px 8px', fontSize: '0.8rem' }}
+            value={selectedPanelId}
+            onChange={e => setSelectedPanelId(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value="">All Traits ({allVariables.length})</option>
+            {panelList.map(p => (
+              <option key={p.id} value={p.id}>{p.name} ({p.variable_ids.length})</option>
+            ))}
+          </select>
+
+          {/* Category filter */}
+          <select
+            className="form-input"
+            style={{ width: 150, padding: '4px 8px', fontSize: '0.8rem' }}
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+          >
+            <option value="">All Categories</option>
+            <option value="morphological">Morphological</option>
+            <option value="agronomic">Agronomic</option>
+            <option value="disease">Disease</option>
+            <option value="quality">Quality</option>
+            <option value="phenology">Phenology</option>
+            <option value="abiotic">Abiotic</option>
+          </select>
+
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              if (variableList.length > 0) {
+                setBatchVariableId(variableList[0].id)
+                setShowBatchFill(true)
+              }
+            }}
+          >
+            ⚡ Batch Fill
+          </button>
+
+          <button
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={mutation.isPending || !isDirty}
+          >
+            {mutation.isPending ? <><div className="spinner" /> Saving…</> : 'Save All Changes'}
+          </button>
+        </div>
       </div>
 
       {success && (
@@ -261,17 +380,21 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
         </div>
       )}
 
-      <div className="table-container" style={{ overflowX: 'auto', maxHeight: '500px' }}>
+      <div className="table-container" style={{ overflowX: 'auto', maxHeight: '550px' }}>
         <table className="data-table observation-grid-table">
           <thead>
             <tr>
-              <th style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-card)' }}>Plot</th>
-              <th style={{ position: 'sticky', left: '80px', zIndex: 2, background: 'var(--bg-card)' }}>Germplasm</th>
-              <th>Rep</th>
+              <th style={{ position: 'sticky', left: 0, zIndex: 3, background: 'var(--bg-card)' }}>Plot</th>
+              <th style={{ position: 'sticky', left: '70px', zIndex: 3, background: 'var(--bg-card)' }}>Germplasm</th>
+              <th style={{ width: 50 }}>Rep</th>
               {variableList.map(v => (
-                <th key={v.id} title={v.description}>
-                  {v.name}
-                  {v.unit && <span className="text-muted" style={{ fontWeight: 400 }}> ({v.unit})</span>}
+                <th key={v.id} title={v.description} style={{ minWidth: 120 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: 600 }}>{v.name}</span>
+                    <div className="text-xs text-muted" style={{ fontWeight: 400 }}>
+                      {v.unit ? `(${v.unit})` : v.data_type}
+                    </div>
+                  </div>
                 </th>
               ))}
             </tr>
@@ -279,10 +402,10 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
           <tbody>
             {plotList.map((p, pIdx) => (
               <tr key={p.id}>
-                <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)', fontWeight: 600 }}>
-                  {p.plot_number}
+                <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-card)', fontWeight: 600 }}>
+                  {p.plot_number} {p.is_check && <span style={{ fontSize: '9px', background: 'var(--amber-500)', color: '#000', padding: '0 3px', borderRadius: '2px' }}>C</span>}
                 </td>
-                <td style={{ position: 'sticky', left: '80px', zIndex: 1, background: 'var(--bg-card)' }}>
+                <td style={{ position: 'sticky', left: '70px', zIndex: 2, background: 'var(--bg-card)', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.germplasm_name}
                 </td>
                 <td>{p.rep}</td>
@@ -294,34 +417,143 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
                   const cellDirty = value !== initial
 
                   return (
-                    <td key={v.id} style={{ padding: '4px' }}>
-                      <input
-                        id={`grid-cell-${pIdx}-${vIdx}`}
-                        type={getCellInputType(v)}
-                        value={value}
-                        onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
-                        onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
-                        className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''} ${hasError ? 'error' : ''}`}
-                        min={v.min_value ?? undefined}
-                        max={v.max_value ?? undefined}
-                        step={v.data_type === 'numeric' ? 'any' : undefined}
-                        title={errors[cellKey] || undefined}
-                        style={{
-                          margin: 0,
-                          padding: '6px 8px',
-                          minWidth: '100px',
-                          border: cellDirty ? '1px solid var(--brand-300)' : undefined,
-                          backgroundColor: hasError ? 'rgba(var(--status-danger-rgb), 0.1)' : undefined
-                        }}
-                      />
+                    <td key={v.id} style={{ padding: '3px' }}>
+                      {v.data_type === 'categorical' && v.categorical_options && v.categorical_options.length > 0 ? (
+                        <select
+                          id={`grid-cell-${pIdx}-${vIdx}`}
+                          value={value}
+                          onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
+                          onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
+                          className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''}`}
+                          style={{
+                            margin: 0,
+                            padding: '4px 6px',
+                            minWidth: '100px',
+                            border: cellDirty ? '1px solid var(--brand-300)' : undefined,
+                          }}
+                        >
+                          <option value="">—</option>
+                          {v.categorical_options.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          id={`grid-cell-${pIdx}-${vIdx}`}
+                          type={getCellInputType(v)}
+                          value={value}
+                          onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
+                          onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
+                          className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''} ${hasError ? 'error' : ''}`}
+                          min={v.min_value ?? undefined}
+                          max={v.max_value ?? undefined}
+                          step={v.data_type === 'numeric' ? 'any' : undefined}
+                          title={errors[cellKey] || undefined}
+                          style={{
+                            margin: 0,
+                            padding: '4px 6px',
+                            minWidth: '100px',
+                            border: cellDirty ? '1px solid var(--brand-300)' : undefined,
+                            backgroundColor: hasError ? 'rgba(var(--status-danger-rgb), 0.1)' : undefined
+                          }}
+                        />
+                      )}
                     </td>
                   )
                 })}
               </tr>
             ))}
           </tbody>
+          {/* Summary Statistics Footer */}
+          <tfoot>
+            <tr style={{ background: 'var(--bg-subtle)', fontWeight: 600, borderTop: '2px solid var(--border-default)' }}>
+              <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-subtle)' }}>Summary</td>
+              <td style={{ position: 'sticky', left: '70px', zIndex: 2, background: 'var(--bg-subtle)' }} className="text-xs text-muted">
+                {plotList.length} plots
+              </td>
+              <td>—</td>
+              {variableList.map(v => {
+                const s = columnStats[v.id]
+                if (!s) return <td key={v.id}>—</td>
+                return (
+                  <td key={v.id} style={{ fontSize: '0.72rem', padding: '6px' }}>
+                    {s.mean !== null ? (
+                      <div>
+                        <div>Avg: <strong style={{ color: 'var(--brand-300)' }}>{s.mean}</strong></div>
+                        <div className="text-muted" style={{ fontSize: '0.68rem' }}>[{s.min} – {s.max}] ({s.count}/{plotList.length})</div>
+                      </div>
+                    ) : (
+                      <div className="text-muted">{s.count}/{plotList.length} scored</div>
+                    )}
+                  </td>
+                )
+              })}
+            </tr>
+          </tfoot>
         </table>
       </div>
+
+      {/* Batch Fill Modal */}
+      {showBatchFill && (
+        <Modal title="Batch Fill Observations" onClose={() => setShowBatchFill(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <div className="form-group">
+              <label className="form-label">Select Trait / Variable</label>
+              <select
+                className="form-input"
+                value={batchVariableId ?? ''}
+                onChange={e => setBatchVariableId(Number(e.target.value))}
+              >
+                {variableList.map(v => (
+                  <option key={v.id} value={v.id}>{v.name} ({v.data_type})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Fill Value</label>
+              <input
+                type="text"
+                className="form-input"
+                value={batchValue}
+                onChange={e => setBatchValue(e.target.value)}
+                placeholder="e.g. 5.5, or resistance score"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Scope</label>
+              <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="batchScope"
+                    checked={batchScope === 'empty'}
+                    onChange={() => setBatchScope('empty')}
+                  />
+                  <span>Only empty cells</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="batchScope"
+                    checked={batchScope === 'all'}
+                    onChange={() => setBatchScope('all')}
+                  />
+                  <span>All plots (overwrite)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ marginTop: 'var(--space-4)' }}>
+              <button className="btn btn-secondary" onClick={() => setShowBatchFill(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={applyBatchFill} disabled={!batchValue}>
+                Apply to Grid
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

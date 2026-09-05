@@ -124,3 +124,20 @@ class CrossingBlockViewSet(viewsets.ModelViewSet):
             )
 
         return response
+
+    @action(detail=True, methods=["post"], url_path="bulk_status")
+    def bulk_update_status(self, request, pk=None):
+        """Update status and/or notes on selected crosses."""
+        block = self.get_object()
+        cross_ids = request.data.get("cross_ids", [])
+        new_status = request.data.get("status")
+        notes = request.data.get("notes")
+        if not cross_ids or not new_status:
+            return Response({"detail": "cross_ids and status are required."}, status=400)
+
+        qs = block.crosses.filter(id__in=cross_ids)
+        update_dict = {"status": new_status}
+        if notes is not None:
+            update_dict["notes"] = notes
+        updated = qs.update(**update_dict)
+        return Response({"updated_count": updated, "status": new_status})

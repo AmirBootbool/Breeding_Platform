@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { seedLots, programs, germplasm, SeedLot, Program, Germplasm, ApiError, BarcodeLabelData } from '../api/client'
+import {
+  seedLots, programs, germplasm,
+  SeedLot, Program, Germplasm, ApiError, BarcodeLabelData
+} from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
@@ -14,11 +17,15 @@ export default function SeedInventory() {
   const [selectedProgram, setSelectedProgram] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('')
   const [showLowStockOnly, setShowLowStockOnly] = useState(false)
+  const [selectedLotIds, setSelectedLotIds] = useState<number[]>([])
 
   // Modals
   const [showCreate, setShowCreate] = useState(false)
   const [adjustLot, setAdjustLot] = useState<SeedLot | null>(null)
+  const [splitLotTarget, setSplitLotTarget] = useState<SeedLot | null>(null)
   const [labelLot, setLabelLot] = useState<SeedLot | null>(null)
+  const [showBulkLabels, setShowBulkLabels] = useState(false)
+  const [historyLot, setHistoryLot] = useState<SeedLot | null>(null)
   const [deleteLot, setDeleteLot] = useState<SeedLot | null>(null)
 
   const params = [
@@ -68,10 +75,18 @@ export default function SeedInventory() {
   return (
     <div className="page-shell">
       <TopBar
-        title="Seed Inventory & Barcode Tracking"
-        subtitle={`${data?.count ?? 0} seed packets tracked · ${(totalWeightGrams / 1000).toFixed(2)} kg in storage`}
+        title="Seed Inventory & Barcode Vault"
+        subtitle={`${data?.count ?? 0} seed packets tracked · ${(totalWeightGrams / 1000).toFixed(2)} kg stored`}
         actions={canWrite ? (
           <div className="flex gap-2">
+            {selectedLotIds.length > 0 && (
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowBulkLabels(true)}
+              >
+                🏷️ Print Labels ({selectedLotIds.length})
+              </button>
+            )}
             <button 
               id="add-seed-lot-btn"
               className="btn btn-primary" 
@@ -124,8 +139,8 @@ export default function SeedInventory() {
       </div>
 
       {/* Filters Toolbar */}
-      <div className="toolbar">
-        <div className="search-bar">
+      <div className="toolbar" style={{ flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+        <div className="search-bar" style={{ minWidth: 200, flex: 1 }}>
           <span className="search-icon">🔍</span>
           <input
             id="seed-search"
@@ -139,7 +154,7 @@ export default function SeedInventory() {
         <select
           id="seed-program-filter"
           className="form-input"
-          style={{ width: 180 }}
+          style={{ width: 170 }}
           value={selectedProgram}
           onChange={e => setSelectedProgram(e.target.value)}
         >
@@ -150,7 +165,7 @@ export default function SeedInventory() {
         <select
           id="seed-status-filter"
           className="form-input"
-          style={{ width: 150 }}
+          style={{ width: 140 }}
           value={selectedStatus}
           onChange={e => setSelectedStatus(e.target.value)}
         >
@@ -179,88 +194,124 @@ export default function SeedInventory() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: 40 }}>
+                  <input
+                    type="checkbox"
+                    checked={lotList.length > 0 && selectedLotIds.length === lotList.length}
+                    onChange={e => setSelectedLotIds(e.target.checked ? lotList.map(l => l.id) : [])}
+                  />
+                </th>
                 <th>Lot Code</th>
                 <th>Accession / Line</th>
-                <th>Remaining Balance</th>
-                <th>Seed Count</th>
+                <th>Balance</th>
+                <th>Viability / Germ</th>
                 <th>Storage Location</th>
                 <th>Harvest Date</th>
-                <th>Source Plot</th>
                 <th>Status</th>
-                <th style={{ width: 130 }}>Actions</th>
+                <th style={{ width: 140 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {lotList.map(lot => (
-                <tr key={lot.id}>
-                  <td>
-                    <strong className="font-mono text-xs" style={{ color: 'var(--brand-300)' }}>
-                      {lot.lot_code}
-                    </strong>
-                  </td>
-                  <td>
-                    <div><strong>{lot.germplasm_name}</strong></div>
-                    <div className="font-mono text-xs text-muted">{lot.germplasm_db_id}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>{lot.quantity_grams} g</span>
-                      {lot.is_low_stock && (
-                        <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>Low Stock</span>
+              {lotList.map(lot => {
+                const isViabilityLow = lot.germination_rate !== null && lot.germination_rate !== undefined && lot.germination_rate < 80
+                return (
+                  <tr key={lot.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedLotIds.includes(lot.id)}
+                        onChange={e => {
+                          if (e.target.checked) setSelectedLotIds(prev => [...prev, lot.id])
+                          else setSelectedLotIds(prev => prev.filter(id => id !== lot.id))
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <strong className="font-mono text-xs" style={{ color: 'var(--brand-300)' }}>
+                        {lot.lot_code}
+                      </strong>
+                    </td>
+                    <td>
+                      <div><strong>{lot.germplasm_name}</strong></div>
+                      <div className="font-mono text-xs text-muted">{lot.germplasm_db_id}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>{lot.quantity_grams} g</span>
+                        {lot.is_low_stock && (
+                          <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Low</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      {lot.germination_rate !== null && lot.germination_rate !== undefined ? (
+                        <span className={`badge ${isViabilityLow ? 'badge-red' : 'badge-green'}`} style={{ fontSize: '0.72rem' }}>
+                          {lot.germination_rate}% {isViabilityLow ? '⚠️' : '✓'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted">Untested</span>
                       )}
-                    </div>
-                  </td>
-                  <td className="text-sm text-muted">
-                    {lot.seed_count ? `~${lot.seed_count.toLocaleString()} seeds` : '—'}
-                  </td>
-                  <td>
-                    <span className="badge badge-gray font-mono" style={{ fontSize: '0.75rem' }}>
-                      📍 {lot.storage_location}
-                    </span>
-                  </td>
-                  <td className="text-sm text-muted">{lot.harvest_date ?? '—'}</td>
-                  <td className="text-sm text-muted">
-                    {lot.source_plot_number ? `Plot #${lot.source_plot_number}` : '—'}
-                  </td>
-                  <td>
-                    <span className={`badge ${
-                      lot.status === 'available' ? 'badge-green' : lot.status === 'depleted' ? 'badge-gray' : 'badge-amber'
-                    }`}>
-                      {lot.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex gap-1.5">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        title="Print Barcode Envelope Sticker"
-                        onClick={() => setLabelLot(lot)}
-                      >
-                        🏷️
-                      </button>
-                      {canWrite && (
-                        <>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            title="Adjust / Deduct Seed"
-                            onClick={() => setAdjustLot(lot)}
-                          >
-                            ⚖️
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            title="Delete Lot"
-                            style={{ color: 'var(--status-danger)' }}
-                            onClick={() => setDeleteLot(lot)}
-                          >
-                            🗑
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <span className="badge badge-gray font-mono" style={{ fontSize: '0.72rem' }}>
+                        📍 {lot.storage_location || '—'}
+                      </span>
+                    </td>
+                    <td className="text-sm text-muted">{lot.harvest_date ?? '—'}</td>
+                    <td>
+                      <span className={`badge ${
+                        lot.status === 'available' ? 'badge-green' : lot.status === 'depleted' ? 'badge-gray' : 'badge-amber'
+                      }`}>
+                        {lot.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex gap-1">
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="View Transaction Log"
+                          onClick={() => setHistoryLot(lot)}
+                        >
+                          📜
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="Print Barcode Envelope Sticker"
+                          onClick={() => setLabelLot(lot)}
+                        >
+                          🏷️
+                        </button>
+                        {canWrite && (
+                          <>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              title="Split Lot"
+                              onClick={() => setSplitLotTarget(lot)}
+                            >
+                              ✂️
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              title="Adjust / Deduct Seed"
+                              onClick={() => setAdjustLot(lot)}
+                            >
+                              ⚖️
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              title="Delete Lot"
+                              style={{ color: 'var(--status-danger)' }}
+                              onClick={() => setDeleteLot(lot)}
+                            >
+                              🗑
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -295,10 +346,38 @@ export default function SeedInventory() {
         </Modal>
       )}
 
-      {/* Modal 3: Print Barcode Label */}
+      {/* Modal 3: Split Lot */}
+      {splitLotTarget && (
+        <Modal title={`Split Seed Lot — ${splitLotTarget.lot_code}`} onClose={() => setSplitLotTarget(null)}>
+          <SplitLotForm
+            lot={splitLotTarget}
+            onClose={() => setSplitLotTarget(null)}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ['seed-lots'] })
+              setSplitLotTarget(null)
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* Modal 4: Transaction Log Drawer */}
+      {historyLot && (
+        <Modal title={`Transaction History — ${historyLot.lot_code}`} onClose={() => setHistoryLot(null)}>
+          <TransactionLogContent lot={historyLot} onClose={() => setHistoryLot(null)} />
+        </Modal>
+      )}
+
+      {/* Modal 5: Print Barcode Label */}
       {labelLot && (
         <Modal title={`Print Barcode Sticker — ${labelLot.lot_code}`} onClose={() => setLabelLot(null)}>
           <BarcodeLabelModalContent lot={labelLot} onClose={() => setLabelLot(null)} />
+        </Modal>
+      )}
+
+      {/* Modal 6: Bulk Labels Printing */}
+      {showBulkLabels && (
+        <Modal title={`Bulk Barcode Stickers (${selectedLotIds.length} Lots)`} onClose={() => setShowBulkLabels(false)}>
+          <BulkLabelsModalContent lotIds={selectedLotIds} onClose={() => setShowBulkLabels(false)} />
         </Modal>
       )}
 
@@ -427,6 +506,82 @@ function CreateSeedLotForm({
   )
 }
 
+// ---- Split Lot Form ---------------------------------------------------------
+function SplitLotForm({ lot, onClose, onSaved }: { lot: SeedLot; onClose: () => void; onSaved: () => void }) {
+  const [splitGrams, setSplitGrams] = useState('20')
+  const [newLocation, setNewLocation] = useState(lot.storage_location)
+  const [notes, setNotes] = useState(`Sub-sample split from ${lot.lot_code}`)
+  const [error, setError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => seedLots.split(lot.id, {
+      quantity_grams: Number(splitGrams),
+      storage_location: newLocation,
+      notes,
+    }),
+    onSuccess: onSaved,
+    onError: (err) => {
+      if (err instanceof ApiError) setError(JSON.stringify(err.detail))
+      else setError((err as Error).message)
+    },
+  })
+
+  return (
+    <div>
+      {error && <div className="alert alert-error mb-4"><span>⚠</span><span>{error}</span></div>}
+
+      <div className="card mb-4" style={{ padding: 'var(--space-3)', backgroundColor: 'var(--surface-base)' }}>
+        <div className="flex justify-between items-center text-sm">
+          <span>Parent Lot ({lot.lot_code}):</span>
+          <strong className="font-mono text-base">{lot.quantity_grams} g</strong>
+        </div>
+      </div>
+
+      <div className="form-grid">
+        <div className="form-group">
+          <label className="form-label">Split Quantity (grams)</label>
+          <input
+            className="form-input"
+            type="number"
+            step="0.1"
+            value={splitGrams}
+            onChange={e => setSplitGrams(e.target.value)}
+            max={lot.quantity_grams - 0.1}
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">New Storage Location</label>
+          <input
+            className="form-input"
+            value={newLocation}
+            onChange={e => setNewLocation(e.target.value)}
+            placeholder="e.g. Distribution Box 3"
+            required
+          />
+        </div>
+
+        <div className="form-group" style={{ gridColumn: '1/-1' }}>
+          <label className="form-label">Notes</label>
+          <input className="form-input" value={notes} onChange={e => setNotes(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="modal-footer" style={{ marginTop: 'var(--space-4)' }}>
+        <button className="btn btn-secondary" onClick={onClose} disabled={mutation.isPending}>Cancel</button>
+        <button
+          className="btn btn-primary"
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending || Number(splitGrams) <= 0 || Number(splitGrams) >= lot.quantity_grams}
+        >
+          {mutation.isPending ? 'Splitting…' : 'Create Sub-Lot'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ---- Adjust Inventory Form --------------------------------------------------
 function AdjustSeedForm({ lot, onClose, onSaved }: { lot: SeedLot; onClose: () => void; onSaved: () => void }) {
   const [type, setType] = useState<'planting_deduction' | 'harvest_deposit' | 'distribution' | 'adjustment'>('planting_deduction')
@@ -498,6 +653,54 @@ function AdjustSeedForm({ lot, onClose, onSaved }: { lot: SeedLot; onClose: () =
   )
 }
 
+// ---- Transaction Log Drawer / Modal -----------------------------------------
+function TransactionLogContent({ lot, onClose }: { lot: SeedLot; onClose: () => void }) {
+  const txs = lot.recent_transactions || []
+  return (
+    <div>
+      <div className="card mb-4" style={{ padding: 'var(--space-3)' }}>
+        <div style={{ fontWeight: 700, color: 'var(--brand-300)' }}>{lot.lot_code} — {lot.germplasm_name}</div>
+        <div className="text-xs text-muted">Current Balance: {lot.quantity_grams} g @ {lot.storage_location}</div>
+      </div>
+
+      {txs.length === 0 ? (
+        <div className="empty-state"><p className="text-sm text-muted">No transactions recorded yet.</p></div>
+      ) : (
+        <div className="table-container" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Delta</th>
+                <th>User</th>
+                <th>Date</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {txs.map(tx => (
+                <tr key={tx.id}>
+                  <td><span className="badge badge-gray">{tx.transaction_type}</span></td>
+                  <td className="font-mono font-semibold" style={{ color: tx.quantity_grams >= 0 ? '#4ade80' : '#f87171' }}>
+                    {tx.quantity_grams >= 0 ? `+${tx.quantity_grams}` : tx.quantity_grams} g
+                  </td>
+                  <td className="text-xs text-muted">{tx.created_by_username || '—'}</td>
+                  <td className="text-xs text-muted">{tx.transaction_date}</td>
+                  <td className="text-xs">{tx.notes || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="modal-footer" style={{ marginTop: 'var(--space-4)' }}>
+        <button className="btn btn-secondary" onClick={onClose}>Close</button>
+      </div>
+    </div>
+  )
+}
+
 // ---- Barcode Label Modal ----------------------------------------------------
 function BarcodeLabelModalContent({ lot, onClose }: { lot: SeedLot; onClose: () => void }) {
   const { data: label, isLoading } = useQuery<BarcodeLabelData>({
@@ -511,7 +714,6 @@ function BarcodeLabelModalContent({ lot, onClose }: { lot: SeedLot; onClose: () 
         <div className="loading-spinner"><div className="spinner" /> Generating label payload…</div>
       ) : label ? (
         <div>
-          {/* Printable Label Preview Card */}
           <div 
             id="printable-seed-sticker"
             style={{ 
@@ -532,11 +734,10 @@ function BarcodeLabelModalContent({ lot, onClose }: { lot: SeedLot; onClose: () 
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#059669' }}>{label.quantity_grams} g</div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Plot #{label.source_plot}</div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Plot #{label.source_plot || 'N/A'}</div>
               </div>
             </div>
 
-            {/* Barcode Strip */}
             <div style={{ margin: '14px 0', textAlign: 'center' }}>
               <div 
                 style={{ 
@@ -556,32 +757,73 @@ function BarcodeLabelModalContent({ lot, onClose }: { lot: SeedLot; onClose: () 
               <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginTop: 2 }}>{label.lot_code}</div>
             </div>
 
-            {/* Storage and scan info */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#334155' }}>
-              <div>
-                <strong>Location:</strong> {label.storage_location}
-              </div>
-              <div>
-                <strong>Harvested:</strong> {label.harvest_date}
-              </div>
+              <div><strong>Location:</strong> {label.storage_location}</div>
+              <div><strong>Harvested:</strong> {label.harvest_date}</div>
             </div>
-          </div>
-
-          <div className="text-xs text-muted mb-4">
-            💡 Formatted for standard 2" × 3" seed packet adhesive labels. Use browser print preview to send to thermal or standard label printer.
           </div>
 
           <div className="modal-footer">
             <button className="btn btn-secondary" onClick={onClose}>Close</button>
-            <button 
-              className="btn btn-primary" 
-              onClick={() => window.print()}
-            >
-              🖨️ Print Label Sticker
-            </button>
+            <button className="btn btn-primary" onClick={() => window.print()}>🖨️ Print Sticker</button>
           </div>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+// ---- Bulk Labels Modal ------------------------------------------------------
+function BulkLabelsModalContent({ lotIds, onClose }: { lotIds: number[]; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['bulk-seed-labels', lotIds],
+    queryFn: () => seedLots.getBulkLabels(lotIds),
+  })
+
+  const labels = data?.labels || []
+
+  return (
+    <div>
+      {isLoading ? (
+        <div className="loading-spinner"><div className="spinner" /> Preparing printable sheet…</div>
+      ) : (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-3)', maxHeight: '450px', overflowY: 'auto', marginBottom: 'var(--space-4)' }}>
+            {labels.map((label, idx) => (
+              <div
+                key={idx}
+                style={{
+                  border: '1px solid #000',
+                  borderRadius: '4px',
+                  padding: '8px 12px',
+                  background: '#fff',
+                  color: '#000',
+                  fontFamily: 'sans-serif',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.85rem' }}>
+                  <span>{label.germplasm_name}</span>
+                  <span style={{ color: '#059669' }}>{label.quantity_grams}g</span>
+                </div>
+                <div className="font-mono text-xs" style={{ margin: '6px 0', textAlign: 'center', background: '#f1f5f9', padding: '3px 0' }}>
+                  {label.lot_code}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#475569' }}>
+                  <span>📍 {label.storage_location}</span>
+                  <span>{label.harvest_date}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="modal-footer">
+            <button className="btn btn-secondary" onClick={onClose}>Close</button>
+            <button className="btn btn-primary" onClick={() => window.print()}>
+              🖨️ Print {labels.length} Stickers
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -271,9 +271,15 @@ class SeedLot(models.Model):
         help_text="Unique seed packet identifier, e.g. LOT-2026-0042",
     )
     quantity_grams = models.FloatField(default=0.0)
+    reserved_grams = models.FloatField(
+        default=0.0,
+        help_text="Quantity reserved for pending trials or distributions",
+    )
     seed_count = models.PositiveIntegerField(null=True, blank=True)
     storage_location = models.CharField(
         max_length=200,
+        blank=True,
+        default="",
         help_text="Physical location: e.g. Cold Room 1, Rack C, Box 12",
     )
     harvest_date = models.DateField(null=True, blank=True)
@@ -288,6 +294,11 @@ class SeedLot(models.Model):
         null=True,
         blank=True,
         help_text="Germination rate percentage (0.0 to 100.0)",
+    )
+    germination_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date of last germination test",
     )
     status = models.CharField(
         max_length=20,

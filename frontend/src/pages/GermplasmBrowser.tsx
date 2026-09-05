@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { germplasm, programs, Germplasm, Program, ApiError } from '../api/client'
 import { useAuthStore } from '../store/authStore'
@@ -21,12 +21,22 @@ function CrossTypeBadge({ type }: { type: string }) {
   return <span className={`badge ${map[type] ?? 'badge-gray'}`}>{type}</span>
 }
 
+const GEN_LABELS: Record<number, string> = {
+  0: 'F0 (P)', 1: 'F1', 2: 'F2', 3: 'F3', 4: 'F4',
+  5: 'F5', 6: 'F6', 7: 'F7', 8: 'F8+',
+}
+
 // ---- Pedigree panel ---------------------------------------------------------
 function PedigreePanel({ entry, onOpenTree }: { entry: Germplasm; onOpenTree: (entry: Germplasm) => void }) {
   return (
     <div className="pedigree-panel slide-in">
-      <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>{entry.name}</h3>
-      <p className="text-xs text-muted font-mono">{entry.germplasm_db_id}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>{entry.name}</h3>
+          <p className="text-xs text-muted font-mono">{entry.germplasm_db_id}</p>
+        </div>
+        {entry.is_check && <span className="badge badge-amber">CHECK</span>}
+      </div>
       
       <button 
         className="btn btn-primary" 
@@ -46,6 +56,10 @@ function PedigreePanel({ entry, onOpenTree }: { entry: Germplasm; onOpenTree: (e
         <span className="text-sm">{entry.program_name}</span>
       </div>
       <div className="pedigree-row">
+        <span className="pedigree-label">Generation</span>
+        <span className="text-sm font-semibold">{GEN_LABELS[entry.generation] ?? `F${entry.generation}`}</span>
+      </div>
+      <div className="pedigree-row">
         <span className="pedigree-label">Type</span>
         <CrossTypeBadge type={entry.cross_type} />
       </div>
@@ -53,12 +67,18 @@ function PedigreePanel({ entry, onOpenTree }: { entry: Germplasm; onOpenTree: (e
         <span className="pedigree-label">Year</span>
         <span className="text-sm">{entry.year_developed ?? '—'}</span>
       </div>
-      <div className="pedigree-row">
-        <span className="pedigree-label">Date Added</span>
-        <span className="text-sm">{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '—'}</span>
-      </div>
+      {entry.tags && entry.tags.length > 0 && (
+        <div className="pedigree-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: 4 }}>
+          <span className="pedigree-label">Tags</span>
+          <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+            {entry.tags.map(t => (
+              <span key={t} className="badge badge-blue" style={{ fontSize: '0.7rem' }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="divider" />
-      <div className="card-title" style={{ marginBottom: 'var(--space-2)' }}>Pedigree</div>
+      <div className="card-title" style={{ marginBottom: 'var(--space-2)' }}>Parents</div>
       <div className="pedigree-row">
         <span className="pedigree-label">♀ Female</span>
         <span className="text-sm">{entry.parent_female_name ?? 'Unknown'}</span>
@@ -69,7 +89,7 @@ function PedigreePanel({ entry, onOpenTree }: { entry: Germplasm; onOpenTree: (e
       </div>
       {entry.pedigree_string && (
         <div className="pedigree-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-          <span className="pedigree-label">String</span>
+          <span className="pedigree-label">Pedigree String</span>
           <code className="font-mono text-xs" style={{ color: 'var(--brand-300)', wordBreak: 'break-all' }}>
             {entry.pedigree_string}
           </code>
@@ -104,10 +124,13 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
     species: initial?.species ?? 'Triticum aestivum',
     program: initial?.program ?? (programList[0]?.id ?? ''),
     cross_type: initial?.cross_type ?? 'unknown',
+    generation: initial?.generation?.toString() ?? '0',
     year_developed: initial?.year_developed?.toString() ?? '',
     parent_female: initial?.parent_female?.toString() ?? '',
     parent_male: initial?.parent_male?.toString() ?? '',
     pedigree_string: initial?.pedigree_string ?? '',
+    is_check: initial?.is_check ?? false,
+    tags: (initial?.tags ?? []).join(', '),
     notes: initial?.notes ?? '',
   })
   const [error, setError] = useState('')
@@ -120,7 +143,10 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
         species: form.species,
         program: Number(form.program),
         cross_type: form.cross_type,
+        generation: Number(form.generation),
         pedigree_string: form.pedigree_string,
+        is_check: form.is_check,
+        tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         notes: form.notes,
       }
       if (form.year_developed) payload.year_developed = Number(form.year_developed)
@@ -145,7 +171,7 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
     },
   })
 
-  function set(field: string, val: string) {
+  function set(field: string, val: unknown) {
     setForm(prev => ({ ...prev, [field]: val }))
   }
 
@@ -178,6 +204,14 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
           </select>
         </div>
         <div className="form-group">
+          <label className="form-label">Generation</label>
+          <select id="germ-generation" className="form-input" value={form.generation} onChange={e => set('generation', e.target.value)}>
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(g => (
+              <option key={g} value={g}>{GEN_LABELS[g] ?? `F${g}`}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
           <label className="form-label">Year Developed</label>
           <input id="germ-year" className="form-input" type="number" value={form.year_developed} onChange={e => set('year_developed', e.target.value)} placeholder="e.g. 2025" />
         </div>
@@ -196,8 +230,23 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
           </select>
         </div>
         <div className="form-group" style={{ gridColumn: '1/-1' }}>
+          <label className="form-label">Tags (comma-separated)</label>
+          <input id="germ-tags" className="form-input" value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="e.g. drought-tolerant, rust-resistant, high-protein" />
+        </div>
+        <div className="form-group" style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Pedigree String</label>
           <input id="germ-pedigree" className="form-input" value={form.pedigree_string} onChange={e => set('pedigree_string', e.target.value)} placeholder="e.g. KAUZ/PASTOR" />
+        </div>
+        <div className="form-group" style={{ gridColumn: '1/-1', flexDirection: 'row', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <input
+            id="germ-is-check"
+            type="checkbox"
+            checked={form.is_check}
+            onChange={e => set('is_check', e.target.checked)}
+          />
+          <label htmlFor="germ-is-check" className="form-label" style={{ marginBottom: 0, cursor: 'pointer' }}>
+            Permanent Check / Reference Line
+          </label>
         </div>
         <div className="form-group" style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Notes</label>
@@ -219,160 +268,75 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
   )
 }
 
-interface BulkImportFormProps {
-  programList: Program[]
-  onClose: () => void
-  onSaved: () => void
-}
-
-function BulkImportForm({ programList, onClose, onSaved }: BulkImportFormProps) {
-  const [file, setFile] = useState<File | null>(null)
-  const [program, setProgram] = useState(programList[0]?.name ?? '')
-  const [dryRun, setDryRun] = useState(false)
-  const [error, setError] = useState('')
-  const [result, setResult] = useState<{
-    created: number
-    skipped: number
-    errors: { row: number; detail: string }[]
-  } | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  const qc = useQueryClient()
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!file || !program) {
-      setError('File and program are required.')
-      return
-    }
-    setError('')
-    setResult(null)
-    setLoading(true)
-
-    try {
-      const res = await germplasm.bulkImport(file, program, dryRun)
-      setResult(res)
-      if (!dryRun && res.errors.length === 0) {
-        qc.invalidateQueries({ queryKey: ['germplasm'] })
-        onSaved()
-        onClose()
-      }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        const details = err.detail as { errors?: { row: number; detail: string }[] }
-        if (details?.errors) {
-          setResult({ created: 0, skipped: 0, errors: details.errors })
-        } else {
-          setError(JSON.stringify(err.detail))
-        }
-      } else {
-        setError((err as Error).message)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
+// ---- Side-by-Side Comparison Modal -------------------------------------------
+function ComparisonModal({ entries, onClose }: { entries: Germplasm[]; onClose: () => void }) {
   return (
-    <form onSubmit={handleSubmit}>
-      {error && (
-        <div className="alert alert-error mb-4">
-          <span>⚠</span><span>{error}</span>
-        </div>
-      )}
-
-      {result && result.errors.length > 0 && (
-        <div className="alert alert-error mb-4" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-          <div style={{ fontWeight: 600 }}>Import failed with errors (changes rolled back):</div>
-          <div className="table-container" style={{ marginTop: 'var(--space-2)', maxHeight: 200, overflowY: 'auto', width: '100%' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 60 }}>Row</th>
-                  <th>Detail</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.errors.map((err, idx) => (
-                  <tr key={idx}>
-                    <td>{err.row}</td>
-                    <td style={{ color: 'var(--status-danger)' }}>{err.detail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {result && result.errors.length === 0 && (
-        <div className="alert alert-success mb-4">
-          <span>✓</span>
-          <span>
-            {dryRun
-              ? `Validation successful: ${result.created} rows validated, ${result.skipped} duplicates skipped.`
-              : `Successfully imported ${result.created} rows. ${result.skipped} duplicates skipped.`}
-          </span>
-        </div>
-      )}
-
-      <div className="form-grid">
-        <div className="form-group" style={{ gridColumn: '1/-1' }}>
-          <label className="form-label">Program <span style={{ color: 'var(--status-danger)' }}>*</span></label>
-          <select
-            id="bulk-import-program"
-            className="form-input"
-            value={program}
-            onChange={e => setProgram(e.target.value)}
-            required
-          >
-            <option value="">— Select Program —</option>
-            {programList.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-          </select>
-        </div>
-
-        <div className="form-group" style={{ gridColumn: '1/-1' }}>
-          <label className="form-label">CSV File <span style={{ color: 'var(--status-danger)' }}>*</span></label>
-          <input
-            id="bulk-import-file"
-            type="file"
-            accept=".csv"
-            className="form-input"
-            onChange={e => setFile(e.target.files?.[0] ?? null)}
-            required
-          />
-          <span className="text-xs text-muted">
-            Expected headers: <code>name</code> (required), <code>species</code>, <code>pedigree_string</code>, <code>cross_type</code>, <code>year_developed</code>, <code>notes</code>
-          </span>
-        </div>
-
-        <div className="form-group" style={{ gridColumn: '1/-1', flexDirection: 'row', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <input
-            id="bulk-import-dry-run"
-            type="checkbox"
-            checked={dryRun}
-            onChange={e => setDryRun(e.target.checked)}
-          />
-          <label htmlFor="bulk-import-dry-run" className="form-label" style={{ marginBottom: 0 }}>
-            Validate only (dry run)
-          </label>
-        </div>
+    <Modal title={`Compare Germplasm (${entries.length} selected)`} onClose={onClose}>
+      <div className="table-container" style={{ overflowX: 'auto', maxHeight: '500px' }}>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th style={{ minWidth: 140 }}>Attribute</th>
+              {entries.map(e => (
+                <th key={e.id} style={{ minWidth: 180 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--brand-300)' }}>{e.name}</div>
+                  <div className="text-xs font-mono text-muted">{e.germplasm_db_id}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Check Line?</strong></td>
+              {entries.map(e => (
+                <td key={e.id}>{e.is_check ? <span className="badge badge-amber">CHECK</span> : <span className="badge badge-gray">Candidate</span>}</td>
+              ))}
+            </tr>
+            <tr>
+              <td><strong>Program</strong></td>
+              {entries.map(e => <td key={e.id}>{e.program_name}</td>)}
+            </tr>
+            <tr>
+              <td><strong>Generation</strong></td>
+              {entries.map(e => <td key={e.id} className="font-semibold">{GEN_LABELS[e.generation] ?? `F${e.generation}`}</td>)}
+            </tr>
+            <tr>
+              <td><strong>Cross Type</strong></td>
+              {entries.map(e => <td key={e.id}><CrossTypeBadge type={e.cross_type} /></td>)}
+            </tr>
+            <tr>
+              <td><strong>♀ Female Parent</strong></td>
+              {entries.map(e => <td key={e.id}>{e.parent_female_name || '—'}</td>)}
+            </tr>
+            <tr>
+              <td><strong>♂ Male Parent</strong></td>
+              {entries.map(e => <td key={e.id}>{e.parent_male_name || '—'}</td>)}
+            </tr>
+            <tr>
+              <td><strong>Pedigree String</strong></td>
+              {entries.map(e => <td key={e.id} className="font-mono text-xs">{e.pedigree_string || '—'}</td>)}
+            </tr>
+            <tr>
+              <td><strong>Tags</strong></td>
+              {entries.map(e => (
+                <td key={e.id}>
+                  <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                    {(e.tags || []).map(t => <span key={t} className="badge badge-blue" style={{ fontSize: '0.7rem' }}>{t}</span>)}
+                  </div>
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td><strong>Notes</strong></td>
+              {entries.map(e => <td key={e.id} className="text-xs text-muted">{e.notes || '—'}</td>)}
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      <div className="modal-footer">
-        <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
-          Cancel
-        </button>
-        <button
-          id="bulk-import-submit-btn"
-          type="submit"
-          className="btn btn-primary"
-          disabled={loading}
-        >
-          {loading ? <><div className="spinner" style={{ width: 14, height: 14 }} /> Uploading…</> : 'Upload & Process'}
-        </button>
+      <div className="modal-footer" style={{ marginTop: 'var(--space-4)' }}>
+        <button className="btn btn-secondary" onClick={onClose}>Close Comparison</button>
       </div>
-    </form>
+    </Modal>
   )
 }
 
@@ -383,17 +347,22 @@ export default function GermplasmBrowser() {
 
   const [search, setSearch] = useState('')
   const [crossType, setCrossType] = useState('')
+  const [selectedProgram, setSelectedProgram] = useState('')
+  const [selectedGen, setSelectedGen] = useState('')
+  const [onlyChecks, setOnlyChecks] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+
   const [selected, setSelected] = useState<Germplasm | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showCreate, setShowCreate] = useState(false)
-  const [showBulkImport, setShowBulkImport] = useState(false)
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const [advancedIds, setAdvancedIds] = useState<number[]>([])
   const [showAdvanceSuccessPrompt, setShowAdvanceSuccessPrompt] = useState(false)
   const [showSendToTrialModal, setShowSendToTrialModal] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showCompareModal, setShowCompareModal] = useState(false)
   const [editEntry, setEditEntry] = useState<Germplasm | null>(null)
   const [deleteEntry, setDeleteEntry] = useState<Germplasm | null>(null)
   const [treeTarget, setTreeTarget] = useState<Germplasm | null>(null)
@@ -401,13 +370,15 @@ export default function GermplasmBrowser() {
   const params = [
     search ? `&search=${encodeURIComponent(search)}` : '',
     crossType ? `&cross_type=${encodeURIComponent(crossType)}` : '',
+    selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : '',
+    selectedGen !== '' ? `&generation=${encodeURIComponent(selectedGen)}` : '',
     showArchived ? '&archived=true' : '',
   ].join('')
 
   const qc = useQueryClient()
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['germplasm', search, crossType, showArchived],
+    queryKey: ['germplasm', search, crossType, selectedProgram, selectedGen, showArchived],
     queryFn: () => germplasm.list(params),
     placeholderData: prev => prev,
   })
@@ -463,32 +434,51 @@ export default function GermplasmBrowser() {
       alert(`Deleted ${res.deleted_count} accessions.`)
     },
   })
+
   const programList = programsData?.results ?? []
   const germplasmList = allGermplasmData?.results ?? []
+
+  const filteredResults = useMemo(() => {
+    let list = data?.results ?? []
+    if (onlyChecks) {
+      list = list.filter(g => g.is_check)
+    }
+    return list
+  }, [data, onlyChecks])
+
+  const selectedEntries = useMemo(() => {
+    return (data?.results ?? []).filter(g => selectedIds.includes(g.id))
+  }, [data, selectedIds])
+
+  const exportSelectedCsv = () => {
+    const list = selectedEntries.length > 0 ? selectedEntries : (data?.results ?? [])
+    const header = ['id', 'name', 'germplasm_db_id', 'program', 'generation', 'cross_type', 'is_check', 'pedigree', 'year'].join(',')
+    const rows = list.map(g => [
+      g.id,
+      `"${g.name}"`,
+      `"${g.germplasm_db_id}"`,
+      `"${g.program_name}"`,
+      g.generation,
+      `"${g.cross_type}"`,
+      g.is_check,
+      `"${g.pedigree_string || ''}"`,
+      g.year_developed || '',
+    ].join(','))
+    const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `germplasm_export_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+  }
 
   return (
     <div className="page-shell">
       <TopBar
         title="Germplasm Browser"
-        subtitle={`${data?.count ?? '…'} entries registered`}
-          actions={canWrite ? (
-            <div className="flex gap-2">
-              {selectedIds.length > 0 && (
-                <>
-                  <button className="btn btn-secondary" onClick={() => setShowArchiveConfirm(true)}>
-                    Archive ({selectedIds.length})
-                  </button>
-                  <button className="btn btn-secondary" style={{ color: 'var(--status-danger)' }} onClick={() => setShowDeleteConfirm(true)}>
-                    Remove ({selectedIds.length})
-                  </button>
-                  <button className="btn btn-primary" onClick={() => setShowAdvanceModal(true)}>
-                    Advance ({selectedIds.length})
-                  </button>
-                </>
-              )}
-              <button id="bulk-import-btn" className="btn btn-secondary" onClick={() => setShowBulkImport(true)}>
-              Bulk Import
-            </button>
+        subtitle={`${filteredResults.length} entries shown (${data?.count ?? 0} total)`}
+        actions={canWrite ? (
+          <div className="flex gap-2">
             <button id="add-germplasm-btn" className="btn btn-primary" onClick={() => setShowCreate(true)}>
               + Add Germplasm
             </button>
@@ -496,46 +486,133 @@ export default function GermplasmBrowser() {
         ) : undefined}
       />
 
-      <div className="toolbar">
-        <div className="search-bar">
+      {/* Multi-Filter Toolbar */}
+      <div className="toolbar" style={{ flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+        <div className="search-bar" style={{ minWidth: 200, flex: 1 }}>
           <span className="search-icon">🔍</span>
           <input
             id="germplasm-search"
             type="search"
-            placeholder="Search by name, species…"
+            placeholder="Search by name, ID, pedigree…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
+        <select
+          id="program-filter"
+          className="form-input"
+          style={{ width: 150 }}
+          value={selectedProgram}
+          onChange={e => setSelectedProgram(e.target.value)}
+        >
+          <option value="">All Programs</option>
+          {programList.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+
+        <select
+          id="generation-filter"
+          className="form-input"
+          style={{ width: 120 }}
+          value={selectedGen}
+          onChange={e => setSelectedGen(e.target.value)}
+        >
+          <option value="">All Gen</option>
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(g => (
+            <option key={g} value={g}>{GEN_LABELS[g] ?? `F${g}`}</option>
+          ))}
+        </select>
+
         <select
           id="cross-type-filter"
           className="form-input"
-          style={{ width: 180 }}
+          style={{ width: 140 }}
           value={crossType}
           onChange={e => setCrossType(e.target.value)}
         >
           <option value="">All types</option>
           {CROSS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
+
+        <button
+          className={`btn btn-sm ${onlyChecks ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setOnlyChecks(prev => !prev)}
+        >
+          ⭐ Checks Only
+        </button>
+
+        {/* View toggle */}
+        <div style={{ display: 'flex', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
+          <button
+            className={`btn btn-sm ${viewMode === 'table' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ borderRadius: 0, padding: '4px 10px' }}
+            onClick={() => setViewMode('table')}
+          >
+            📋 Table
+          </button>
+          <button
+            className={`btn btn-sm ${viewMode === 'grid' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ borderRadius: 0, padding: '4px 10px' }}
+            onClick={() => setViewMode('grid')}
+          >
+            🔲 Cards
+          </button>
+        </div>
+
         <div className="flex items-center gap-2 text-sm ml-auto">
           <input type="checkbox" id="show-archived" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />
-          <label htmlFor="show-archived" style={{ marginBottom: 0 }}>Show Archived</label>
+          <label htmlFor="show-archived" style={{ marginBottom: 0 }}>Archived</label>
         </div>
+
         {isFetching && !isLoading && (
           <div className="spinner" style={{ width: 16, height: 16 }} />
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 320px' : '1fr', gap: 'var(--space-6)' }}>
+      {/* Floating Bulk Actions Bar */}
+      {selectedIds.length > 0 && (
+        <div className="alert alert-info slide-in" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          <span style={{ fontWeight: 600 }}>{selectedIds.length} accessions selected</span>
+          <div className="flex gap-2">
+            {selectedIds.length >= 2 && selectedIds.length <= 4 && (
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowCompareModal(true)}>
+                ⚖️ Compare ({selectedIds.length})
+              </button>
+            )}
+            <button className="btn btn-secondary btn-sm" onClick={exportSelectedCsv}>
+              📥 Export CSV
+            </button>
+            {canWrite && (
+              <>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowAdvanceModal(true)}>
+                  Advance Lines
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowArchiveConfirm(true)}>
+                  Archive
+                </button>
+                <button className="btn btn-secondary btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => setShowDeleteConfirm(true)}>
+                  Delete
+                </button>
+              </>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds([])}>
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 340px' : '1fr', gap: 'var(--space-6)' }}>
         <div>
           {isLoading ? (
             <div className="loading-spinner"><div className="spinner" /> Loading germplasm…</div>
-          ) : data?.results.length === 0 ? (
+          ) : filteredResults.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">🌱</div>
-              <p>No germplasm entries found.</p>
+              <p>No germplasm entries found matching the filter criteria.</p>
             </div>
-          ) : (
+          ) : viewMode === 'table' ? (
             <div className="table-container">
               <table className="data-table">
                 <thead>
@@ -543,22 +620,21 @@ export default function GermplasmBrowser() {
                     <th style={{ width: 40 }}>
                       <input 
                         type="checkbox"
-                        checked={data?.results.length ? selectedIds.length === data.results.length : false}
-                        onChange={e => setSelectedIds(e.target.checked ? data?.results.map(r => r.id) ?? [] : [])}
+                        checked={filteredResults.length > 0 && selectedIds.length === filteredResults.length}
+                        onChange={e => setSelectedIds(e.target.checked ? filteredResults.map(r => r.id) : [])}
                       />
                     </th>
                     <th>Name</th>
                     <th>ID</th>
-                    <th>Species</th>
+                    <th>Gen</th>
                     <th>Type</th>
-                    <th>Year</th>
                     <th>Program</th>
-                    <th>Date Added</th>
-                    <th style={{ width: 100 }}>Actions</th>
+                    <th>Tags</th>
+                    <th style={{ width: 110 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data?.results.map(entry => (
+                  {filteredResults.map(entry => (
                     <tr
                       key={entry.id}
                       onClick={() => setSelected(prev => prev?.id === entry.id ? null : entry)}
@@ -575,15 +651,25 @@ export default function GermplasmBrowser() {
                           }}
                         />
                       </td>
-                      <td><strong>{entry.name}</strong></td>
-                      <td className="font-mono text-sm text-muted">{entry.germplasm_db_id}</td>
-                      <td className="text-sm text-muted">{entry.species || '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                          <strong>{entry.name}</strong>
+                          {entry.is_check && <span className="badge badge-amber" style={{ fontSize: '0.65rem', padding: '1px 4px' }}>CHECK</span>}
+                        </div>
+                      </td>
+                      <td className="font-mono text-xs text-muted">{entry.germplasm_db_id}</td>
+                      <td><span className="badge badge-blue">{GEN_LABELS[entry.generation] ?? `F${entry.generation}`}</span></td>
                       <td><CrossTypeBadge type={entry.cross_type} /></td>
-                      <td className="text-sm">{entry.year_developed ?? '—'}</td>
                       <td className="text-sm text-muted">{entry.program_name}</td>
-                      <td className="text-sm text-muted">{entry.created_at ? new Date(entry.created_at).toLocaleDateString() : '—'}</td>
+                      <td>
+                        <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                          {(entry.tags || []).slice(0, 2).map(t => (
+                            <span key={t} className="badge badge-gray" style={{ fontSize: '0.65rem' }}>{t}</span>
+                          ))}
+                        </div>
+                      </td>
                       <td onClick={e => e.stopPropagation()}>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <button
                             className="btn btn-ghost btn-sm"
                             title="View Pedigree Tree"
@@ -615,6 +701,45 @@ export default function GermplasmBrowser() {
                 </tbody>
               </table>
             </div>
+          ) : (
+            /* Card Grid View */
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-3)' }}>
+              {filteredResults.map(entry => (
+                <div
+                  key={entry.id}
+                  className={`card hover-row ${selected?.id === entry.id ? 'selected-row' : ''}`}
+                  style={{ cursor: 'pointer', padding: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+                  onClick={() => setSelected(prev => prev?.id === entry.id ? null : entry)}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(entry.id)}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => {
+                          if (e.target.checked) setSelectedIds(prev => [...prev, entry.id])
+                          else setSelectedIds(prev => prev.filter(id => id !== entry.id))
+                        }}
+                      />
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{entry.name}</div>
+                    </div>
+                    {entry.is_check && <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>CHECK</span>}
+                  </div>
+                  <div className="font-mono text-xs text-muted">{entry.germplasm_db_id}</div>
+                  <div className="flex gap-2 text-xs">
+                    <span className="badge badge-blue">{GEN_LABELS[entry.generation] ?? `F${entry.generation}`}</span>
+                    <CrossTypeBadge type={entry.cross_type} />
+                  </div>
+                  <div className="text-xs text-muted">{entry.program_name}</div>
+                  {entry.tags && entry.tags.length > 0 && (
+                    <div className="flex gap-1" style={{ flexWrap: 'wrap', marginTop: 2 }}>
+                      {entry.tags.map(t => <span key={t} className="badge badge-gray" style={{ fontSize: '0.65rem' }}>{t}</span>)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -626,7 +751,7 @@ export default function GermplasmBrowser() {
         )}
       </div>
 
-      {/* Create modal */}
+      {/* Modals */}
       {showCreate && (
         <Modal title="Add Germplasm" onClose={() => setShowCreate(false)}>
           <GermplasmForm
@@ -638,18 +763,6 @@ export default function GermplasmBrowser() {
         </Modal>
       )}
 
-      {/* Bulk Import modal */}
-      {showBulkImport && (
-        <Modal title="Bulk Import Germplasm" onClose={() => setShowBulkImport(false)}>
-          <BulkImportForm
-            programList={programList}
-            onClose={() => setShowBulkImport(false)}
-            onSaved={() => setShowBulkImport(false)}
-          />
-        </Modal>
-      )}
-
-      {/* Edit modal */}
       {editEntry && (
         <Modal title={`Edit — ${editEntry.name}`} onClose={() => setEditEntry(null)}>
           <GermplasmForm
@@ -664,30 +777,34 @@ export default function GermplasmBrowser() {
         </Modal>
       )}
 
-      {/* Delete confirm */}
+      {showCompareModal && (
+        <ComparisonModal
+          entries={selectedEntries}
+          onClose={() => setShowCompareModal(false)}
+        />
+      )}
+
       {deleteEntry && (
         <ConfirmDialog
-          message={`Delete "${deleteEntry.name}"? This cannot be undone. Any plots using this germplasm will be affected.`}
+          message={`Delete "${deleteEntry.name}"? This cannot be undone.`}
           loading={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate()}
           onCancel={() => setDeleteEntry(null)}
         />
       )}
 
-      {/* Bulk Archive Confirm */}
       {showArchiveConfirm && (
         <ConfirmDialog
-          message={`Archive ${selectedIds.length} accessions? They will be hidden from default views.`}
+          message={`Archive ${selectedIds.length} accessions?`}
           loading={bulkArchiveMutation.isPending}
           onConfirm={() => bulkArchiveMutation.mutate()}
           onCancel={() => setShowArchiveConfirm(false)}
         />
       )}
 
-      {/* Bulk Delete Confirm */}
       {showDeleteConfirm && (
         <ConfirmDialog
-          message={`Permanently delete ${selectedIds.length} accessions? WARNING: This cannot be undone and will cascade delete all associated plots in trials.`}
+          message={`Permanently delete ${selectedIds.length} accessions? This cannot be undone.`}
           loading={bulkDeleteMutation.isPending}
           onConfirm={() => bulkDeleteMutation.mutate()}
           onCancel={() => setShowDeleteConfirm(false)}
@@ -751,7 +868,6 @@ export default function GermplasmBrowser() {
         />
       )}
 
-      {/* Pedigree Tree Visualizer Modal */}
       {treeTarget && (
         <PedigreeTreeModal
           germplasmId={treeTarget.id}

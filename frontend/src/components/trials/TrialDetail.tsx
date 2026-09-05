@@ -10,15 +10,17 @@ import GermplasmListTab from './GermplasmListTab'
 import AdvancePlotsTab from './AdvancePlotsTab'
 import GenerateLayoutModal from './GenerateLayoutModal'
 import ImportFieldBookModal from './ImportFieldBookModal'
+import PedigreeTreeModal from '../pedigree/PedigreeTreeModal'
 
 interface TrialDetailProps {
   trial: Trial
 }
 
 export default function TrialDetail({ trial }: TrialDetailProps) {
-  const [tab, setTab] = useState<'germplasm' | 'map' | 'data' | 'selections' | 'summary'>('germplasm')
+  const [tab, setTab] = useState<'germplasm' | 'map' | 'data' | 'selections' | 'summary' | 'pedigree'>('germplasm')
   const [showGenerateLayout, setShowGenerateLayout] = useState(false)
   const [showImportFieldBook, setShowImportFieldBook] = useState(false)
+  const [pedigreeEntry, setPedigreeEntry] = useState<{ id: number; name: string } | null>(null)
   const qc = useQueryClient()
 
   const { data: plotData, isLoading: plotLoading } = useQuery({
@@ -123,24 +125,25 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
       </div>
 
       <div className="tab-bar">
-        {(['germplasm', 'map', 'data', 'selections', 'summary'] as const).map(t => (
+        {(['germplasm', 'map', 'data', 'selections', 'summary', 'pedigree'] as const).map(t => (
           <button
             key={t}
             className={`tab-btn ${tab === t ? 'active' : ''}`}
             onClick={() => setTab(t)}
           >
-            {t === 'germplasm' ? '🌿 Germplasm List'
-              : t === 'map' ? '🗺️ Trial Map'
-              : t === 'data' ? '📋 Data Collection'
+            {t === 'germplasm'  ? '🌿 Germplasm'
+              : t === 'map'    ? '🗺️ Trial Map'
+              : t === 'data'   ? '📋 Data'
               : t === 'selections' ? '✂️ Selections'
-              : '📊 Summary'}
+              : t === 'summary'   ? '📊 Summary'
+              :                    '🧬 Pedigree'}
           </button>
         ))}
       </div>
 
       {tab === 'germplasm' && (
         <div className="card">
-          <GermplasmListTab plotList={plotList} />
+          <GermplasmListTab plotList={plotList} expectedReps={trial.num_reps} />
         </div>
       )}
       {tab === 'map' && (
@@ -161,6 +164,25 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
       {tab === 'selections' && (
         <div className="card"><AdvancePlotsTab trial={trial} plotList={plotList} /></div>
       )}
+      {tab === 'pedigree' && (() => {
+        const uniqueGermplasm = Array.from(
+          new Map(plotList.map(p => [p.germplasm, { id: p.germplasm, name: p.germplasm_name }])).values()
+        )
+        return (
+          <div className="card">
+            <div className="card-title mb-4">🧬 Pedigree — {uniqueGermplasm.length} unique lines</div>
+            <div className="grid-3" style={{ gap: 'var(--space-3)' }}>
+              {uniqueGermplasm.map(g => (
+                <div key={g.id} style={{ padding: 'var(--space-3)', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.87rem', fontWeight: 600 }}>{g.name}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setPedigreeEntry(g)}>🌳</button>
+                </div>
+              ))}
+            </div>
+            {uniqueGermplasm.length === 0 && <div className="empty-state"><p>No germplasm in this trial yet.</p></div>}
+          </div>
+        )
+      })()}
 
       {showGenerateLayout && (
         <Modal title={`Generate Layout — ${trial.trial_code}`} onClose={() => setShowGenerateLayout(false)} wide>
@@ -189,6 +211,15 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
               qc.invalidateQueries({ queryKey: ['observations-for-trial', trial.id] })
               qc.invalidateQueries({ queryKey: ['trial-summary', trial.id] })
             }}
+          />
+        </Modal>
+      )}
+      {pedigreeEntry && (
+        <Modal title={`Pedigree — ${pedigreeEntry.name}`} onClose={() => setPedigreeEntry(null)} wide>
+          <PedigreeTreeModal
+            germplasmId={pedigreeEntry.id}
+            germplasmName={pedigreeEntry.name}
+            onClose={() => setPedigreeEntry(null)}
           />
         </Modal>
       )}

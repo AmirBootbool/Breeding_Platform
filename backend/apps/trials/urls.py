@@ -5,6 +5,7 @@ from .viewsets import (
     ObservationVariableViewSet,
     ObservationViewSet,
     PlotViewSet,
+    TraitPanelViewSet,
     TrialViewSet,
 )
 
@@ -16,5 +17,6 @@ router.register(
 )
 router.register(r"observations", ObservationViewSet, basename="observation")
 router.register(r"analysis-sets", AnalysisSetViewSet, basename="analysisset")
+router.register(r"trait-panels", TraitPanelViewSet, basename="traitpanel")
 
 urlpatterns = router.urls

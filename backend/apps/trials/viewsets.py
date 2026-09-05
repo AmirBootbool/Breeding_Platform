@@ -12,12 +12,13 @@ from django.http import StreamingHttpResponse
 
 from apps.core.permissions import RoleBasedPermission
 
-from .models import AnalysisSet, Observation, ObservationVariable, Plot, Trial
+from .models import AnalysisSet, Observation, ObservationVariable, Plot, TraitPanel, Trial
 from .serializers import (
     AnalysisSetSerializer,
     ObservationSerializer,
     ObservationVariableSerializer,
     PlotSerializer,
+    TraitPanelSerializer,
     TrialSerializer,
 )
 from .services import (
@@ -44,7 +45,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     }
     search_fields = ["name", "trial_code", "program__name"]
     ordering_fields = ["trial_code", "name", "created_at"]
-    filterset_fields = ["program", "season", "location", "design_type"]
+    filterset_fields = ["program", "season", "location", "design_type", "status", "generation"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)
@@ -512,7 +513,7 @@ class ObservationVariableViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "variable_code", "description"]
     ordering_fields = ["name", "data_type", "created_at"]
-    filterset_fields = ["crop", "data_type", "is_required"]
+    filterset_fields = ["crop", "data_type", "is_required", "category"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)
@@ -521,7 +522,28 @@ class ObservationVariableViewSet(viewsets.ModelViewSet):
         serializer.save(updated_by=self.request.user)
 
     def get_queryset(self):
-        return ObservationVariable.objects.all().order_by("name")
+        from django.db.models import Count as C
+        return ObservationVariable.objects.annotate(usage_count=C("observations")).order_by("name")
+
+
+class TraitPanelViewSet(viewsets.ModelViewSet):
+    serializer_class = TraitPanelSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder"}
+    search_fields = ["name", "description"]
+    ordering_fields = ["name", "category", "created_at"]
+    filterset_fields = ["category", "program"]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def get_queryset(self):
+        return (
+            TraitPanel.objects
+            .select_related("program", "created_by")
+            .prefetch_related("variables")
+            .order_by("name")
+        )
 
 
 class ObservationViewSet(viewsets.ModelViewSet):

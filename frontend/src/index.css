@@ -373,6 +373,23 @@ h4 { font-size: 1.1rem; }
   box-shadow: 0 0 0 3px hsla(var(--hue-danger), 72%, 52%, 0.2);
 }
 
+/* Compact select input for filter toolbars */
+.select-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.82rem;
+  transition: border-color var(--transition-fast);
+  cursor: pointer;
+}
+.select-input:focus {
+  outline: none;
+  border-color: var(--brand-400);
+  box-shadow: 0 0 0 3px hsla(var(--hue-brand), 52%, 40%, 0.2);
+}
+
 .form-error {
   font-size: 0.78rem;
   color: var(--status-danger);

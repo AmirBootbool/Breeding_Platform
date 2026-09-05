@@ -49,6 +49,16 @@ class Germplasm(models.Model):
         help_text="Generation index (0=F0, 1=F1, ..., 8=F8+)",
     )
     year_developed = models.IntegerField(null=True, blank=True)
+    tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Free-form tags, e.g. ['drought-tolerant', 'release-candidate']",
+    )
+    is_check = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True for permanent check/reference lines used across trials.",
+    )
     notes = models.TextField(blank=True)
     is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -35,6 +35,8 @@ export default function TrialFormModal({
     planting_date: initial?.planting_date ?? '',
     harvest_date: initial?.harvest_date ?? '',
     notes: initial?.notes ?? '',
+    status: initial?.status ?? 'active',
+    generation: initial?.generation?.toString() ?? '',
   })
   const [error, setError] = useState('')
   const qc = useQueryClient()
@@ -54,6 +56,8 @@ export default function TrialFormModal({
         block_size: ['alpha_lattice', 'augmented_block'].includes(form.design_type) ? Number(form.block_size) : null,
         prep_fraction: form.design_type === 'prep' ? Number(form.prep_fraction) : null,
         notes: form.notes,
+        status: form.status,
+        generation: form.generation !== '' ? Number(form.generation) : null,
       }
       if (form.planting_date) payload.planting_date = form.planting_date
       if (form.harvest_date) payload.harvest_date = form.harvest_date
@@ -143,6 +147,23 @@ export default function TrialFormModal({
         <div className="form-group" style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Notes</label>
           <textarea id="trial-notes" className="form-input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Status</label>
+          <select id="trial-status" className="form-input" value={form.status} onChange={e => set('status', e.target.value)}>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Breeding Generation</label>
+          <select id="trial-generation" className="form-input" value={form.generation} onChange={e => set('generation', e.target.value)}>
+            <option value="">— Not set —</option>
+            {[0,1,2,3,4,5,6,7,8].map(g => (
+              <option key={g} value={g}>{['F0','F1','F2','F3','F4','F5','F6','F7','F8+'][g]}</option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="modal-footer">

@@ -56,8 +56,11 @@ export interface Germplasm {
   program: number
   program_name: string
   cross_type: string
+  generation: number
   year_developed: number | null
   pedigree_string: string
+  tags: string[]
+  is_check: boolean
   notes: string
   is_archived?: boolean
   created_at: string
@@ -144,6 +147,8 @@ export interface Trial {
   planting_date: string | null
   harvest_date: string | null
   notes: string
+  status: 'active' | 'completed' | 'archived'
+  generation: number | null
   created_at: string
   created_by_username?: string | null
   updated_by_username?: string | null
@@ -173,6 +178,10 @@ export interface ObservationVariable {
   unit: string
   data_type: string
   crop?: string
+  category?: string
+  categorical_options?: string[]
+  panel_ids?: number[]
+  usage_count?: number
   min_value: number | null
   max_value: number | null
   is_required: boolean
@@ -181,6 +190,21 @@ export interface ObservationVariable {
   updated_at?: string
   created_by_username?: string | null
   updated_by_username?: string | null
+}
+
+export interface TraitPanel {
+  id: number
+  name: string
+  description: string
+  category: string
+  program: number | null
+  program_name: string | null
+  variable_ids: number[]
+  variable_details: ObservationVariable[]
+  variable_count: number
+  created_by_username: string | null
+  created_at: string
+  updated_at: string
 }
 
 export const CROP_CHOICES = [
@@ -485,9 +509,9 @@ export const plots = {
 // ---- Observation Variables -------------------------------------------------
 
 export const observationVariables = {
-  list: () =>
+  list: (params = '') =>
     apiFetch<PaginatedResponse<ObservationVariable>>(
-      '/observation-variables/?page_size=200'
+      `/observation-variables/?page_size=200${params}`
     ),
   create: (data: Partial<ObservationVariable>) =>
     apiFetch<ObservationVariable>('/observation-variables/', {
@@ -504,6 +528,18 @@ export const observationVariables = {
 }
 
 export const traits = observationVariables
+
+export const traitPanels = {
+  list: (params = '') =>
+    apiFetch<PaginatedResponse<TraitPanel>>(`/trait-panels/?page_size=100${params}`),
+  detail: (id: number) => apiFetch<TraitPanel>(`/trait-panels/${id}/`),
+  create: (data: Partial<TraitPanel> & { variable_ids: number[] }) =>
+    apiFetch<TraitPanel>('/trait-panels/', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<TraitPanel> & { variable_ids?: number[] }) =>
+    apiFetch<TraitPanel>(`/trait-panels/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  destroy: (id: number) =>
+    apiFetch<void>(`/trait-panels/${id}/`, { method: 'DELETE' }),
+}
 
 // ---- Observations ----------------------------------------------------------
 

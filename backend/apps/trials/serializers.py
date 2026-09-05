@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from apps.core.serializers import AuditSerializerMixin
 
-from .models import AnalysisSet, Observation, ObservationVariable, Plot, Trial
+from .models import AnalysisSet, Observation, ObservationVariable, Plot, TraitPanel, Trial
 
 
 class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
@@ -33,6 +33,8 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "planting_date",
             "harvest_date",
             "notes",
+            "status",
+            "generation",
             "plot_count",
             "created_at",
             "updated_at",
@@ -133,6 +135,9 @@ class PlotSerializer(serializers.ModelSerializer):
 
 
 class ObservationVariableSerializer(AuditSerializerMixin, serializers.ModelSerializer):
+    panel_ids = serializers.SerializerMethodField()
+    usage_count = serializers.SerializerMethodField()
+
     class Meta:
         model = ObservationVariable
         fields = [
@@ -145,7 +150,11 @@ class ObservationVariableSerializer(AuditSerializerMixin, serializers.ModelSeria
             "min_value",
             "max_value",
             "crop",
+            "category",
+            "categorical_options",
             "is_required",
+            "panel_ids",
+            "usage_count",
             "created_at",
             "updated_at",
             "created_by_username",
@@ -153,11 +162,67 @@ class ObservationVariableSerializer(AuditSerializerMixin, serializers.ModelSeria
         ]
         read_only_fields = [
             "id",
+            "panel_ids",
+            "usage_count",
             "created_at",
             "updated_at",
             "created_by_username",
             "updated_by_username",
         ]
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_panel_ids(self, obj):
+        return list(obj.panels.values_list("id", flat=True))
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_usage_count(self, obj):
+        return getattr(obj, "usage_count", obj.observations.count())
+
+
+class TraitPanelSerializer(serializers.ModelSerializer):
+    variable_ids = serializers.PrimaryKeyRelatedField(
+        source="variables",
+        many=True,
+        queryset=ObservationVariable.objects.all(),
+    )
+    variable_details = ObservationVariableSerializer(
+        source="variables", many=True, read_only=True
+    )
+    program_name = serializers.CharField(source="program.name", read_only=True)
+    created_by_username = serializers.CharField(
+        source="created_by.username", read_only=True
+    )
+    variable_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TraitPanel
+        fields = [
+            "id",
+            "name",
+            "description",
+            "category",
+            "program",
+            "program_name",
+            "variable_ids",
+            "variable_details",
+            "variable_count",
+            "created_by_username",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "variable_details",
+            "variable_count",
+            "program_name",
+            "created_by_username",
+            "created_at",
+            "updated_at",
+        ]
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_variable_count(self, obj):
+        return obj.variables.count()
 
 
 class ObservationSerializer(serializers.ModelSerializer):

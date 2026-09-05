@@ -17,6 +17,12 @@ class Trial(models.Model):
         ("other", "Other"),
     ]
 
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("completed", "Completed"),
+        ("archived", "Archived"),
+    ]
+
     name = models.CharField(max_length=255, db_index=True)
     trial_code = models.CharField(max_length=255, unique=True)
     brapi_study_db_id = models.CharField(max_length=255, blank=True)
@@ -40,6 +46,17 @@ class Trial(models.Model):
     planting_date = models.DateField(null=True, blank=True)
     harvest_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default="active",
+        db_index=True,
+    )
+    generation = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Breeding generation index (0=F0, 1=F1, etc.) for pipeline tracking.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -160,6 +177,27 @@ class ObservationVariable(models.Model):
         default="all",
         blank=True,
         help_text="Standard crop scope (e.g. wheat, barley, or 'all')",
+    )
+    category = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=[
+            ("morphological", "Morphological"),
+            ("agronomic", "Agronomic"),
+            ("disease", "Disease Resistance"),
+            ("quality", "Grain Quality"),
+            ("phenology", "Phenology"),
+            ("abiotic", "Abiotic Stress"),
+            ("other", "Other"),
+        ],
+        default="other",
+        db_index=True,
+        help_text="Trait category for library organisation.",
+    )
+    categorical_options = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Valid option strings for categorical traits, e.g. ['1','2','3','4','5']",
     )
     is_required = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -327,3 +365,54 @@ class AnalysisSet(models.Model):
         # Validation warning logic will be in services.py since trials
         # are not accessible in clean() for a model instance until it is saved.
         pass
+
+
+class TraitPanel(models.Model):
+    """A named grouping of ObservationVariables forming a reusable trait panel."""
+
+    CATEGORY_CHOICES = [
+        ("morphological", "Morphological"),
+        ("agronomic", "Agronomic"),
+        ("disease", "Disease Resistance"),
+        ("quality", "Grain Quality"),
+        ("phenology", "Phenology"),
+        ("abiotic", "Abiotic Stress"),
+        ("other", "Other"),
+    ]
+
+    name = models.CharField(max_length=200, db_index=True)
+    description = models.TextField(blank=True)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default="other",
+        db_index=True,
+    )
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.CASCADE,
+        related_name="trait_panels",
+        null=True,
+        blank=True,
+        help_text="If null, panel is available to all programs.",
+    )
+    variables = models.ManyToManyField(
+        ObservationVariable,
+        related_name="panels",
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+
+    class Meta:
+        ordering = ["name"]

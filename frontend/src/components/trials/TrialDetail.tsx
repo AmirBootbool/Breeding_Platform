@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { trials, plots, Trial } from '../../api/client'
+import { trials, plots, observations, observationVariables, traitPanels, Trial } from '../../api/client'
+import { offlineStorage } from '../../services/offlineStorage'
 import Modal from '../Modal'
 import ObservationGrid from '../ObservationGrid'
 import { DesignBadge } from './types'
@@ -21,7 +22,49 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
   const [showGenerateLayout, setShowGenerateLayout] = useState(false)
   const [showImportFieldBook, setShowImportFieldBook] = useState(false)
   const [pedigreeEntry, setPedigreeEntry] = useState<{ id: number; name: string } | null>(null)
+  const [isOfflineCached, setIsOfflineCached] = useState(false)
+  const [downloadingOffline, setDownloadingOffline] = useState(false)
+  const [offlineMessage, setOfflineMessage] = useState<string | null>(null)
   const qc = useQueryClient()
+
+  useEffect(() => {
+    offlineStorage.getTrialPackage(trial.id).then(pkg => {
+      setIsOfflineCached(!!pkg)
+    })
+  }, [trial.id])
+
+  const handleDownloadOffline = async () => {
+    setDownloadingOffline(true)
+    setOfflineMessage('Packaging trial dataset for offline scoring…')
+    try {
+      const [plotsRes, varsRes, panelsRes, obsRes] = await Promise.all([
+        plots.list(`&trial=${trial.id}&page_size=500`),
+        observationVariables.list(),
+        traitPanels.list(),
+        observations.list(`&plot__trial=${trial.id}&page_size=1000`),
+      ])
+
+      await offlineStorage.saveTrialPackage({
+        trialId: trial.id,
+        trialCode: trial.trial_code,
+        name: trial.name,
+        programName: trial.program_name || '',
+        plots: plotsRes?.results || [],
+        variables: varsRes?.results || [],
+        panels: panelsRes?.results || [],
+        existingObservations: obsRes?.results || [],
+        downloadedAt: Date.now(),
+      })
+
+      setIsOfflineCached(true)
+      setOfflineMessage('✓ Trial is ready for offline field scoring!')
+      setTimeout(() => setOfflineMessage(null), 3500)
+    } catch (e: any) {
+      setOfflineMessage(`⚠️ Failed to download package: ${e.message}`)
+    } finally {
+      setDownloadingOffline(false)
+    }
+  }
 
   const { data: plotData, isLoading: plotLoading } = useQuery({
     queryKey: ['plots', trial.id],
@@ -119,9 +162,27 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
               >
                 🗺️ Export Trial Map CSV
               </button>
+              <button
+                id="download-offline-btn"
+                className={`btn ${isOfflineCached ? 'btn-secondary' : 'btn-secondary'}`}
+                style={{
+                  border: isOfflineCached ? '1px solid var(--brand-400)' : undefined,
+                  background: isOfflineCached ? 'rgba(74, 222, 128, 0.1)' : undefined,
+                }}
+                disabled={downloadingOffline}
+                onClick={handleDownloadOffline}
+                title="Download all plots and traits into local IndexedDB for field scoring without internet"
+              >
+                {downloadingOffline ? '📦 Downloading…' : isOfflineCached ? '✓ Offline Ready (Refresh)' : '📦 Make Available Offline'}
+              </button>
             </>
           )}
         </div>
+        {offlineMessage && (
+          <div className="alert alert-info mt-4" style={{ margin: 'var(--space-4) 0 0 0' }}>
+            <span>ℹ️</span><span>{offlineMessage}</span>
+          </div>
+        )}
       </div>
 
       <div className="tab-bar">

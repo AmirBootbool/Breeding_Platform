@@ -89,7 +89,6 @@ class SyncManager {
       if (errors.length === 0) {
         offlineStorage.clearQueuedObservations()
       } else {
-        // Remove successfully saved ones by index
         const failedIndices = new Set(errors.map((e: any) => e.index))
         const remaining = queue.filter((_, idx) => failedIndices.has(idx))
         offlineStorage.clearQueuedObservations()
@@ -116,6 +115,32 @@ class SyncManager {
         errors: [err],
       }
     }
+  }
+
+  public exportQueueToCsv(): void {
+    const queue = offlineStorage.getQueuedObservations()
+    if (queue.length === 0) return
+
+    const headers = ['clientId', 'plot', 'variable', 'variable_name', 'value_numeric', 'value_text', 'value_date', 'observation_time', 'notes']
+    const rows = queue.map(q => [
+      `"${q.clientId}"`,
+      q.plot,
+      q.variable,
+      `"${q.variable_name || ''}"`,
+      q.value_numeric !== null ? q.value_numeric : '',
+      `"${q.value_text || ''}"`,
+      `"${q.value_date || ''}"`,
+      `"${q.observation_time}"`,
+      `"${(q.notes || '').replace(/"/g, '""')}"`,
+    ].join(','))
+
+    const csvContent = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `offline_observations_backup_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
   }
 }
 

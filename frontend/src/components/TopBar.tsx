@@ -1,4 +1,5 @@
 import { useUiStore } from '../store/uiStore'
+import OfflineSyncBadge from './common/OfflineSyncBadge'
 import './TopBar.css'
 
 interface TopBarProps {
@@ -26,6 +27,7 @@ export default function TopBar({ title, subtitle, actions }: TopBarProps) {
         </div>
       </div>
       <div className="topbar-actions">
+        <OfflineSyncBadge />
         <button
           className="btn btn-ghost btn-sm topbar-theme-btn"
           onClick={toggleTheme}

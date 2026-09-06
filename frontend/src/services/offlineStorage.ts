@@ -1,6 +1,11 @@
+import { offlineDb, OfflineTrialPackage } from './offlineDb'
+
 export interface QueuedObservation {
   clientId: string
+  trialId?: number
+  trialCode?: string
   plot: number
+  plotNumber?: number
   variable: number
   variable_name?: string
   value_numeric: number | null
@@ -30,7 +35,6 @@ export const offlineStorage = {
 
   queueObservation(obs: Omit<QueuedObservation, 'clientId' | 'recordedAt'>): QueuedObservation {
     const queue = this.getQueuedObservations()
-    // Check if an observation for this plot & variable already exists in queue; if so, update it
     const existingIdx = queue.findIndex(q => q.plot === obs.plot && q.variable === obs.variable)
 
     const item: QueuedObservation = {
@@ -51,6 +55,21 @@ export const offlineStorage = {
       console.error('Failed to persist observation in localStorage:', e)
     }
 
+    // Also sync to IndexedDB asynchronously
+    offlineDb.queueObservation({
+      trialId: obs.trialId || 0,
+      trialCode: obs.trialCode,
+      plot: obs.plot,
+      plotNumber: obs.plotNumber,
+      variable: obs.variable,
+      variableName: obs.variable_name,
+      valueNumeric: obs.value_numeric,
+      valueText: obs.value_text,
+      valueDate: obs.value_date,
+      observationTime: obs.observation_time,
+      notes: obs.notes,
+    }).catch(console.error)
+
     return item
   },
 
@@ -61,6 +80,7 @@ export const offlineStorage = {
     } catch (e) {
       console.error('Failed to remove queued observation:', e)
     }
+    offlineDb.removeQueuedItem(clientId).catch(console.error)
   },
 
   clearQueuedObservations(): void {
@@ -69,20 +89,26 @@ export const offlineStorage = {
     } catch (e) {
       console.error('Failed to clear queue:', e)
     }
+    offlineDb.clearQueue().catch(console.error)
   },
 
-  cacheTrialData(trialId: number, data: any): void {
+  // ---- Trial Data Package Caching ----
+  async saveTrialPackage(pkg: OfflineTrialPackage): Promise<void> {
     try {
-      localStorage.setItem(`${METADATA_PREFIX}${trialId}`, JSON.stringify({
+      localStorage.setItem(`${METADATA_PREFIX}${pkg.trialId}`, JSON.stringify({
         cachedAt: Date.now(),
-        data,
+        data: pkg,
       }))
     } catch (e) {
-      console.error('Failed to cache trial metadata:', e)
+      console.warn('localStorage quota reached, relying on IndexedDB:', e)
     }
+    await offlineDb.saveTrialPackage(pkg)
   },
 
-  getCachedTrialData(trialId: number): any | null {
+  async getTrialPackage(trialId: number): Promise<OfflineTrialPackage | null> {
+    const idbResult = await offlineDb.getTrialPackage(trialId)
+    if (idbResult) return idbResult
+
     try {
       const raw = localStorage.getItem(`${METADATA_PREFIX}${trialId}`)
       if (!raw) return null
@@ -91,5 +117,18 @@ export const offlineStorage = {
     } catch {
       return null
     }
+  },
+
+  async listCachedTrials(): Promise<OfflineTrialPackage[]> {
+    return offlineDb.listCachedTrials()
+  },
+
+  async removeCachedTrial(trialId: number): Promise<void> {
+    try {
+      localStorage.removeItem(`${METADATA_PREFIX}${trialId}`)
+    } catch (e) {
+      console.error(e)
+    }
+    await offlineDb.removeCachedTrial(trialId)
   }
 }

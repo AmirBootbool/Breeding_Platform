@@ -4,6 +4,7 @@ import {
   plots, observationVariables, observations, traitPanels,
   Trial, ObservationVariable, ApiError
 } from '../api/client'
+import { offlineStorage } from '../services/offlineStorage'
 import Modal from './Modal'
 
 interface ObservationGridProps {
@@ -208,6 +209,31 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
       return
     }
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      // Save directly to offline queue
+      dirtyPayload.forEach(item => {
+        const v = allVariables.find(x => x.id === item.variable)
+        const p = plotList.find(x => x.id === item.plot)
+        offlineStorage.queueObservation({
+          trialId: trial.id,
+          trialCode: trial.trial_code,
+          plot: item.plot,
+          plotNumber: p?.plot_number,
+          variable: item.variable,
+          variable_name: v?.name,
+          value_numeric: item.value_numeric,
+          value_text: item.value_text,
+          value_date: item.value_date,
+          observation_time: new Date().toISOString(),
+          notes: item.notes || '',
+        })
+      })
+      setInitialValues({ ...currentValues })
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 4000)
+      return
+    }
+
     mutation.mutate(dirtyPayload, {
       onError: (err) => {
         if (err instanceof ApiError) {
@@ -221,8 +247,30 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
               cellErrors[cellKey] = detailMsg
             })
             setErrors(cellErrors)
+            return
           }
         }
+        // Network or server down: fallback to offline storage
+        dirtyPayload.forEach(item => {
+          const v = allVariables.find(x => x.id === item.variable)
+          const p = plotList.find(x => x.id === item.plot)
+          offlineStorage.queueObservation({
+            trialId: trial.id,
+            trialCode: trial.trial_code,
+            plot: item.plot,
+            plotNumber: p?.plot_number,
+            variable: item.variable,
+            variable_name: v?.name,
+            value_numeric: item.value_numeric,
+            value_text: item.value_text,
+            value_date: item.value_date,
+            observation_time: new Date().toISOString(),
+            notes: item.notes || '',
+          })
+        })
+        setInitialValues({ ...currentValues })
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 4000)
       }
     })
   }

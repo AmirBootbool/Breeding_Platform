@@ -46,8 +46,7 @@ export default function TrialFormModal({
   const mutation = useMutation({
     mutationFn: () => {
       const payload: Record<string, unknown> = {
-        name: form.name,
-        trial_code: form.trial_code,
+        name: form.name.trim(),
         program: Number(form.program),
         location: Number(form.location),
         season: Number(form.season),
@@ -59,6 +58,10 @@ export default function TrialFormModal({
         status: form.status,
         generation: form.generation !== '' ? Number(form.generation) : null,
       }
+      if (form.trial_code.trim()) {
+        payload.trial_code = form.trial_code.trim()
+      }
+
       if (form.planting_date) payload.planting_date = form.planting_date
       if (form.harvest_date) payload.harvest_date = form.harvest_date
       return isEdit && editId

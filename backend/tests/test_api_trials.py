@@ -111,6 +111,25 @@ def test_technician_can_update_plot_status_but_not_create_trial(
 
 
 @pytest.mark.django_db
+def test_create_trial_minimal_payload_and_case_insensitive_design(auth_client, program):
+    response = auth_client.post(
+        "/api/trials/",
+        {
+            "name": "Quick Promotion Field",
+            "program": program.id,
+            "design_type": "rcbd",
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    assert response.data["name"] == "Quick Promotion Field"
+    assert response.data["design_type"] == "RCBD"
+    assert response.data["trial_code"].startswith("TR-")
+    assert response.data["location"] is not None
+    assert response.data["season"] is not None
+
+
+@pytest.mark.django_db
 def test_viewer_cannot_record_observation(client_for_role, plot, observation_variable):
     client = client_for_role("viewer")
 

@@ -1,7 +1,10 @@
+import uuid
+from django.utils.text import slugify
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.core.models import Location, Season
 from apps.core.serializers import AuditSerializerMixin
 
 from .models import AnalysisSet, Observation, ObservationVariable, Plot, TraitPanel, Trial
@@ -12,6 +15,14 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
     location_name = serializers.CharField(source="location.name", read_only=True)
     season_name = serializers.CharField(source="season.name", read_only=True)
     plot_count = serializers.SerializerMethodField()
+    trial_code = serializers.CharField(required=False, allow_blank=True)
+    design_type = serializers.CharField(required=False, default="RCBD")
+    location = serializers.PrimaryKeyRelatedField(
+        queryset=Location.objects.all(), required=False, allow_null=True
+    )
+    season = serializers.PrimaryKeyRelatedField(
+        queryset=Season.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Trial
@@ -54,10 +65,54 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        design_type = attrs.get(
+        # Auto-generate unique trial_code if missing or empty
+        trial_code = attrs.get("trial_code", "").strip()
+        if not trial_code and (not self.instance or not self.instance.trial_code):
+            name_slug = slugify(attrs.get("name", "TRIAL"))[:20].upper() or "TRIAL"
+            unique_suffix = uuid.uuid4().hex[:6].upper()
+            attrs["trial_code"] = f"TR-{name_slug}-{unique_suffix}"
+        elif trial_code:
+            attrs["trial_code"] = trial_code
+
+        # Fallback for location if omitted
+        if not attrs.get("location") and (not self.instance or not self.instance.location_id):
+            default_location = Location.objects.first()
+            if not default_location:
+                default_location = Location.objects.create(
+                    name="Main Research Station",
+                    country="Global",
+                )
+            attrs["location"] = default_location
+
+        # Fallback for season if omitted
+        if not attrs.get("season") and (not self.instance or not self.instance.season_id):
+            program = attrs.get("program") or (self.instance.program if self.instance else None)
+            default_season = (
+                Season.objects.filter(program=program).first()
+                if program
+                else Season.objects.first()
+            )
+            if not default_season:
+                default_season = Season.objects.create(
+                    name="2026 Season",
+                    year=2026,
+                    program=program,
+                )
+            attrs["season"] = default_season
+
+        # Normalize design_type casing
+        design_type_input = attrs.get(
             "design_type",
             getattr(self.instance, "design_type", "RCBD") if self.instance else "RCBD",
         )
+        if design_type_input:
+            valid_map = {choice[0].lower(): choice[0] for choice in Trial.DESIGN_CHOICES}
+            design_type = valid_map.get(str(design_type_input).lower(), design_type_input)
+            attrs["design_type"] = design_type
+        else:
+            design_type = "RCBD"
+            attrs["design_type"] = "RCBD"
+
         block_size = attrs.get(
             "block_size",
             getattr(self.instance, "block_size", None) if self.instance else None,
@@ -70,6 +125,7 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "num_reps",
             getattr(self.instance, "num_reps", 1) if self.instance else 1,
         )
+
         
         if design_type == "alpha_lattice":
             if block_size is None:

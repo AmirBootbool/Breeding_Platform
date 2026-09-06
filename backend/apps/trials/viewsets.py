@@ -484,6 +484,254 @@ class TrialViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(detail=True, methods=["get"])
+    def export_map(self, request, pk=None):
+        """Export trial plot map layout as CSV with walking order serpentine numbers."""
+        from .services import compute_walking_orders
+        trial = self.get_object()
+        plots = (
+            Plot.objects.filter(trial=trial)
+            .select_related("germplasm")
+            .order_by("plot_number")
+        )
+
+        field_rows = trial.field_rows or max([p.row or 1 for p in plots] + [1])
+        field_cols = trial.field_cols or max([p.column or 1 for p in plots] + [1])
+        corner = trial.starting_corner or "BL"
+
+        headers = [
+            "plot_number",
+            "germplasm_name",
+            "germplasm_id",
+            "rep",
+            "block",
+            "incomplete_block",
+            "row",
+            "column",
+            "is_check",
+            "is_border",
+            "status",
+            "walking_order_h_serpentine",
+            "walking_order_v_serpentine",
+        ]
+
+        def generate():
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(headers)
+            yield buf.getvalue()
+            for plot in plots:
+                r = plot.row or 1
+                c = plot.column or 1
+                h_order, v_order = compute_walking_orders(r, c, field_rows, field_cols, corner)
+                buf = io.StringIO()
+                writer = csv.writer(buf)
+                writer.writerow(
+                    [
+                        plot.plot_number,
+                        plot.germplasm.name,
+                        plot.germplasm.id,
+                        plot.rep,
+                        plot.block or "",
+                        plot.incomplete_block or "",
+                        plot.row or "",
+                        plot.column or "",
+                        "TRUE" if plot.is_check else "FALSE",
+                        "TRUE" if plot.is_border else "FALSE",
+                        plot.status,
+                        h_order,
+                        v_order,
+                    ]
+                )
+                yield buf.getvalue()
+
+        filename = f"{trial.trial_code}_field_map.csv"
+        response = StreamingHttpResponse(generate(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+    @action(detail=True, methods=["patch"], url_path="batch_update_plots")
+    def batch_update_plots(self, request, pk=None):
+        """Batch update plots (germplasm, check, border, row, column, status) in one atomic transaction."""
+        trial = self.get_object()
+        plots_data = request.data.get("plots", [])
+        if not isinstance(plots_data, list) or not plots_data:
+            return Response(
+                {"detail": "plots must be a non-empty list."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        plot_ids = [p.get("id") or p.get("plot_id") for p in plots_data if (p.get("id") or p.get("plot_id"))]
+        existing_plots = {p.id: p for p in Plot.objects.filter(trial=trial, id__in=plot_ids)}
+
+        updated_plots = []
+        with transaction.atomic():
+            for p_data in plots_data:
+                p_id = p_data.get("id") or p_data.get("plot_id")
+                plot = existing_plots.get(p_id)
+                if not plot:
+                    continue
+
+                if "germplasm" in p_data or "germplasm_id" in p_data:
+                    gid = p_data.get("germplasm") or p_data.get("germplasm_id")
+                    if gid:
+                        plot.germplasm_id = gid
+                if "is_check" in p_data:
+                    plot.is_check = bool(p_data["is_check"])
+                if "is_border" in p_data:
+                    plot.is_border = bool(p_data["is_border"])
+                if "status" in p_data:
+                    plot.status = p_data["status"]
+                if "row" in p_data and p_data["row"] is not None:
+                    plot.row = int(p_data["row"])
+                if "column" in p_data and p_data["column"] is not None:
+                    plot.column = int(p_data["column"])
+                if "rep" in p_data and p_data["rep"] is not None:
+                    plot.rep = int(p_data["rep"])
+
+                plot.save()
+                updated_plots.append(plot)
+
+        return Response(
+            {
+                "detail": f"Successfully updated {len(updated_plots)} plots.",
+                "updated_count": len(updated_plots),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="add_grid_cells")
+    def add_grid_cells(self, request, pk=None):
+        """Add rows or columns of grid plots (optionally filled with a border/filler germplasm)."""
+        trial = self.get_object()
+        grid_type = request.data.get("type", "row")  # 'row' or 'column'
+        location = request.data.get("location", "top")  # 'top', 'bottom', 'left', 'right'
+        count = int(request.data.get("count", 1))
+        fill_germplasm_id = request.data.get("fill_germplasm_id")
+        is_border = bool(request.data.get("is_border", True))
+
+        if count < 1 or count > 20:
+            return Response({"detail": "Count must be between 1 and 20."}, status=400)
+
+        from apps.germplasm.models import Germplasm
+        if fill_germplasm_id:
+            germplasm = Germplasm.objects.filter(id=fill_germplasm_id).first()
+            if not germplasm:
+                return Response({"detail": "Specified fill germplasm does not exist."}, status=400)
+        else:
+            first_plot = trial.plots.first()
+            germplasm = first_plot.germplasm if first_plot else Germplasm.objects.first()
+            if not germplasm:
+                return Response({"detail": "No germplasm available to populate plots."}, status=400)
+
+        existing_plots = list(trial.plots.all())
+        current_rows = trial.field_rows or max([p.row or 1 for p in existing_plots] + [1])
+        current_cols = trial.field_cols or max([p.column or 1 for p in existing_plots] + [1])
+        max_plot_num = max([p.plot_number for p in existing_plots] + [0])
+
+        new_plots = []
+        with transaction.atomic():
+            if grid_type == "row":
+                new_rows_count = current_rows + count
+                if location == "top":
+                    for r_offset in range(1, count + 1):
+                        new_row_idx = current_rows + r_offset
+                        for c_idx in range(1, current_cols + 1):
+                            max_plot_num += 1
+                            new_plots.append(
+                                Plot(
+                                    trial=trial,
+                                    germplasm=germplasm,
+                                    rep=1,
+                                    plot_number=max_plot_num,
+                                    row=new_row_idx,
+                                    column=c_idx,
+                                    is_border=is_border,
+                                    is_check=False,
+                                    status="planned",
+                                )
+                            )
+                else:  # bottom
+                    for p in existing_plots:
+                        if p.row:
+                            p.row += count
+                            p.save(update_fields=["row"])
+                    for r_idx in range(1, count + 1):
+                        for c_idx in range(1, current_cols + 1):
+                            max_plot_num += 1
+                            new_plots.append(
+                                Plot(
+                                    trial=trial,
+                                    germplasm=germplasm,
+                                    rep=1,
+                                    plot_number=max_plot_num,
+                                    row=r_idx,
+                                    column=c_idx,
+                                    is_border=is_border,
+                                    is_check=False,
+                                    status="planned",
+                                )
+                            )
+                trial.field_rows = new_rows_count
+                trial.save(update_fields=["field_rows"])
+
+            else:  # column
+                new_cols_count = current_cols + count
+                if location == "right":
+                    for c_offset in range(1, count + 1):
+                        new_col_idx = current_cols + c_offset
+                        for r_idx in range(1, current_rows + 1):
+                            max_plot_num += 1
+                            new_plots.append(
+                                Plot(
+                                    trial=trial,
+                                    germplasm=germplasm,
+                                    rep=1,
+                                    plot_number=max_plot_num,
+                                    row=r_idx,
+                                    column=new_col_idx,
+                                    is_border=is_border,
+                                    is_check=False,
+                                    status="planned",
+                                )
+                            )
+                else:  # left
+                    for p in existing_plots:
+                        if p.column:
+                            p.column += count
+                            p.save(update_fields=["column"])
+                    for c_idx in range(1, count + 1):
+                        for r_idx in range(1, current_rows + 1):
+                            max_plot_num += 1
+                            new_plots.append(
+                                Plot(
+                                    trial=trial,
+                                    germplasm=germplasm,
+                                    rep=1,
+                                    plot_number=max_plot_num,
+                                    row=r_idx,
+                                    column=c_idx,
+                                    is_border=is_border,
+                                    is_check=False,
+                                    status="planned",
+                                )
+                            )
+                trial.field_cols = new_cols_count
+                trial.save(update_fields=["field_cols"])
+
+            if new_plots:
+                Plot.objects.bulk_create(new_plots)
+
+        return Response(
+            {
+                "detail": f"Successfully added {len(new_plots)} plots.",
+                "created_count": len(new_plots),
+                "field_rows": trial.field_rows,
+                "field_cols": trial.field_cols,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class PlotViewSet(viewsets.ModelViewSet):
     serializer_class = PlotSerializer

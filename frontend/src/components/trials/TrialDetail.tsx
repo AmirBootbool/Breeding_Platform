@@ -9,7 +9,7 @@ import PlotGrid from './PlotGrid'
 import SummaryChart from './SummaryChart'
 import GermplasmListTab from './GermplasmListTab'
 import AdvancePlotsTab from './AdvancePlotsTab'
-import GenerateLayoutModal from './GenerateLayoutModal'
+import MapCreationWizard from './MapCreationWizard'
 import ImportFieldBookModal from './ImportFieldBookModal'
 import PedigreeTreeModal from '../pedigree/PedigreeTreeModal'
 
@@ -213,17 +213,31 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
         ) : plotList.length === 0 ? (
           <div className="empty-state"><div className="empty-icon">🌱</div><p>No plots yet.</p></div>
         ) : (
-          <div className="card"><PlotGrid plotList={plotList} /></div>
+          <div className="card">
+            <PlotGrid
+              plotList={plotList}
+              trialId={trial.id}
+              trialCode={trial.trial_code}
+              onRefresh={() => {
+                qc.invalidateQueries({ queryKey: ['plots', trial.id] })
+                qc.invalidateQueries({ queryKey: ['trials'] })
+              }}
+            />
+          </div>
         )
       )}
       {tab === 'data' && (
         <ObservationGrid trial={trial} />
       )}
       {tab === 'summary' && (
-        <div className="card"><SummaryChart rows={summaryData?.summary ?? []} /></div>
+        <div className="card">
+          <SummaryChart rows={summaryData?.summary ?? []} />
+        </div>
       )}
       {tab === 'selections' && (
-        <div className="card"><AdvancePlotsTab trial={trial} plotList={plotList} /></div>
+        <div className="card">
+          <AdvancePlotsTab trial={trial} plotList={plotList} />
+        </div>
       )}
       {tab === 'pedigree' && (() => {
         const uniqueGermplasm = Array.from(
@@ -246,8 +260,8 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
       })()}
 
       {showGenerateLayout && (
-        <Modal title={`Generate Layout — ${trial.trial_code}`} onClose={() => setShowGenerateLayout(false)} wide>
-          <GenerateLayoutModal
+        <Modal title={`Field Map Creation Wizard — ${trial.trial_code}`} onClose={() => setShowGenerateLayout(false)} wide>
+          <MapCreationWizard
             trial={trial}
             onClose={() => setShowGenerateLayout(false)}
             onSuccess={() => {

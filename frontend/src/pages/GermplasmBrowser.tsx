@@ -7,6 +7,7 @@ import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SendToTrialModal from '../components/SendToTrialModal'
 import PedigreeTreeModal from '../components/pedigree/PedigreeTreeModal'
+import { DataTable, Column } from '../components/common/DataTable'
 
 // ---- Cross type badge -------------------------------------------------------
 function CrossTypeBadge({ type }: { type: string }) {
@@ -613,93 +614,117 @@ export default function GermplasmBrowser() {
               <p>No germplasm entries found matching the filter criteria.</p>
             </div>
           ) : viewMode === 'table' ? (
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 40 }}>
-                      <input 
-                        type="checkbox"
-                        checked={filteredResults.length > 0 && selectedIds.length === filteredResults.length}
-                        onChange={e => setSelectedIds(e.target.checked ? filteredResults.map(r => r.id) : [])}
-                      />
-                    </th>
-                    <th>Name</th>
-                    <th>ID</th>
-                    <th>Gen</th>
-                    <th>Type</th>
-                    <th>Program</th>
-                    <th>Tags</th>
-                    <th style={{ width: 110 }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredResults.map(entry => (
-                    <tr
-                      key={entry.id}
-                      onClick={() => setSelected(prev => prev?.id === entry.id ? null : entry)}
-                      style={{ cursor: 'pointer' }}
-                      className={selected?.id === entry.id ? 'selected-row' : ''}
-                    >
-                      <td onClick={e => e.stopPropagation()}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedIds.includes(entry.id)}
-                          onChange={e => {
-                            if (e.target.checked) setSelectedIds(prev => [...prev, entry.id])
-                            else setSelectedIds(prev => prev.filter(id => id !== entry.id))
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                          <strong>{entry.name}</strong>
-                          {entry.is_check && <span className="badge badge-amber" style={{ fontSize: '0.65rem', padding: '1px 4px' }}>CHECK</span>}
-                        </div>
-                      </td>
-                      <td className="font-mono text-xs text-muted">{entry.germplasm_db_id}</td>
-                      <td><span className="badge badge-blue">{GEN_LABELS[entry.generation] ?? `F${entry.generation}`}</span></td>
-                      <td><CrossTypeBadge type={entry.cross_type} /></td>
-                      <td className="text-sm text-muted">{entry.program_name}</td>
-                      <td>
-                        <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-                          {(entry.tags || []).slice(0, 2).map(t => (
-                            <span key={t} className="badge badge-gray" style={{ fontSize: '0.65rem' }}>{t}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <td onClick={e => e.stopPropagation()}>
-                        <div className="flex gap-1">
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            title="View Pedigree Tree"
-                            onClick={() => setTreeTarget(entry)}
-                          >
-                            🌳
-                          </button>
-                          {canWrite && (
-                            <>
-                              <button
-                                id={`edit-germ-${entry.id}`}
-                                className="btn btn-ghost btn-sm"
-                                title="Edit"
-                                onClick={() => setEditEntry(entry)}
-                              >✏</button>
-                              <button
-                                id={`delete-germ-${entry.id}`}
-                                className="btn btn-ghost btn-sm"
-                                title="Delete"
-                                style={{ color: 'var(--status-danger)' }}
-                                onClick={() => setDeleteEntry(entry)}
-                              >🗑</button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="card">
+              <DataTable<Germplasm>
+                columns={[
+                  {
+                    key: 'name',
+                    header: 'Name',
+                    sortable: true,
+                    searchable: true,
+                    render: (entry: Germplasm) => (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <strong>{entry.name}</strong>
+                        {entry.is_check && (
+                          <span className="badge badge-amber" style={{ fontSize: '0.65rem', padding: '1px 4px' }}>
+                            CHECK
+                          </span>
+                        )}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'germplasm_db_id',
+                    header: 'ID',
+                    sortable: true,
+                    searchable: true,
+                    render: (entry: Germplasm) => (
+                      <span className="font-mono text-xs text-muted">{entry.germplasm_db_id}</span>
+                    )
+                  },
+                  {
+                    key: 'generation',
+                    header: 'Gen',
+                    sortable: true,
+                    searchable: true,
+                    render: (entry: Germplasm) => (
+                      <span className="badge badge-blue">{GEN_LABELS[entry.generation] ?? `F${entry.generation}`}</span>
+                    )
+                  },
+                  {
+                    key: 'cross_type',
+                    header: 'Type',
+                    sortable: true,
+                    searchable: true,
+                    render: (entry: Germplasm) => <CrossTypeBadge type={entry.cross_type} />
+                  },
+                  {
+                    key: 'program_name',
+                    header: 'Program',
+                    sortable: true,
+                    searchable: true,
+                    render: (entry: Germplasm) => <span className="text-sm text-muted">{entry.program_name}</span>
+                  },
+                  {
+                    key: 'tags',
+                    header: 'Tags',
+                    sortable: false,
+                    searchable: true,
+                    accessor: (entry: Germplasm) => (entry.tags || []).join(', '),
+                    render: (entry: Germplasm) => (
+                      <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                        {(entry.tags || []).slice(0, 2).map(t => (
+                          <span key={t} className="badge badge-gray" style={{ fontSize: '0.65rem' }}>{t}</span>
+                        ))}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    sortable: false,
+                    searchable: false,
+                    render: (entry: Germplasm) => (
+                      <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="View Pedigree Tree"
+                          onClick={() => setTreeTarget(entry)}
+                        >
+                          🌳
+                        </button>
+                        {canWrite && (
+                          <>
+                            <button
+                              id={`edit-germ-${entry.id}`}
+                              className="btn btn-ghost btn-sm"
+                              title="Edit"
+                              onClick={() => setEditEntry(entry)}
+                            >✏</button>
+                            <button
+                              id={`delete-germ-${entry.id}`}
+                              className="btn btn-ghost btn-sm"
+                              title="Delete"
+                              style={{ color: 'var(--status-danger)' }}
+                              onClick={() => setDeleteEntry(entry)}
+                            >🗑</button>
+                          </>
+                        )}
+                      </div>
+                    )
+                  }
+                ] as Column<Germplasm>[]}
+                data={filteredResults}
+                selectable
+                selectedIds={selectedIds}
+                onSelectionChange={(ids) => setSelectedIds(ids as number[])}
+                onRowClick={(entry: Germplasm) => setSelected(prev => prev?.id === entry.id ? null : entry)}
+                rowClassName={(entry: Germplasm) => selected?.id === entry.id ? 'selected-row' : ''}
+                pagination
+                defaultPageSize={25}
+                exportable
+                exportFileName="germplasm_export.csv"
+              />
             </div>
           ) : (
             /* Card Grid View */

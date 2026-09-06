@@ -11,6 +11,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { DesignBadge } from '../components/trials/types'
 import TrialDetail from '../components/trials/TrialDetail'
 import TrialFormModal from '../components/trials/TrialFormModal'
+import { DataTable, Column } from '../components/common/DataTable'
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   active:    { label: 'Active',    color: 'var(--status-success)' },
@@ -269,51 +270,108 @@ export default function TrialManager() {
           ))}
         </div>
       ) : (
-        <div className="table-container mb-8">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Gen.</th>
-                <th>Program</th>
-                <th>Location</th>
-                <th>Season</th>
-                <th>Design</th>
-                <th>Reps</th>
-                <th>Plots</th>
-                {canWrite && <th style={{ width: 100 }}>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {data?.results.map((t: Trial) => (
-                <tr key={t.id} onClick={() => setSelectedTrial(t)} style={{ cursor: 'pointer' }}>
-                  <td><code className="font-mono text-sm" style={{ color: 'var(--brand-300)' }}>{t.trial_code}</code></td>
-                  <td><strong>{t.name}</strong></td>
-                  <td><StatusBadge status={t.status} /></td>
-                  <td className="text-sm text-muted">
+        <div className="card mb-8">
+          <DataTable<Trial>
+            columns={[
+              {
+                key: 'trial_code',
+                header: 'Code',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => (
+                  <code className="font-mono text-sm" style={{ color: 'var(--brand-300)' }}>
+                    {t.trial_code}
+                  </code>
+                )
+              },
+              {
+                key: 'name',
+                header: 'Name',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <strong>{t.name}</strong>
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <StatusBadge status={t.status} />
+              },
+              {
+                key: 'generation',
+                header: 'Gen.',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => (
+                  <span className="text-sm text-muted">
                     {t.generation != null ? (GEN_LABELS[t.generation] ?? `F${t.generation}`) : '—'}
-                  </td>
-                  <td className="text-sm text-muted">{t.program_name}</td>
-                  <td className="text-sm">{t.location_name}</td>
-                  <td className="text-sm">{t.season_name}</td>
-                  <td><DesignBadge type={t.design_type} /></td>
-                  <td className="text-sm">{t.num_reps}</td>
-                  <td className="text-sm">{t.plot_count}</td>
-                  {canWrite && (
-                    <td onClick={e => e.stopPropagation()}>
-                      <div className="flex gap-2">
-                        <button id={`edit-trial-${t.id}`} className="btn btn-ghost btn-sm" title="Edit" onClick={() => setEditTrial(t)}>✏</button>
-                        <button id={`clone-trial-${t.id}`} className="btn btn-ghost btn-sm" title="Clone" onClick={() => setCloneTrial(t)}>⎘</button>
-                        <button id={`delete-trial-${t.id}`} className="btn btn-ghost btn-sm" title="Delete" style={{ color: 'var(--status-danger)' }} onClick={() => setDeleteTrial(t)}>🗑</button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                )
+              },
+              {
+                key: 'program_name',
+                header: 'Program',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <span className="text-sm text-muted">{t.program_name}</span>
+              },
+              {
+                key: 'location_name',
+                header: 'Location',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <span className="text-sm">{t.location_name}</span>
+              },
+              {
+                key: 'season_name',
+                header: 'Season',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <span className="text-sm">{t.season_name}</span>
+              },
+              {
+                key: 'design_type',
+                header: 'Design',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <DesignBadge type={t.design_type} />
+              },
+              {
+                key: 'num_reps',
+                header: 'Reps',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <span className="text-sm">{t.num_reps}</span>
+              },
+              {
+                key: 'plot_count',
+                header: 'Plots',
+                sortable: true,
+                searchable: true,
+                render: (t: Trial) => <span className="text-sm">{t.plot_count}</span>
+              },
+              ...(canWrite ? [{
+                key: 'actions',
+                header: 'Actions',
+                sortable: false,
+                searchable: false,
+                render: (t: Trial) => (
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    <button id={`edit-trial-${t.id}`} className="btn btn-ghost btn-sm" title="Edit" onClick={() => setEditTrial(t)}>✏</button>
+                    <button id={`clone-trial-${t.id}`} className="btn btn-ghost btn-sm" title="Clone" onClick={() => setCloneTrial(t)}>⎘</button>
+                    <button id={`delete-trial-${t.id}`} className="btn btn-ghost btn-sm" title="Delete" style={{ color: 'var(--status-danger)' }} onClick={() => setDeleteTrial(t)}>🗑</button>
+                  </div>
+                )
+              }] : [])
+            ] as Column<Trial>[]}
+            data={data?.results ?? []}
+            onRowClick={(t: Trial) => setSelectedTrial(t)}
+            pagination
+            defaultPageSize={25}
+            exportable
+            exportFileName="trials_export.csv"
+          />
         </div>
       )}
 

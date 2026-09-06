@@ -57,6 +57,46 @@ class Trial(models.Model):
         blank=True,
         help_text="Breeding generation index (0=F0, 1=F1, etc.) for pipeline tracking.",
     )
+    field_rows = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Total physical field grid rows.",
+    )
+    field_cols = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Total physical field grid columns.",
+    )
+    starting_corner = models.CharField(
+        max_length=4,
+        choices=[
+            ("BL", "Bottom-Left"),
+            ("BR", "Bottom-Right"),
+            ("TL", "Top-Left"),
+            ("TR", "Top-Right"),
+        ],
+        default="BL",
+    )
+    advancement_direction = models.CharField(
+        max_length=16,
+        choices=[
+            ("up", "Up"),
+            ("right", "Right"),
+            ("up_right", "Up then Right"),
+            ("right_up", "Right then Up"),
+        ],
+        default="up",
+    )
+    layout_schema = models.CharField(
+        max_length=20,
+        choices=[
+            ("h_serpentine", "Horizontal Serpentine"),
+            ("v_serpentine", "Vertical Serpentine"),
+            ("h_cartesian", "Horizontal Cartesian"),
+            ("v_cartesian", "Vertical Cartesian"),
+        ],
+        default="h_serpentine",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -143,6 +183,7 @@ class Plot(models.Model):
     column = models.IntegerField(null=True, blank=True)
     incomplete_block = models.PositiveIntegerField(null=True, blank=True)
     is_check = models.BooleanField(default=False)
+    is_border = models.BooleanField(default=False)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default="planned")
 
     class Meta:

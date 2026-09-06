@@ -391,3 +391,67 @@ def test_create_plots_augmented(client_for_role, program, location, season):
     # Check checks count
     checks_marked = [p for p in response.data["plots"] if p["is_check"]]
     assert len(checks_marked) == 9
+
+
+@pytest.mark.django_db
+def test_export_map_with_walking_orders(client_for_role, trial, plot):
+    client = client_for_role("breeder")
+    response = client.get(f"/api/trials/{trial.id}/export_map/")
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/csv"
+    assert f"{trial.trial_code}_field_map.csv" in response["Content-Disposition"]
+
+    content = b"".join(response.streaming_content).decode("utf-8")
+    assert "plot_number" in content
+    assert "walking_order_h_serpentine" in content
+    assert "walking_order_v_serpentine" in content
+    assert "is_border" in content
+    assert plot.germplasm.name in content
+
+
+@pytest.mark.django_db
+def test_batch_update_plots_api(client_for_role, trial, plot):
+    client = client_for_role("breeder")
+    response = client.patch(
+        f"/api/trials/{trial.id}/batch_update_plots/",
+        {
+            "plots": [
+                {
+                    "id": plot.id,
+                    "is_check": True,
+                    "is_border": True,
+                    "status": "planted",
+                    "row": 3,
+                    "column": 4,
+                }
+            ]
+        },
+        format="json",
+    )
+    assert response.status_code == 200
+    assert response.data["updated_count"] == 1
+
+    plot.refresh_from_db()
+    assert plot.is_check is True
+    assert plot.is_border is True
+    assert plot.status == "planted"
+    assert plot.row == 3
+    assert plot.column == 4
+
+
+@pytest.mark.django_db
+def test_add_grid_cells_api(client_for_role, trial, plot):
+    client = client_for_role("breeder")
+    response = client.post(
+        f"/api/trials/{trial.id}/add_grid_cells/",
+        {
+            "type": "row",
+            "location": "top",
+            "count": 2,
+            "is_border": True,
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    assert response.data["created_count"] > 0
+    assert trial.plots.filter(is_border=True).exists()

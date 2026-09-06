@@ -143,6 +143,11 @@ export interface Trial {
   num_reps: number
   block_size: number | null
   prep_fraction: number | null
+  field_rows?: number | null
+  field_cols?: number | null
+  starting_corner?: 'BL' | 'BR' | 'TL' | 'TR'
+  advancement_direction?: 'up' | 'right' | 'up_right' | 'right_up'
+  layout_schema?: 'h_serpentine' | 'v_serpentine' | 'h_cartesian' | 'v_cartesian'
   plot_count: number
   planting_date: string | null
   harvest_date: string | null
@@ -164,6 +169,7 @@ export interface Plot {
   block: number | null
   incomplete_block: number | null
   is_check: boolean
+  is_border?: boolean
   row: number | null
   column: number | null
   position: number | null
@@ -497,6 +503,16 @@ export const trials = {
     }),
   getSpatialHeatmap: (trialId: number, variableId: number) =>
     apiFetch<SpatialHeatmapData>(`/trials/${trialId}/spatial_heatmap/?variable_id=${variableId}`),
+  batchUpdatePlots: (trialId: number, plots: Partial<Plot>[]) =>
+    apiFetch<{ detail: string; updated_count: number }>(`/trials/${trialId}/batch_update_plots/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ plots }),
+    }),
+  addGridCells: (trialId: number, data: { type: 'row' | 'column'; location: string; count: number; fill_germplasm_id?: number; is_border?: boolean }) =>
+    apiFetch<{ detail: string; created_count: number; field_rows: number; field_cols: number }>(`/trials/${trialId}/add_grid_cells/`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }
 
 // ---- Plots -----------------------------------------------------------------

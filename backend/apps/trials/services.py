@@ -1,4 +1,5 @@
 import logging
+import math
 import random
 from typing import Sequence
 
@@ -233,11 +234,99 @@ def generate_unreplicated_layout(
     return layout
 
 
+def calculate_spatial_grid(total_plots: int, field_rows: int | None, field_cols: int | None) -> tuple[int, int]:
+    """Calculate or validate rows and columns for a field grid."""
+    import math
+    if field_rows and field_cols and (field_rows * field_cols >= total_plots):
+        return field_rows, field_cols
+    if field_cols and field_cols > 0:
+        return math.ceil(total_plots / field_cols), field_cols
+    if field_rows and field_rows > 0:
+        return field_rows, math.ceil(total_plots / field_rows)
+    cols = max(1, math.ceil(math.sqrt(total_plots)))
+    rows = max(1, math.ceil(total_plots / cols))
+    return rows, cols
+
+
+def compute_plot_coordinates(
+    plot_idx: int,
+    field_rows: int,
+    field_cols: int,
+    starting_corner: str = "BL",
+    schema: str = "h_serpentine",
+) -> tuple[int, int]:
+    """
+    Returns 1-based (row, column) coordinates for a given plot index (0-based).
+    Convention:
+      Row 1 is Bottom (BL/BR) or Top (TL/TR).
+      Column 1 is Left (BL/TL) or Right (BR/TR).
+    """
+    is_bottom = starting_corner in ("BL", "BR")
+    is_left = starting_corner in ("BL", "TL")
+
+    if schema in ("h_serpentine", "h_cartesian"):
+        r_idx = plot_idx // field_cols
+        c_idx = plot_idx % field_cols
+
+        if schema == "h_serpentine" and (r_idx % 2 == 1):
+            c_idx = (field_cols - 1) - c_idx
+
+        row = (r_idx + 1) if is_bottom else (field_rows - r_idx)
+        col = (c_idx + 1) if is_left else (field_cols - c_idx)
+    else:  # v_serpentine or v_cartesian
+        c_idx = plot_idx // field_rows
+        r_idx = plot_idx % field_rows
+
+        if schema == "v_serpentine" and (c_idx % 2 == 1):
+            r_idx = (field_rows - 1) - r_idx
+
+        row = (r_idx + 1) if is_bottom else (field_rows - r_idx)
+        col = (c_idx + 1) if is_left else (field_cols - c_idx)
+
+    return max(1, min(row, field_rows)), max(1, min(col, field_cols))
+
+
+def compute_walking_orders(
+    row: int,
+    col: int,
+    field_rows: int,
+    field_cols: int,
+    starting_corner: str = "BL",
+) -> tuple[int, int]:
+    """
+    Compute 1-based (walking_order_h_serpentine, walking_order_v_serpentine)
+    for a plot at (row, col) in a grid of field_rows x field_cols.
+    """
+    is_bottom = starting_corner in ("BL", "BR")
+    is_left = starting_corner in ("BL", "TL")
+
+    # Map (row, col) to relative 0-based coordinates from starting corner
+    r_from_start = (row - 1) if is_bottom else (field_rows - row)
+    c_from_start = (col - 1) if is_left else (field_cols - col)
+
+    # Horizontal serpentine walking order
+    if r_from_start % 2 == 0:
+        h_order = (r_from_start * field_cols) + c_from_start + 1
+    else:
+        h_order = (r_from_start * field_cols) + ((field_cols - 1) - c_from_start) + 1
+
+    # Vertical serpentine walking order
+    if c_from_start % 2 == 0:
+        v_order = (c_from_start * field_rows) + r_from_start + 1
+    else:
+        v_order = (c_from_start * field_rows) + ((field_rows - 1) - r_from_start) + 1
+
+    return h_order, v_order
+
+
 def create_plots_for_trial(
     trial: Trial,
     entries: Sequence[Germplasm],
     seed: int | None = None,
     check_entries: Sequence[Germplasm] | None = None,
+    border_entries: Sequence[Germplasm] | None = None,
+    border_rows: int = 0,
+    border_cols: int = 0,
 ) -> list[Plot]:
     entries = list(entries)
     logger.info(
@@ -380,6 +469,33 @@ def create_plots_for_trial(
     else:
         raise ValidationError(
             {"design_type": f"Unsupported design type: {trial.design_type}"}
+        )
+
+    # Compute spatial dimensions and coordinates for all non-latin-square designs (or ensure grid fits)
+    total_plots = len(plots_to_create)
+    if trial.design_type == "latin_square":
+        dim = int(math.sqrt(total_plots))
+        field_rows, field_cols = dim, dim
+    else:
+        field_rows, field_cols = calculate_spatial_grid(
+            total_plots, trial.field_rows, trial.field_cols
+        )
+        starting_corner = trial.starting_corner or "BL"
+        schema = trial.layout_schema or "h_serpentine"
+
+        for idx, plot in enumerate(plots_to_create):
+            r, c = compute_plot_coordinates(
+                idx, field_rows, field_cols, starting_corner, schema
+            )
+            plot.row = r
+            plot.column = c
+
+    # Persist field dimensions on trial if not yet set
+    if trial.field_rows != field_rows or trial.field_cols != field_cols:
+        trial.field_rows = field_rows
+        trial.field_cols = field_cols
+        Trial.objects.filter(id=trial.id).update(
+            field_rows=field_rows, field_cols=field_cols
         )
 
     with transaction.atomic():

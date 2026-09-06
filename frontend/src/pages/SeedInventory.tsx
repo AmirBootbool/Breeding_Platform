@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { DataTable, Column } from '../components/common/DataTable'
 
 export default function SeedInventory() {
   const role = useAuthStore(s => s.role)
@@ -190,130 +191,155 @@ export default function SeedInventory() {
           <p>No seed lots found matching your filter criteria.</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: 40 }}>
-                  <input
-                    type="checkbox"
-                    checked={lotList.length > 0 && selectedLotIds.length === lotList.length}
-                    onChange={e => setSelectedLotIds(e.target.checked ? lotList.map(l => l.id) : [])}
-                  />
-                </th>
-                <th>Lot Code</th>
-                <th>Accession / Line</th>
-                <th>Balance</th>
-                <th>Viability / Germ</th>
-                <th>Storage Location</th>
-                <th>Harvest Date</th>
-                <th>Status</th>
-                <th style={{ width: 140 }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lotList.map(lot => {
-                const isViabilityLow = lot.germination_rate !== null && lot.germination_rate !== undefined && lot.germination_rate < 80
-                return (
-                  <tr key={lot.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedLotIds.includes(lot.id)}
-                        onChange={e => {
-                          if (e.target.checked) setSelectedLotIds(prev => [...prev, lot.id])
-                          else setSelectedLotIds(prev => prev.filter(id => id !== lot.id))
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <strong className="font-mono text-xs" style={{ color: 'var(--brand-300)' }}>
-                        {lot.lot_code}
-                      </strong>
-                    </td>
-                    <td>
-                      <div><strong>{lot.germplasm_name}</strong></div>
-                      <div className="font-mono text-xs text-muted">{lot.germplasm_db_id}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>{lot.quantity_grams} g</span>
-                        {lot.is_low_stock && (
-                          <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Low</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      {lot.germination_rate !== null && lot.germination_rate !== undefined ? (
-                        <span className={`badge ${isViabilityLow ? 'badge-red' : 'badge-green'}`} style={{ fontSize: '0.72rem' }}>
-                          {lot.germination_rate}% {isViabilityLow ? '⚠️' : '✓'}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted">Untested</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className="badge badge-gray font-mono" style={{ fontSize: '0.72rem' }}>
-                        📍 {lot.storage_location || '—'}
-                      </span>
-                    </td>
-                    <td className="text-sm text-muted">{lot.harvest_date ?? '—'}</td>
-                    <td>
-                      <span className={`badge ${
-                        lot.status === 'available' ? 'badge-green' : lot.status === 'depleted' ? 'badge-gray' : 'badge-amber'
-                      }`}>
-                        {lot.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex gap-1">
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          title="View Transaction Log"
-                          onClick={() => setHistoryLot(lot)}
-                        >
-                          📜
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          title="Print Barcode Envelope Sticker"
-                          onClick={() => setLabelLot(lot)}
-                        >
-                          🏷️
-                        </button>
-                        {canWrite && (
-                          <>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              title="Split Lot"
-                              onClick={() => setSplitLotTarget(lot)}
-                            >
-                              ✂️
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              title="Adjust / Deduct Seed"
-                              onClick={() => setAdjustLot(lot)}
-                            >
-                              ⚖️
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              title="Delete Lot"
-                              style={{ color: 'var(--status-danger)' }}
-                              onClick={() => setDeleteLot(lot)}
-                            >
-                              🗑
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+        <div className="card">
+          <DataTable<SeedLot>
+            columns={[
+              {
+                key: 'lot_code',
+                header: 'Lot Code',
+                sortable: true,
+                searchable: true,
+                render: (lot: SeedLot) => (
+                  <strong className="font-mono text-xs" style={{ color: 'var(--brand-300)' }}>
+                    {lot.lot_code}
+                  </strong>
                 )
-              })}
-            </tbody>
-          </table>
+              },
+              {
+                key: 'germplasm_name',
+                header: 'Accession / Line',
+                sortable: true,
+                searchable: true,
+                render: (lot: SeedLot) => (
+                  <div>
+                    <div><strong>{lot.germplasm_name}</strong></div>
+                    <div className="font-mono text-xs text-muted">{lot.germplasm_db_id}</div>
+                  </div>
+                )
+              },
+              {
+                key: 'quantity_grams',
+                header: 'Balance',
+                sortable: true,
+                searchable: true,
+                render: (lot: SeedLot) => (
+                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{lot.quantity_grams} g</span>
+                    {lot.is_low_stock && (
+                      <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Low</span>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'germination_rate',
+                header: 'Viability / Germ',
+                sortable: true,
+                searchable: true,
+                render: (lot: SeedLot) => {
+                  const isViabilityLow = lot.germination_rate !== null && lot.germination_rate !== undefined && lot.germination_rate < 80
+                  return lot.germination_rate !== null && lot.germination_rate !== undefined ? (
+                    <span className={`badge ${isViabilityLow ? 'badge-red' : 'badge-green'}`} style={{ fontSize: '0.72rem' }}>
+                      {lot.germination_rate}% {isViabilityLow ? '⚠️' : '✓'}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted">Untested</span>
+                  )
+                }
+              },
+              {
+                key: 'storage_location',
+                header: 'Storage Location',
+                sortable: true,
+                searchable: true,
+                render: (lot: SeedLot) => (
+                  <span className="badge badge-gray font-mono" style={{ fontSize: '0.72rem' }}>
+                    📍 {lot.storage_location || '—'}
+                  </span>
+                )
+              },
+              {
+                key: 'harvest_date',
+                header: 'Harvest Date',
+                sortable: true,
+                searchable: true,
+                render: (lot: SeedLot) => <span className="text-sm text-muted">{lot.harvest_date ?? '—'}</span>
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                sortable: true,
+                searchable: true,
+                render: (lot: SeedLot) => (
+                  <span className={`badge ${
+                    lot.status === 'available' ? 'badge-green' : lot.status === 'depleted' ? 'badge-gray' : 'badge-amber'
+                  }`}>
+                    {lot.status}
+                  </span>
+                )
+              },
+              {
+                key: 'actions',
+                header: 'Actions',
+                sortable: false,
+                searchable: false,
+                render: (lot: SeedLot) => (
+                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      title="View Transaction Log"
+                      onClick={() => setHistoryLot(lot)}
+                    >
+                      📜
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      title="Print Barcode Envelope Sticker"
+                      onClick={() => setLabelLot(lot)}
+                    >
+                      🏷️
+                    </button>
+                    {canWrite && (
+                      <>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="Split Lot"
+                          onClick={() => setSplitLotTarget(lot)}
+                        >
+                          ✂️
+                        </button>
+                        <button
+                          id={`adjust-lot-${lot.id}`}
+                          className="btn btn-ghost btn-sm"
+                          title="Adjust Balance"
+                          onClick={() => setAdjustLot(lot)}
+                        >
+                          ⚖️
+                        </button>
+                        <button
+                          id={`delete-lot-${lot.id}`}
+                          className="btn btn-ghost btn-sm"
+                          title="Delete Lot"
+                          style={{ color: 'var(--status-danger)' }}
+                          onClick={() => setDeleteLot(lot)}
+                        >
+                          🗑
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )
+              }
+            ] as Column<SeedLot>[]}
+            data={lotList}
+            selectable
+            selectedIds={selectedLotIds}
+            onSelectionChange={(ids) => setSelectedLotIds(ids as number[])}
+            pagination
+            defaultPageSize={25}
+            exportable
+            exportFileName="seed_inventory_export.csv"
+          />
         </div>
       )}
 

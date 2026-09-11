@@ -5,21 +5,34 @@ germplasm registry with pedigree tracking, crossing blocks, trial design with
 RCBD plot layout generation, and phenotypic observation capture — with role-based
 access control and a full REST API.
 
+## 📖 Documentation & Operations Manual
+
+Explore the complete **[Master Wiki & Operations Manual](docs/WIKI.md)** covering:
+- **[01: Getting Started & Navigation](docs/wiki/01_GETTING_STARTED.md)**
+- **[02: Germplasm & Pedigree Management](docs/wiki/02_GERMPLASM_AND_PEDIGREE.md)**
+- **[03: Crossing Blocks & Diallel Matrices](docs/wiki/03_CROSSING_BLOCKS.md)**
+- **[04: Seed Inventory & Storage Logistics](docs/wiki/04_SEED_INVENTORY.md)**
+- **[05: Trial Management & Experimental Layouts](docs/wiki/05_TRIAL_MANAGEMENT_AND_LAYOUTS.md)**
+- **[06: Phenotyping, Scoring & Offline PWA](docs/wiki/06_PHENOTYPING_AND_OFFLINE_PWA.md)**
+- **[07: Multi-Environment Trials & Heritability](docs/wiki/07_MULTI_ENVIRONMENT_ANALYSIS.md)**
+- **[08: Genomic Selection (GBLUP/GEBVs) & Diagnostic MAS](docs/wiki/08_GENOMIC_SELECTION_AND_MAS.md)**
+- **[09: Data Exchange & BrAPI v2 Standards](docs/wiki/09_DATA_EXCHANGE_AND_BRAPI.md)**
+- **[10: System Administration, Roles & Audit](docs/wiki/10_ADMIN_SETUP_AND_AUDIT.md)**
+- **[11: Developer & Statistical Reference](docs/wiki/11_DEVELOPER_AND_STATISTICAL_REFERENCE.md)**
+
 ## Current Status
 
-- **77 tests passing** (plus 1 optional Sentry test skipped when its production
-  dependency is not installed)
-- Full CRUD API for 10 domain models with token authentication
-- Role-based permissions (admin / breeder / technician / viewer)
-- RCBD plot generation with seeded randomization
-- CSV/Field Book import and export commands, trial summary statistics, and
-  read-only BrAPI v2 endpoints
-- OpenAPI schema with interactive Swagger UI and ReDoc documentation
-- Django Admin configured for all models
+- **183 tests passing** (plus 1 optional Sentry test skipped when its production dependency is not installed)
+- Full CRUD REST API for all domain models with token authentication
+- Role-based permissions (`admin` / `breeder` / `technician` / `viewer`)
+- Experimental design layout generators (RCBD, Alpha-Lattice, Augmented Block, p-Rep, Latin Square)
+- Multi-Environment Trial broad-sense heritability ($H^2$) mixed models & BLUEs/BLUPs ranking
+- Genomic Selection suite: VCF/HapMap ingestion, VanRaden $G$-matrix, Henderson GBLUP solver, GEBVs, 5-fold cross-validation, and diagnostic wheat MAS marker stacking
+- Offline-first mobile field scoring Progressive Web App (PWA) with sync center
+- BrAPI v2 read/write endpoints, OpenAPI schema with interactive Swagger UI and ReDoc
+- Interactive Vite + React + TypeScript web application with Dark Mode and Outdoor High-Contrast Sunlight Mode
 
-See [docs/architecture.md](docs/architecture.md) for the full engineering
-reference and [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) for phase
-history and status.
+See [docs/WIKI.md](docs/WIKI.md) for the full user and developer manual and [DOCUMENT_INDEX.md](DOCUMENT_INDEX.md) for all documentation artifacts.
 
 ## Local development (recommended)
 

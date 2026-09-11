@@ -9,6 +9,7 @@ operational references from historical summaries.
 
 | Document | Purpose |
 |---|---|
+| [docs/WIKI.md](docs/WIKI.md) | **Master Wiki & Operations Manual** (11 comprehensive chapters) |
 | [README.md](README.md) | Setup, local development, test commands, and service URLs |
 | [NEXT_PHASE_SUMMARY.md](NEXT_PHASE_SUMMARY.md) | Current handoff state and uncommitted product opportunities |
 | [docs/architecture.md](docs/architecture.md) | Current architecture, data model, components, and boundaries |
@@ -42,9 +43,10 @@ history.
 | 10 — Trial Layout Designs | Complete | Alpha-lattice and Augmented layout design algorithms |
 | 11 — BrAPI v2 Write Support | Complete | Multi-role compatible POST and PUT endpoints |
 | 12 — Observability & Ops Hardening | Complete | Metrics, recent changes audit trails, and backup restoration scripts |
-| 13 — Multi-Environment Trial Analysis | Complete | Heritability mixed models (statsmodels) and environment ranking |
+| 13 — Multi-Environment Trial Analysis | Complete | Heritability mixed models and environment ranking |
+| 14 — Genomic Selection & MAS (Article 2) | Complete | VCF/HapMap ingestion, VanRaden G-matrix, GBLUP/GEBVs, and diagnostic MAS stacking |
 
-The verified baseline is **113 passed and 1 skipped**. The skip is the optional Sentry initialization test when the production-only SDK is not installed.
+The verified baseline is **183 passed and 1 skipped**. The skip is the optional Sentry initialization test when the production-only SDK is not installed.
 
 ## Reading Paths
 

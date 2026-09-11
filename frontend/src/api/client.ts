@@ -648,8 +648,8 @@ export interface RankingEntry {
 }
 
 export const analysisSets = {
-  list: () =>
-    apiFetch<PaginatedResponse<AnalysisSet>>('/analysis-sets/?page_size=100'),
+  list: (params = '') =>
+    apiFetch<PaginatedResponse<AnalysisSet>>(`/analysis-sets/?page_size=100${params}`),
   create: (data: Partial<AnalysisSet>) =>
     apiFetch<AnalysisSet>('/analysis-sets/', {
       method: 'POST',
@@ -841,6 +841,289 @@ export interface SpatialHeatmapData {
   row_margins: SpatialMarginSummary[]
   col_margins: SpatialMarginSummary[]
   cells: SpatialPlotCell[]
+}
+
+// ---- Genomics Interfaces ---------------------------------------------------
+
+export interface GenotypeDataset {
+  id: number
+  name: string
+  program: number
+  program_name?: string
+  species: string
+  file_format: 'matrix' | 'vcf' | 'hapmap'
+  marker_count: number
+  sample_count: number
+  imputation_method: string
+  maf_threshold: number
+  description: string
+  created_at: string
+  updated_at?: string
+  created_by_username?: string | null
+}
+
+export interface GenotypeSample {
+  id: number
+  dataset: number
+  sample_id: string
+  germplasm: number | null
+  germplasm_name?: string | null
+  germplasm_db_id?: string | null
+  call_rate: number
+  heterozygosity: number
+}
+
+export interface GrmPcaCoordinate {
+  sample_id: string
+  pc1: number
+  pc2: number
+}
+
+export interface GrmMatrixResponse {
+  sample_count: number
+  marker_count: number
+  samples: string[]
+  pca_coordinates: GrmPcaCoordinate[]
+  heatmap: {
+    samples: string[]
+    matrix: number[][]
+  }
+}
+
+export interface GenomicPrediction {
+  id: number
+  name: string
+  program: number
+  program_name?: string
+  trait: number
+  trait_name?: string
+  trait_unit?: string
+  genotype_dataset: number
+  genotype_dataset_name?: string
+  training_trial: number | null
+  training_trial_name?: string | null
+  training_analysis_set: number | null
+  training_analysis_set_name?: string | null
+  model_type: 'gblup' | 'rrblup'
+  n_training: number
+  n_candidates: number
+  cv_accuracy: number | null
+  cv_mse: number | null
+  genomic_heritability: number | null
+  variance_genomic: number | null
+  variance_residual: number | null
+  status: 'pending' | 'completed' | 'failed'
+  error_message?: string
+  created_at: string
+  created_by_username?: string | null
+}
+
+export interface GenomicBreedingValue {
+  id: number
+  prediction: number
+  germplasm: number
+  germplasm_name: string
+  germplasm_db_id: string
+  sample_id: string
+  gebv: number
+  predicted_performance: number
+  reliability: number
+  standard_error: number | null
+  rank: number
+  is_training: boolean
+  observed_phenotype: number | null
+}
+
+export interface DiagnosticMarker {
+  id: number
+  name: string
+  gene_symbol: string
+  chromosome: string
+  target_trait: string
+  trait_category: 'disease' | 'agronomic' | 'quality' | 'phenology' | 'abiotic'
+  favorable_allele: string
+  unfavorable_allele: string
+  assay_type: 'KASP' | 'TaqMan' | 'PCR_Gel' | 'SNP_Chip'
+  effect_description: string
+  program: number | null
+  program_name?: string | null
+  created_at?: string
+}
+
+export interface MarkerScore {
+  id: number
+  marker: number
+  marker_name?: string
+  gene_symbol?: string
+  germplasm: number
+  germplasm_name?: string
+  germplasm_db_id?: string
+  call_status: 'favorable' | 'heterozygous' | 'unfavorable' | 'missing'
+  raw_genotype: string
+  notes: string
+  updated_at?: string
+}
+
+export interface MasCallDetail {
+  marker_name: string
+  gene_symbol: string
+  call_status: 'favorable' | 'heterozygous' | 'unfavorable' | 'missing'
+  raw_genotype: string
+}
+
+export interface MasStackingLine {
+  germplasm_id: number
+  germplasm_name: string
+  germplasm_db_id: string
+  program_name: string
+  favorable_count: number
+  heterozygous_count: number
+  unfavorable_count: number
+  missing_count: number
+  stacking_score: number
+  calls: Record<string, MasCallDetail>
+}
+
+export interface MasStackingResponse {
+  total_markers: number
+  markers: Array<{
+    id: number
+    name: string
+    gene_symbol: string
+    chromosome: string
+    target_trait: string
+    trait_category: string
+    favorable_allele: string
+    assay_type: string
+  }>
+  lines: MasStackingLine[]
+}
+
+// ---- Genomics API Client ---------------------------------------------------
+
+async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const token = getToken()
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers['Authorization'] = `Token ${token}`
+  }
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    body: formData,
+    headers,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(res.status, body?.errors ?? body)
+  }
+  return res.json()
+}
+
+export const genomics = {
+  datasets: {
+    list: (params: string = '') =>
+      apiFetch<PaginatedResponse<GenotypeDataset>>(`/genotype-datasets/?page_size=100${params}`),
+    get: (id: number) =>
+      apiFetch<GenotypeDataset>(`/genotype-datasets/${id}/`),
+    upload: (formData: FormData) =>
+      apiUpload<{ dataset: GenotypeDataset; qc_stats: Record<string, any> }>(
+        '/genotype-datasets/upload_file/',
+        formData
+      ),
+    grmMatrix: (id: number) =>
+      apiFetch<GrmMatrixResponse>(`/genotype-datasets/${id}/grm_matrix/`),
+    delete: (id: number) =>
+      apiFetch<void>(`/genotype-datasets/${id}/`, { method: 'DELETE' }),
+  },
+
+  predictions: {
+    list: (params: string = '') =>
+      apiFetch<PaginatedResponse<GenomicPrediction>>(`/genomic-predictions/?page_size=100${params}`),
+    get: (id: number) =>
+      apiFetch<GenomicPrediction>(`/genomic-predictions/${id}/`),
+    run: (data: {
+      name: string
+      program: number
+      trait: number
+      genotype_dataset: number
+      training_trial?: number | null
+      training_analysis_set?: number | null
+      heritability_prior?: number
+      k_folds?: number
+    }) =>
+      apiFetch<{
+        prediction: GenomicPrediction
+        cross_validation: {
+          cv_accuracy: number | null
+          cv_mse: number | null
+          k_folds: number
+          warning?: string | null
+        }
+        top_candidates: GenomicBreedingValue[]
+      }>('/genomic-predictions/run_prediction/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    gebvs: (predictionId: number, params: string = '') =>
+      apiFetch<PaginatedResponse<GenomicBreedingValue>>(
+        `/genomic-predictions/${predictionId}/gebvs/?page_size=100${params}`
+      ),
+    exportCsvUrl: (predictionId: number) =>
+      `${BASE}/genomic-predictions/${predictionId}/export_gebv_csv/`,
+    delete: (id: number) =>
+      apiFetch<void>(`/genomic-predictions/${id}/`, { method: 'DELETE' }),
+  },
+
+  markers: {
+    list: (params: string = '') =>
+      apiFetch<PaginatedResponse<DiagnosticMarker>>(`/diagnostic-markers/?page_size=100${params}`),
+    create: (data: Partial<DiagnosticMarker>) =>
+      apiFetch<DiagnosticMarker>('/diagnostic-markers/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: number, data: Partial<DiagnosticMarker>) =>
+      apiFetch<DiagnosticMarker>(`/diagnostic-markers/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: number) =>
+      apiFetch<void>(`/diagnostic-markers/${id}/`, { method: 'DELETE' }),
+    seedDefaults: (programId?: number) =>
+      apiFetch<{ seeded_count: number; total_markers: number; markers: DiagnosticMarker[] }>(
+        '/diagnostic-markers/seed_defaults/',
+        {
+          method: 'POST',
+          body: JSON.stringify(programId ? { program_id: programId } : {}),
+        }
+      ),
+  },
+
+  scores: {
+    list: (params: string = '') =>
+      apiFetch<PaginatedResponse<MarkerScore>>(`/marker-scores/?page_size=100${params}`),
+    stackingOverview: (programId?: number, germplasmIds?: number[]) => {
+      const q = new URLSearchParams()
+      if (programId) q.append('program', String(programId))
+      if (germplasmIds && germplasmIds.length) {
+        q.append('germplasm_ids', germplasmIds.join(','))
+      }
+      return apiFetch<MasStackingResponse>(`/marker-scores/stacking_overview/?${q.toString()}`)
+    },
+    batchScore: (
+      scores: Array<{
+        marker_id: number
+        germplasm_id: number
+        call_status: 'favorable' | 'heterozygous' | 'unfavorable' | 'missing'
+        raw_genotype?: string
+        notes?: string
+      }>
+    ) =>
+      apiFetch<{ status: string; updated_count: number }>('/marker-scores/batch_score/', {
+        method: 'POST',
+        body: JSON.stringify({ scores }),
+      }),
+  },
 }
 
 

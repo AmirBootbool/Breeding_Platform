@@ -4,7 +4,6 @@ import random
 from typing import Sequence
 
 import pandas as pd
-import statsmodels.formula.api as smf
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -668,6 +667,7 @@ def compute_heritability(analysis_set, variable):
         }
 
     try:
+        import statsmodels.formula.api as smf
         # Random intercept for genotype, nested random effect approximated via
         # a genotype:environment interaction term added as a grouping variable.
         df["geno_env"] = df["germplasm"] + "_" + df["environment"]
@@ -761,6 +761,7 @@ def compute_cross_environment_ranking(analysis_set, variable):
         return raw_means
 
     try:
+        import statsmodels.formula.api as smf
         model = smf.mixedlm(
             "value ~ environment", df, groups=df["germplasm"], re_formula="1"
         )

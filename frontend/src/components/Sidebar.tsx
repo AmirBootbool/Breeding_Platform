@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/trials',       label: 'Trials',            icon: '⊞',  roles: null },
   { to: '/observations', label: 'Observation Entry', icon: '📝', roles: null },
   { to: '/traits',       label: 'Traits',            icon: '📊',  roles: new Set(['admin', 'breeder']) },
+  { to: '/genomics',     label: 'Genomics & MAS',    icon: '🧬',  roles: new Set(['admin', 'breeder']) },
   { to: '/export',       label: 'Data Export',       icon: '⬇️',  roles: null },
   { to: '/analysis',     label: 'Multi-Env Analysis',icon: '📈',  roles: new Set(['admin', 'breeder']) },
   { to: '/audit',        label: 'Audit Trail',       icon: '🛡️',  roles: new Set(['admin', 'breeder']) },

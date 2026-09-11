@@ -212,11 +212,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/AnalysisSet'
           description: ''
+  /api/audit/entity_history/:
+    get:
+      operationId: api_audit_entity_history_list
+      description: Retrieve history of changes for a specific entity.
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogEntry'
+          description: ''
   /api/audit/recent_changes/:
     get:
       operationId: api_audit_recent_changes_list
       description: Retrieve a consolidated audit trail of recent changes across core
-        models.
+        models with filtering.
       tags:
       - api
       security:
@@ -434,6 +452,1169 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/crossing-blocks/:
+    get:
+      operationId: api_crossing_blocks_list
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCrossingBlockListList'
+          description: ''
+    post:
+      operationId: api_crossing_blocks_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+  /api/crossing-blocks/{id}/:
+    get:
+      operationId: api_crossing_blocks_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockDetail'
+          description: ''
+    put:
+      operationId: api_crossing_blocks_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+    patch:
+      operationId: api_crossing_blocks_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCrossingBlockList'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCrossingBlockList'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCrossingBlockList'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+    delete:
+      operationId: api_crossing_blocks_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/crossing-blocks/{id}/bulk_status/:
+    post:
+      operationId: api_crossing_blocks_bulk_status_create
+      description: Update status and/or notes on selected crosses.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+  /api/crossing-blocks/{id}/crossing_map/:
+    get:
+      operationId: api_crossing_blocks_crossing_map_retrieve
+      description: Return ordered crossing map for field layout.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+  /api/crossing-blocks/{id}/execute_all/:
+    post:
+      operationId: api_crossing_blocks_execute_all_create
+      description: Execute all planned crosses, creating progeny germplasm.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+  /api/crossing-blocks/{id}/export_map/:
+    get:
+      operationId: api_crossing_blocks_export_map_retrieve
+      description: Export crossing map as CSV for printing.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+  /api/crossing-blocks/{id}/plan_crosses/:
+    post:
+      operationId: api_crossing_blocks_plan_crosses_create
+      description: Bulk-plan crosses from female/male ID lists.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this crossing block.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrossingBlockList'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossingBlockList'
+          description: ''
+  /api/diagnostic-markers/:
+    get:
+      operationId: api_diagnostic_markers_list
+      parameters:
+      - in: query
+        name: assay_type
+        schema:
+          type: string
+          enum:
+          - KASP
+          - PCR_Gel
+          - SNP_Chip
+          - TaqMan
+        description: |-
+          * `KASP` - KASP Assay
+          * `TaqMan` - TaqMan Probe
+          * `PCR_Gel` - Gel / STS / CAPS PCR
+          * `SNP_Chip` - SNP Array Probe
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: trait_category
+        schema:
+          type: string
+          enum:
+          - abiotic
+          - agronomic
+          - disease
+          - phenology
+          - quality
+        description: |-
+          * `disease` - Disease Resistance
+          * `agronomic` - Agronomic / Yield
+          * `quality` - Grain Quality
+          * `phenology` - Phenology / Adaptation
+          * `abiotic` - Abiotic Stress
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDiagnosticMarkerList'
+          description: ''
+    post:
+      operationId: api_diagnostic_markers_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosticMarker'
+          description: ''
+  /api/diagnostic-markers/{id}/:
+    get:
+      operationId: api_diagnostic_markers_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this diagnostic marker.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosticMarker'
+          description: ''
+    put:
+      operationId: api_diagnostic_markers_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this diagnostic marker.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosticMarker'
+          description: ''
+    patch:
+      operationId: api_diagnostic_markers_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this diagnostic marker.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDiagnosticMarker'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDiagnosticMarker'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDiagnosticMarker'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnosticMarker'
+          description: ''
+    delete:
+      operationId: api_diagnostic_markers_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this diagnostic marker.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/diagnostic-markers/seed_defaults/:
+    post:
+      operationId: api_diagnostic_markers_seed_defaults_create
+      description: Seed standard wheat functional markers (Lr34, Fhb1, Rht-B1, etc.).
+      parameters:
+      - in: query
+        name: assay_type
+        schema:
+          type: string
+          enum:
+          - KASP
+          - PCR_Gel
+          - SNP_Chip
+          - TaqMan
+        description: |-
+          * `KASP` - KASP Assay
+          * `TaqMan` - TaqMan Probe
+          * `PCR_Gel` - Gel / STS / CAPS PCR
+          * `SNP_Chip` - SNP Array Probe
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: trait_category
+        schema:
+          type: string
+          enum:
+          - abiotic
+          - agronomic
+          - disease
+          - phenology
+          - quality
+        description: |-
+          * `disease` - Disease Resistance
+          * `agronomic` - Agronomic / Yield
+          * `quality` - Grain Quality
+          * `phenology` - Phenology / Adaptation
+          * `abiotic` - Abiotic Stress
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DiagnosticMarker'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDiagnosticMarkerList'
+          description: ''
+  /api/genomic-predictions/:
+    get:
+      operationId: api_genomic_predictions_list
+      parameters:
+      - in: query
+        name: model_type
+        schema:
+          type: string
+          enum:
+          - gblup
+          - rrblup
+        description: |-
+          * `gblup` - GBLUP (VanRaden GRM)
+          * `rrblup` - Ridge Regression BLUP (rrBLUP)
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - completed
+          - failed
+          - pending
+        description: |-
+          * `pending` - Pending
+          * `completed` - Completed
+          * `failed` - Failed
+      - in: query
+        name: trait
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGenomicPredictionList'
+          description: ''
+    post:
+      operationId: api_genomic_predictions_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenomicPrediction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GenomicPrediction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GenomicPrediction'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenomicPrediction'
+          description: ''
+  /api/genomic-predictions/{id}/:
+    get:
+      operationId: api_genomic_predictions_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genomic prediction.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenomicPrediction'
+          description: ''
+    put:
+      operationId: api_genomic_predictions_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genomic prediction.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenomicPrediction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GenomicPrediction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GenomicPrediction'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenomicPrediction'
+          description: ''
+    patch:
+      operationId: api_genomic_predictions_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genomic prediction.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGenomicPrediction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGenomicPrediction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGenomicPrediction'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenomicPrediction'
+          description: ''
+    delete:
+      operationId: api_genomic_predictions_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genomic prediction.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/genomic-predictions/{id}/export_gebv_csv/:
+    get:
+      operationId: api_genomic_predictions_export_gebv_csv_retrieve
+      description: Download all GEBVs for this prediction as a CSV file.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genomic prediction.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/genomic-predictions/{id}/gebvs/:
+    get:
+      operationId: api_genomic_predictions_gebvs_list
+      description: Fetch GEBVs for this prediction session with search and filtering.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genomic prediction.
+        required: true
+      - in: query
+        name: model_type
+        schema:
+          type: string
+          enum:
+          - gblup
+          - rrblup
+        description: |-
+          * `gblup` - GBLUP (VanRaden GRM)
+          * `rrblup` - Ridge Regression BLUP (rrBLUP)
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - completed
+          - failed
+          - pending
+        description: |-
+          * `pending` - Pending
+          * `completed` - Completed
+          * `failed` - Failed
+      - in: query
+        name: trait
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGenomicBreedingValueList'
+          description: ''
+  /api/genomic-predictions/run_prediction/:
+    post:
+      operationId: api_genomic_predictions_run_prediction_create
+      description: Run GBLUP genomic prediction for a trait using field trial or analysis
+        set observations.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/genotype-datasets/:
+    get:
+      operationId: api_genotype_datasets_list
+      parameters:
+      - in: query
+        name: file_format
+        schema:
+          type: string
+          enum:
+          - hapmap
+          - matrix
+          - vcf
+        description: |-
+          * `matrix` - Dosage Matrix (.csv/.tsv)
+          * `vcf` - Variant Call Format (.vcf)
+          * `hapmap` - HapMap (.hmp.txt)
+      - in: query
+        name: imputation_method
+        schema:
+          type: string
+          enum:
+          - mean
+          - mode
+          - none
+        description: |-
+          * `mean` - Mean Allele Dosage
+          * `mode` - Mode Genotype
+          * `none` - None (No Imputation)
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGenotypeDatasetList'
+          description: ''
+    post:
+      operationId: api_genotype_datasets_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenotypeDataset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GenotypeDataset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GenotypeDataset'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenotypeDataset'
+          description: ''
+  /api/genotype-datasets/{id}/:
+    get:
+      operationId: api_genotype_datasets_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genotype dataset.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenotypeDataset'
+          description: ''
+    put:
+      operationId: api_genotype_datasets_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genotype dataset.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenotypeDataset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GenotypeDataset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GenotypeDataset'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenotypeDataset'
+          description: ''
+    patch:
+      operationId: api_genotype_datasets_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genotype dataset.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGenotypeDataset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGenotypeDataset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGenotypeDataset'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenotypeDataset'
+          description: ''
+    delete:
+      operationId: api_genotype_datasets_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genotype dataset.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/genotype-datasets/{id}/grm_matrix/:
+    get:
+      operationId: api_genotype_datasets_grm_matrix_retrieve
+      description: Compute and return the Genomic Relationship Matrix (VanRaden G-matrix)
+        with PCA coordinates.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this genotype dataset.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/genotype-datasets/upload_file/:
+    post:
+      operationId: api_genotype_datasets_upload_file_create
+      description: Upload a genotype file (VCF, HapMap, or CSV matrix) and parse into
+        a GenotypeDataset.
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenotypeDataset'
+          description: ''
   /api/germplasm/:
     get:
       operationId: api_germplasm_list
@@ -456,6 +1637,10 @@ paths:
           * `doubled_haploid` - Doubled haploid
           * `other` - Other
           * `unknown` - Unknown
+      - in: query
+        name: is_archived
+        schema:
+          type: boolean
       - name: ordering
         required: false
         in: query
@@ -624,6 +1809,109 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/germplasm/{id}/pedigree_tree/:
+    get:
+      operationId: api_germplasm_pedigree_tree_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this germplasm.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+  /api/germplasm/advance/:
+    post:
+      operationId: api_germplasm_advance_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+  /api/germplasm/bulk_archive/:
+    post:
+      operationId: api_germplasm_bulk_archive_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
+  /api/germplasm/bulk_delete/:
+    post:
+      operationId: api_germplasm_bulk_delete_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
   /api/germplasm/bulk_import/:
     post:
       operationId: api_germplasm_bulk_import_create
@@ -841,10 +2129,270 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/marker-scores/:
+    get:
+      operationId: api_marker_scores_list
+      parameters:
+      - in: query
+        name: call_status
+        schema:
+          type: string
+          enum:
+          - favorable
+          - heterozygous
+          - missing
+          - unfavorable
+        description: |-
+          * `favorable` - Favorable (Resistant / Desired)
+          * `heterozygous` - Heterozygous (Carrier)
+          * `unfavorable` - Unfavorable (Susceptible / Wildtype)
+          * `missing` - Missing / No Call
+      - in: query
+        name: germplasm
+        schema:
+          type: integer
+      - in: query
+        name: marker
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMarkerScoreList'
+          description: ''
+    post:
+      operationId: api_marker_scores_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkerScore'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MarkerScore'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MarkerScore'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkerScore'
+          description: ''
+  /api/marker-scores/{id}/:
+    get:
+      operationId: api_marker_scores_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this marker score.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkerScore'
+          description: ''
+    put:
+      operationId: api_marker_scores_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this marker score.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkerScore'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MarkerScore'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MarkerScore'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkerScore'
+          description: ''
+    patch:
+      operationId: api_marker_scores_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this marker score.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMarkerScore'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMarkerScore'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMarkerScore'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkerScore'
+          description: ''
+    delete:
+      operationId: api_marker_scores_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this marker score.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/marker-scores/batch_score/:
+    post:
+      operationId: api_marker_scores_batch_score_create
+      description: Batch update MAS marker scores for multiple germplasm accessions.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties: {}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: {}
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/marker-scores/stacking_overview/:
+    get:
+      operationId: api_marker_scores_stacking_overview_retrieve
+      description: Fetch complete Lines x Markers matrix with MAS Stacking Index.
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/observation-variables/:
     get:
       operationId: api_observation_variables_list
       parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - abiotic
+          - agronomic
+          - disease
+          - morphological
+          - other
+          - phenology
+          - quality
+        description: |-
+          Trait category for library organisation.
+
+          * `morphological` - Morphological
+          * `agronomic` - Agronomic
+          * `disease` - Disease Resistance
+          * `quality` - Grain Quality
+          * `phenology` - Phenology
+          * `abiotic` - Abiotic Stress
+          * `other` - Other
+      - in: query
+        name: crop
+        schema:
+          type: string
       - in: query
         name: data_type
         schema:
@@ -1426,6 +2974,22 @@ paths:
         name: crop
         schema:
           type: string
+          enum:
+          - barley
+          - durum_wheat
+          - oats
+          - other
+          - rye
+          - triticale
+          - wheat
+        description: |-
+          * `wheat` - Bread Wheat (Triticum aestivum)
+          * `durum_wheat` - Durum Wheat (Triticum durum)
+          * `barley` - Barley (Hordeum vulgare)
+          * `triticale` - Triticale (x Triticosecale)
+          * `oats` - Oats (Avena sativa)
+          * `rye` - Rye (Secale cereale)
+          * `other` - Other Crop
       - name: ordering
         required: false
         in: query
@@ -1758,6 +3322,596 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/seed-lots/:
+    get:
+      operationId: api_seed_lots_list
+      parameters:
+      - in: query
+        name: germplasm
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - available
+          - depleted
+          - quarantine
+          - reserved
+        description: |-
+          * `available` - Available
+          * `depleted` - Depleted
+          * `reserved` - Reserved
+          * `quarantine` - Quarantine
+      - in: query
+        name: storage_location
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSeedLotList'
+          description: ''
+    post:
+      operationId: api_seed_lots_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+  /api/seed-lots/{id}/:
+    get:
+      operationId: api_seed_lots_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Seed Lot.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+    put:
+      operationId: api_seed_lots_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Seed Lot.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+    patch:
+      operationId: api_seed_lots_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Seed Lot.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSeedLot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSeedLot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSeedLot'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+    delete:
+      operationId: api_seed_lots_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Seed Lot.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/seed-lots/{id}/adjust/:
+    post:
+      operationId: api_seed_lots_adjust_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Seed Lot.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+  /api/seed-lots/{id}/label/:
+    get:
+      operationId: api_seed_lots_label_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Seed Lot.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+  /api/seed-lots/{id}/split/:
+    post:
+      operationId: api_seed_lots_split_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Seed Lot.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+  /api/seed-lots/bulk-labels/:
+    post:
+      operationId: api_seed_lots_bulk_labels_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SeedLot'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+  /api/seed-lots/low_stock/:
+    get:
+      operationId: api_seed_lots_low_stock_retrieve
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedLot'
+          description: ''
+  /api/seed-transactions/:
+    get:
+      operationId: api_seed_transactions_list
+      parameters:
+      - in: query
+        name: destination_trial
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: seed_lot
+        schema:
+          type: integer
+      - in: query
+        name: transaction_type
+        schema:
+          type: string
+          enum:
+          - adjustment
+          - distribution
+          - harvest_deposit
+          - initial_deposit
+          - planting_deduction
+        description: |-
+          * `initial_deposit` - Initial Deposit
+          * `harvest_deposit` - Harvest Deposit
+          * `planting_deduction` - Planting Deduction
+          * `distribution` - Distribution
+          * `adjustment` - Inventory Adjustment
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSeedTransactionList'
+          description: ''
+  /api/seed-transactions/{id}/:
+    get:
+      operationId: api_seed_transactions_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this seed transaction.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedTransaction'
+          description: ''
+  /api/trait-panels/:
+    get:
+      operationId: api_trait_panels_list
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - abiotic
+          - agronomic
+          - disease
+          - morphological
+          - other
+          - phenology
+          - quality
+        description: |-
+          * `morphological` - Morphological
+          * `agronomic` - Agronomic
+          * `disease` - Disease Resistance
+          * `quality` - Grain Quality
+          * `phenology` - Phenology
+          * `abiotic` - Abiotic Stress
+          * `other` - Other
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTraitPanelList'
+          description: ''
+    post:
+      operationId: api_trait_panels_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraitPanel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TraitPanel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TraitPanel'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraitPanel'
+          description: ''
+  /api/trait-panels/{id}/:
+    get:
+      operationId: api_trait_panels_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trait panel.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraitPanel'
+          description: ''
+    put:
+      operationId: api_trait_panels_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trait panel.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraitPanel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TraitPanel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TraitPanel'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraitPanel'
+          description: ''
+    patch:
+      operationId: api_trait_panels_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trait panel.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTraitPanel'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTraitPanel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTraitPanel'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraitPanel'
+          description: ''
+    delete:
+      operationId: api_trait_panels_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trait panel.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/trials/:
     get:
       operationId: api_trials_list
@@ -1770,14 +3924,24 @@ paths:
           - RCBD
           - alpha_lattice
           - augmented
+          - augmented_block
+          - latin_square
           - other
+          - prep
           - unreplicated
         description: |-
           * `RCBD` - RCBD
           * `alpha_lattice` - Alpha-lattice
           * `augmented` - Augmented
+          * `prep` - P-Rep
+          * `latin_square` - Latin Square
+          * `augmented_block` - Augmented Block
           * `unreplicated` - Unreplicated
           * `other` - Other
+      - in: query
+        name: generation
+        schema:
+          type: integer
       - in: query
         name: location
         schema:
@@ -1808,6 +3972,18 @@ paths:
         name: season
         schema:
           type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - archived
+          - completed
+        description: |-
+          * `active` - Active
+          * `completed` - Completed
+          * `archived` - Archived
       tags:
       - api
       security:
@@ -1950,6 +4126,112 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/trials/{id}/add_grid_cells/:
+    post:
+      operationId: api_trials_add_grid_cells_create
+      description: Add rows or columns of grid plots (optionally filled with a border/filler
+        germplasm).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Trial'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/advance_plots/:
+    post:
+      operationId: api_trials_advance_plots_create
+      description: Bulk-advance selected plots to a new generation.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Trial'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/batch_update_plots/:
+    patch:
+      operationId: api_trials_batch_update_plots_partial_update
+      description: Batch update plots (germplasm, check, border, row, column, status)
+        in one atomic transaction.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTrial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTrial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTrial'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
   /api/trials/{id}/create_plots/:
     post:
       operationId: api_trials_create_plots_create
@@ -2011,6 +4293,118 @@ paths:
     get:
       operationId: api_trials_export_fieldbook_retrieve
       description: Stream a Field Book compatible CSV download for this trial.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/export_map/:
+    get:
+      operationId: api_trials_export_map_retrieve
+      description: Export trial plot map layout as CSV with walking order serpentine
+        numbers.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/harvest_plots/:
+    post:
+      operationId: api_trials_harvest_plots_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Trial'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Trial'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/import_fieldbook/:
+    post:
+      operationId: api_trials_import_fieldbook_create
+      description: Import observations for this trial from an uploaded Field Book
+        CSV.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this trial.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Trial'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/{id}/spatial_heatmap/:
+    get:
+      operationId: api_trials_spatial_heatmap_retrieve
+      description: Generate a 2D spatial heatmap matrix of plot observation values
+        and margin gradients.
       parameters:
       - in: path
         name: id
@@ -2927,6 +5321,18 @@ paths:
           description: ''
 components:
   schemas:
+    AdvancementDirectionEnum:
+      enum:
+      - up
+      - right
+      - up_right
+      - right_up
+      type: string
+      description: |-
+        * `up` - Up
+        * `right` - Right
+        * `up_right` - Up then Right
+        * `right_up` - Right then Up
     AnalysisSet:
       type: object
       properties:
@@ -2968,6 +5374,18 @@ components:
       - program_name
       - trial_details
       - trials
+    AssayTypeEnum:
+      enum:
+      - KASP
+      - TaqMan
+      - PCR_Gel
+      - SNP_Chip
+      type: string
+      description: |-
+        * `KASP` - KASP Assay
+        * `TaqMan` - TaqMan Probe
+        * `PCR_Gel` - Gel / STS / CAPS PCR
+        * `SNP_Chip` - SNP Array Probe
     AuditLogEntry:
       type: object
       properties:
@@ -2977,6 +5395,9 @@ components:
           type: integer
         label:
           type: string
+        action:
+          type: string
+          nullable: true
         created_by:
           type: string
           nullable: true
@@ -2992,6 +5413,7 @@ components:
           format: date-time
           nullable: true
       required:
+      - action
       - created_at
       - created_by
       - id
@@ -3015,6 +5437,9 @@ components:
       - password
       - token
       - username
+    BlankEnum:
+      enum:
+      - ''
     BrapiGermplasm:
       type: object
       properties:
@@ -3380,6 +5805,54 @@ components:
       - studyName
       - trialDbId
       - trialName
+    CallStatusEnum:
+      enum:
+      - favorable
+      - heterozygous
+      - unfavorable
+      - missing
+      type: string
+      description: |-
+        * `favorable` - Favorable (Resistant / Desired)
+        * `heterozygous` - Heterozygous (Carrier)
+        * `unfavorable` - Unfavorable (Susceptible / Wildtype)
+        * `missing` - Missing / No Call
+    CategoryEnum:
+      enum:
+      - morphological
+      - agronomic
+      - disease
+      - quality
+      - phenology
+      - abiotic
+      - other
+      type: string
+      description: |-
+        * `morphological` - Morphological
+        * `agronomic` - Agronomic
+        * `disease` - Disease Resistance
+        * `quality` - Grain Quality
+        * `phenology` - Phenology
+        * `abiotic` - Abiotic Stress
+        * `other` - Other
+    CropEnum:
+      enum:
+      - wheat
+      - durum_wheat
+      - barley
+      - triticale
+      - oats
+      - rye
+      - other
+      type: string
+      description: |-
+        * `wheat` - Bread Wheat (Triticum aestivum)
+        * `durum_wheat` - Durum Wheat (Triticum durum)
+        * `barley` - Barley (Hordeum vulgare)
+        * `triticale` - Triticale (x Triticosecale)
+        * `oats` - Oats (Avena sativa)
+        * `rye` - Rye (Secale cereale)
+        * `other` - Other Crop
     Cross:
       type: object
       properties:
@@ -3399,6 +5872,28 @@ components:
         male_parent_name:
           type: string
           readOnly: true
+        crossing_block:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status1c6Enum'
+        is_reciprocal:
+          type: boolean
+          description: Whether this is a reciprocal of another cross
+        progeny:
+          type: integer
+          nullable: true
+          description: Auto-created progeny germplasm entry
+        progeny_name:
+          type: string
+          readOnly: true
+        map_position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Position in the crossing block sowing map
         cross_date:
           type: string
           format: date
@@ -3428,7 +5923,60 @@ components:
       - location_name
       - male_parent
       - male_parent_name
+      - progeny_name
       - updated_at
+    CrossEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cross_code:
+          type: string
+          readOnly: true
+        female_parent:
+          type: integer
+        female_parent_name:
+          type: string
+          readOnly: true
+        male_parent:
+          type: integer
+        male_parent_name:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/Status1c6Enum'
+        is_reciprocal:
+          type: boolean
+          description: Whether this is a reciprocal of another cross
+        map_position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Position in the crossing block sowing map
+        progeny:
+          type: integer
+          nullable: true
+          description: Auto-created progeny germplasm entry
+        progeny_name:
+          type: string
+          readOnly: true
+        cross_date:
+          type: string
+          format: date
+        notes:
+          type: string
+      required:
+      - cross_code
+      - cross_date
+      - female_parent
+      - female_parent_name
+      - id
+      - male_parent
+      - male_parent_name
+      - progeny_name
     CrossTypeEnum:
       enum:
       - biparental
@@ -3445,6 +5993,120 @@ components:
         * `doubled_haploid` - Doubled haploid
         * `other` - Other
         * `unknown` - Unknown
+    CrossingBlockDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 300
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        location:
+          type: integer
+          nullable: true
+        location_name:
+          type: string
+          readOnly: true
+        season:
+          type: integer
+          nullable: true
+        season_name:
+          type: string
+          readOnly: true
+        map_pattern:
+          $ref: '#/components/schemas/MapPatternEnum'
+        include_reciprocals:
+          type: boolean
+        cross_count:
+          type: integer
+          readOnly: true
+          default: 0
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        crosses:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrossEntry'
+          readOnly: true
+      required:
+      - created_at
+      - cross_count
+      - crosses
+      - id
+      - location_name
+      - name
+      - program
+      - program_name
+      - season_name
+      - updated_at
+    CrossingBlockList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 300
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        location:
+          type: integer
+          nullable: true
+        location_name:
+          type: string
+          readOnly: true
+        season:
+          type: integer
+          nullable: true
+        season_name:
+          type: string
+          readOnly: true
+        map_pattern:
+          $ref: '#/components/schemas/MapPatternEnum'
+        include_reciprocals:
+          type: boolean
+        cross_count:
+          type: integer
+          readOnly: true
+          default: 0
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - cross_count
+      - id
+      - location_name
+      - name
+      - program
+      - program_name
+      - season_name
+      - updated_at
     DataTypeEnum:
       enum:
       - numeric
@@ -3459,20 +6121,317 @@ components:
         * `categorical` - Categorical
         * `text` - Text
         * `date` - Date
-    DesignTypeEnum:
+    DiagnosticMarker:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        gene_symbol:
+          type: string
+          maxLength: 100
+        chromosome:
+          type: string
+          description: Wheat chromosome (e.g. 7D, 3B, 4A, 2D)
+          maxLength: 20
+        target_trait:
+          type: string
+          description: Target trait (e.g. Leaf Rust Resistance, Semi-dwarf)
+          maxLength: 150
+        trait_category:
+          $ref: '#/components/schemas/TraitCategoryEnum'
+        favorable_allele:
+          type: string
+          description: Allele indicating favorable/resistant state
+          maxLength: 50
+        unfavorable_allele:
+          type: string
+          description: Allele indicating susceptible/wildtype state
+          maxLength: 50
+        assay_type:
+          $ref: '#/components/schemas/AssayTypeEnum'
+        effect_description:
+          type: string
+          description: Phenotypic effect explanation
+        program:
+          type: integer
+          nullable: true
+          description: If null, marker is globally available across programs
+        program_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - favorable_allele
+      - id
+      - name
+      - program_name
+      - target_trait
+    FileFormatEnum:
       enum:
-      - RCBD
-      - alpha_lattice
-      - augmented
-      - unreplicated
-      - other
+      - matrix
+      - vcf
+      - hapmap
       type: string
       description: |-
-        * `RCBD` - RCBD
-        * `alpha_lattice` - Alpha-lattice
-        * `augmented` - Augmented
-        * `unreplicated` - Unreplicated
-        * `other` - Other
+        * `matrix` - Dosage Matrix (.csv/.tsv)
+        * `vcf` - Variant Call Format (.vcf)
+        * `hapmap` - HapMap (.hmp.txt)
+    GenomicBreedingValue:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        prediction:
+          type: integer
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        germplasm_db_id:
+          type: string
+          readOnly: true
+        sample_id:
+          type: string
+          maxLength: 200
+        gebv:
+          type: number
+          format: double
+          description: Genomic Estimated Breeding Value
+        predicted_performance:
+          type: string
+          readOnly: true
+        reliability:
+          type: number
+          format: double
+          description: Reliability index r² (0.0 to 1.0)
+        standard_error:
+          type: number
+          format: double
+          nullable: true
+        rank:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_training:
+          type: boolean
+          description: True if line had observed phenotype in the training trial
+        observed_phenotype:
+          type: number
+          format: double
+          nullable: true
+          description: Phenotypic BLUE/mean if in training set
+      required:
+      - gebv
+      - germplasm
+      - germplasm_db_id
+      - germplasm_name
+      - id
+      - predicted_performance
+      - prediction
+      - sample_id
+    GenomicPrediction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        trait:
+          type: integer
+        trait_name:
+          type: string
+          readOnly: true
+        trait_unit:
+          type: string
+          readOnly: true
+        genotype_dataset:
+          type: integer
+        genotype_dataset_name:
+          type: string
+          readOnly: true
+        training_trial:
+          type: integer
+          nullable: true
+        training_trial_name:
+          type: string
+          readOnly: true
+        training_analysis_set:
+          type: integer
+          nullable: true
+        training_analysis_set_name:
+          type: string
+          readOnly: true
+        model_type:
+          $ref: '#/components/schemas/ModelTypeEnum'
+        n_training:
+          type: integer
+          readOnly: true
+          description: Number of observed training lines
+        n_candidates:
+          type: integer
+          readOnly: true
+          description: Number of candidate lines predicted without field trial
+        cv_accuracy:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+          description: 5-fold cross validation Pearson correlation r(GEBV, y)
+        cv_mse:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+          description: Mean squared error in cross-validation
+        genomic_heritability:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+          description: SNP broad-sense heritability h²_SNP
+        variance_genomic:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        variance_residual:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/GenomicPredictionStatusEnum'
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by_username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - created_by_username
+      - cv_accuracy
+      - cv_mse
+      - error_message
+      - genomic_heritability
+      - genotype_dataset
+      - genotype_dataset_name
+      - id
+      - n_candidates
+      - n_training
+      - name
+      - program
+      - program_name
+      - status
+      - training_analysis_set_name
+      - training_trial_name
+      - trait
+      - trait_name
+      - trait_unit
+      - variance_genomic
+      - variance_residual
+    GenomicPredictionStatusEnum:
+      enum:
+      - pending
+      - completed
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `completed` - Completed
+        * `failed` - Failed
+    GenotypeDataset:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        species:
+          type: string
+          maxLength: 100
+        file_format:
+          $ref: '#/components/schemas/FileFormatEnum'
+        marker_count:
+          type: integer
+          readOnly: true
+        sample_count:
+          type: integer
+          readOnly: true
+        imputation_method:
+          $ref: '#/components/schemas/ImputationMethodEnum'
+        maf_threshold:
+          type: number
+          format: double
+          description: Minor Allele Frequency filter threshold applied during import
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by_username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - created_by_username
+      - id
+      - marker_count
+      - name
+      - program
+      - program_name
+      - sample_count
+      - updated_at
     Germplasm:
       type: object
       properties:
@@ -3513,14 +6472,27 @@ components:
           maxLength: 500
         cross_type:
           $ref: '#/components/schemas/CrossTypeEnum'
+        generation:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          description: Generation index (0=F0, 1=F1, ..., 8=F8+)
         year_developed:
           type: integer
           maximum: 9223372036854775807
           minimum: -9223372036854775808
           format: int64
           nullable: true
+        tags:
+          description: Free-form tags, e.g. ['drought-tolerant', 'release-candidate']
+        is_check:
+          type: boolean
+          description: True for permanent check/reference lines used across trials.
         notes:
           type: string
+        is_archived:
+          type: boolean
         created_at:
           type: string
           format: date-time
@@ -3546,6 +6518,28 @@ components:
       - program_name
       - updated_at
       - updated_by_username
+    ImputationMethodEnum:
+      enum:
+      - mean
+      - mode
+      - none
+      type: string
+      description: |-
+        * `mean` - Mean Allele Dosage
+        * `mode` - Mode Genotype
+        * `none` - None (No Imputation)
+    LayoutSchemaEnum:
+      enum:
+      - h_serpentine
+      - v_serpentine
+      - h_cartesian
+      - v_cartesian
+      type: string
+      description: |-
+        * `h_serpentine` - Horizontal Serpentine
+        * `v_serpentine` - Vertical Serpentine
+        * `h_cartesian` - Horizontal Cartesian
+        * `v_cartesian` - Vertical Cartesian
     Location:
       type: object
       properties:
@@ -3590,6 +6584,67 @@ components:
       - name
       - updated_at
       - updated_by_username
+    MapPatternEnum:
+      enum:
+      - male_first
+      - female_first
+      - alternating
+      type: string
+      description: |-
+        * `male_first` - Common male then females
+        * `female_first` - Common female then males
+        * `alternating` - Alternating male/female
+    MarkerScore:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        marker:
+          type: integer
+        marker_name:
+          type: string
+          readOnly: true
+        gene_symbol:
+          type: string
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        germplasm_db_id:
+          type: string
+          readOnly: true
+        call_status:
+          $ref: '#/components/schemas/CallStatusEnum'
+        raw_genotype:
+          type: string
+          description: Raw allele string e.g. A:A, T:T, FAM, HEX
+          maxLength: 50
+        notes:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - gene_symbol
+      - germplasm
+      - germplasm_db_id
+      - germplasm_name
+      - id
+      - marker
+      - marker_name
+      - updated_at
+    ModelTypeEnum:
+      enum:
+      - gblup
+      - rrblup
+      type: string
+      description: |-
+        * `gblup` - GBLUP (VanRaden GRM)
+        * `rrblup` - Ridge Regression BLUP (rrBLUP)
     Observation:
       type: object
       properties:
@@ -3664,8 +6719,34 @@ components:
           type: number
           format: double
           nullable: true
+        crop:
+          type: string
+          description: Standard crop scope (e.g. wheat, barley, or 'all')
+          maxLength: 64
+        category:
+          description: |-
+            Trait category for library organisation.
+
+            * `morphological` - Morphological
+            * `agronomic` - Agronomic
+            * `disease` - Disease Resistance
+            * `quality` - Grain Quality
+            * `phenology` - Phenology
+            * `abiotic` - Abiotic Stress
+            * `other` - Other
+          oneOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        categorical_options:
+          description: Valid option strings for categorical traits, e.g. ['1','2','3','4','5']
         is_required:
           type: boolean
+        panel_ids:
+          type: string
+          readOnly: true
+        usage_count:
+          type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -3685,8 +6766,10 @@ components:
       - created_by_username
       - id
       - name
+      - panel_ids
       - updated_at
       - updated_by_username
+      - usage_count
     PaginatedAnalysisSetList:
       type: object
       required:
@@ -3894,6 +6977,121 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Cross'
+    PaginatedCrossingBlockListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrossingBlockList'
+    PaginatedDiagnosticMarkerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiagnosticMarker'
+    PaginatedGenomicBreedingValueList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenomicBreedingValue'
+    PaginatedGenomicPredictionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenomicPrediction'
+    PaginatedGenotypeDatasetList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenotypeDataset'
     PaginatedGermplasmList:
       type: object
       required:
@@ -3940,6 +7138,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Location'
+    PaginatedMarkerScoreList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarkerScore'
     PaginatedObservationList:
       type: object
       required:
@@ -4055,6 +7276,75 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Season'
+    PaginatedSeedLotList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeedLot'
+    PaginatedSeedTransactionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeedTransaction'
+    PaginatedTraitPanelList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraitPanel'
     PaginatedTrialList:
       type: object
       required:
@@ -4176,6 +7466,28 @@ components:
         male_parent_name:
           type: string
           readOnly: true
+        crossing_block:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status1c6Enum'
+        is_reciprocal:
+          type: boolean
+          description: Whether this is a reciprocal of another cross
+        progeny:
+          type: integer
+          nullable: true
+          description: Auto-created progeny germplasm entry
+        progeny_name:
+          type: string
+          readOnly: true
+        map_position:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Position in the crossing block sowing map
         cross_date:
           type: string
           format: date
@@ -4194,6 +7506,243 @@ components:
         updated_at:
           type: string
           format: date-time
+          readOnly: true
+    PatchedCrossingBlockList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 300
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        location:
+          type: integer
+          nullable: true
+        location_name:
+          type: string
+          readOnly: true
+        season:
+          type: integer
+          nullable: true
+        season_name:
+          type: string
+          readOnly: true
+        map_pattern:
+          $ref: '#/components/schemas/MapPatternEnum'
+        include_reciprocals:
+          type: boolean
+        cross_count:
+          type: integer
+          readOnly: true
+          default: 0
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedDiagnosticMarker:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        gene_symbol:
+          type: string
+          maxLength: 100
+        chromosome:
+          type: string
+          description: Wheat chromosome (e.g. 7D, 3B, 4A, 2D)
+          maxLength: 20
+        target_trait:
+          type: string
+          description: Target trait (e.g. Leaf Rust Resistance, Semi-dwarf)
+          maxLength: 150
+        trait_category:
+          $ref: '#/components/schemas/TraitCategoryEnum'
+        favorable_allele:
+          type: string
+          description: Allele indicating favorable/resistant state
+          maxLength: 50
+        unfavorable_allele:
+          type: string
+          description: Allele indicating susceptible/wildtype state
+          maxLength: 50
+        assay_type:
+          $ref: '#/components/schemas/AssayTypeEnum'
+        effect_description:
+          type: string
+          description: Phenotypic effect explanation
+        program:
+          type: integer
+          nullable: true
+          description: If null, marker is globally available across programs
+        program_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedGenomicPrediction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        trait:
+          type: integer
+        trait_name:
+          type: string
+          readOnly: true
+        trait_unit:
+          type: string
+          readOnly: true
+        genotype_dataset:
+          type: integer
+        genotype_dataset_name:
+          type: string
+          readOnly: true
+        training_trial:
+          type: integer
+          nullable: true
+        training_trial_name:
+          type: string
+          readOnly: true
+        training_analysis_set:
+          type: integer
+          nullable: true
+        training_analysis_set_name:
+          type: string
+          readOnly: true
+        model_type:
+          $ref: '#/components/schemas/ModelTypeEnum'
+        n_training:
+          type: integer
+          readOnly: true
+          description: Number of observed training lines
+        n_candidates:
+          type: integer
+          readOnly: true
+          description: Number of candidate lines predicted without field trial
+        cv_accuracy:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+          description: 5-fold cross validation Pearson correlation r(GEBV, y)
+        cv_mse:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+          description: Mean squared error in cross-validation
+        genomic_heritability:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+          description: SNP broad-sense heritability h²_SNP
+        variance_genomic:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        variance_residual:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/GenomicPredictionStatusEnum'
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by_username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          readOnly: true
+    PatchedGenotypeDataset:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        species:
+          type: string
+          maxLength: 100
+        file_format:
+          $ref: '#/components/schemas/FileFormatEnum'
+        marker_count:
+          type: integer
+          readOnly: true
+        sample_count:
+          type: integer
+          readOnly: true
+        imputation_method:
+          $ref: '#/components/schemas/ImputationMethodEnum'
+        maf_threshold:
+          type: number
+          format: double
+          description: Minor Allele Frequency filter threshold applied during import
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by_username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
           readOnly: true
     PatchedGermplasm:
       type: object
@@ -4235,14 +7784,27 @@ components:
           maxLength: 500
         cross_type:
           $ref: '#/components/schemas/CrossTypeEnum'
+        generation:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          description: Generation index (0=F0, 1=F1, ..., 8=F8+)
         year_developed:
           type: integer
           maximum: 9223372036854775807
           minimum: -9223372036854775808
           format: int64
           nullable: true
+        tags:
+          description: Free-form tags, e.g. ['drought-tolerant', 'release-candidate']
+        is_check:
+          type: boolean
+          description: True for permanent check/reference lines used across trials.
         notes:
           type: string
+        is_archived:
+          type: boolean
         created_at:
           type: string
           format: date-time
@@ -4293,6 +7855,40 @@ components:
           readOnly: true
         updated_by_username:
           type: string
+          readOnly: true
+    PatchedMarkerScore:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        marker:
+          type: integer
+        marker_name:
+          type: string
+          readOnly: true
+        gene_symbol:
+          type: string
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        germplasm_db_id:
+          type: string
+          readOnly: true
+        call_status:
+          $ref: '#/components/schemas/CallStatusEnum'
+        raw_genotype:
+          type: string
+          description: Raw allele string e.g. A:A, T:T, FAM, HEX
+          maxLength: 50
+        notes:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
           readOnly: true
     PatchedObservation:
       type: object
@@ -4360,8 +7956,34 @@ components:
           type: number
           format: double
           nullable: true
+        crop:
+          type: string
+          description: Standard crop scope (e.g. wheat, barley, or 'all')
+          maxLength: 64
+        category:
+          description: |-
+            Trait category for library organisation.
+
+            * `morphological` - Morphological
+            * `agronomic` - Agronomic
+            * `disease` - Disease Resistance
+            * `quality` - Grain Quality
+            * `phenology` - Phenology
+            * `abiotic` - Abiotic Stress
+            * `other` - Other
+          oneOf:
+          - $ref: '#/components/schemas/CategoryEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        categorical_options:
+          description: Valid option strings for categorical traits, e.g. ['1','2','3','4','5']
         is_required:
           type: boolean
+        panel_ids:
+          type: string
+          readOnly: true
+        usage_count:
+          type: integer
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -4416,6 +8038,8 @@ components:
           nullable: true
         is_check:
           type: boolean
+        is_border:
+          type: boolean
         row:
           type: integer
           maximum: 9223372036854775807
@@ -4429,7 +8053,7 @@ components:
           format: int64
           nullable: true
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/PlotStatusEnum'
     PatchedProgram:
       type: object
       properties:
@@ -4440,8 +8064,7 @@ components:
           type: string
           maxLength: 255
         crop:
-          type: string
-          maxLength: 255
+          $ref: '#/components/schemas/CropEnum'
         description:
           type: string
         created_at:
@@ -4479,6 +8102,134 @@ components:
         updated_by_username:
           type: string
           readOnly: true
+    PatchedSeedLot:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        germplasm_db_id:
+          type: string
+          readOnly: true
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        lot_code:
+          type: string
+          readOnly: true
+          description: Unique seed packet identifier, e.g. LOT-2026-0042
+        quantity_grams:
+          type: number
+          format: double
+        reserved_grams:
+          type: number
+          format: double
+          description: Quantity reserved for pending trials or distributions
+        seed_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        storage_location:
+          type: string
+          description: 'Physical location: e.g. Cold Room 1, Rack C, Box 12'
+          maxLength: 200
+        harvest_date:
+          type: string
+          format: date
+          nullable: true
+        source_plot:
+          type: integer
+          nullable: true
+        source_plot_number:
+          type: integer
+          readOnly: true
+        germination_rate:
+          type: number
+          format: double
+          nullable: true
+          description: Germination rate percentage (0.0 to 100.0)
+        germination_date:
+          type: string
+          format: date
+          nullable: true
+          description: Date of last germination test
+        status:
+          $ref: '#/components/schemas/SeedLotStatusEnum'
+        is_low_stock:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+        recent_transactions:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by_username:
+          type: string
+          readOnly: true
+    PatchedTraitPanel:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        program:
+          type: integer
+          nullable: true
+          description: If null, panel is available to all programs.
+        program_name:
+          type: string
+          readOnly: true
+        variable_ids:
+          type: array
+          items:
+            type: integer
+        variable_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationVariable'
+          readOnly: true
+        variable_count:
+          type: integer
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
     PatchedTrial:
       type: object
       properties:
@@ -4490,7 +8241,6 @@ components:
           maxLength: 255
         trial_code:
           type: string
-          maxLength: 255
         brapi_study_db_id:
           type: string
           maxLength: 255
@@ -4501,16 +8251,19 @@ components:
           readOnly: true
         location:
           type: integer
+          nullable: true
         location_name:
           type: string
           readOnly: true
         season:
           type: integer
+          nullable: true
         season_name:
           type: string
           readOnly: true
         design_type:
-          $ref: '#/components/schemas/DesignTypeEnum'
+          type: string
+          default: RCBD
         num_reps:
           type: integer
           maximum: 9223372036854775807
@@ -4522,7 +8275,14 @@ components:
           minimum: 0
           format: int64
           nullable: true
-          description: Incomplete block size for alpha-lattice designs.
+          description: Incomplete block size for alpha-lattice and augmented block
+            designs.
+        prep_fraction:
+          type: number
+          format: double
+          nullable: true
+          description: Fraction of test entries to partially replicate (P-Rep designs,
+            0.0–1.0). Default 0.25.
         planting_date:
           type: string
           format: date
@@ -4533,6 +8293,35 @@ components:
           nullable: true
         notes:
           type: string
+        status:
+          $ref: '#/components/schemas/TrialStatusEnum'
+        generation:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+          description: Breeding generation index (0=F0, 1=F1, etc.) for pipeline tracking.
+        field_rows:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Total physical field grid rows.
+        field_cols:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Total physical field grid columns.
+        starting_corner:
+          $ref: '#/components/schemas/StartingCornerEnum'
+        advancement_direction:
+          $ref: '#/components/schemas/AdvancementDirectionEnum'
+        layout_schema:
+          $ref: '#/components/schemas/LayoutSchemaEnum'
         plot_count:
           type: integer
           readOnly: true
@@ -4620,6 +8409,8 @@ components:
           nullable: true
         is_check:
           type: boolean
+        is_border:
+          type: boolean
         row:
           type: integer
           maximum: 9223372036854775807
@@ -4633,7 +8424,7 @@ components:
           format: int64
           nullable: true
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/PlotStatusEnum'
       required:
       - germplasm
       - germplasm_name
@@ -4642,6 +8433,18 @@ components:
       - rep
       - trial
       - trial_code
+    PlotStatusEnum:
+      enum:
+      - planned
+      - planted
+      - harvested
+      - discarded
+      type: string
+      description: |-
+        * `planned` - Planned
+        * `planted` - Planted
+        * `harvested` - Harvested
+        * `discarded` - Discarded
     Program:
       type: object
       properties:
@@ -4652,8 +8455,7 @@ components:
           type: string
           maxLength: 255
         crop:
-          type: string
-          maxLength: 255
+          $ref: '#/components/schemas/CropEnum'
         description:
           type: string
         created_at:
@@ -4717,18 +8519,270 @@ components:
       - program_name
       - updated_by_username
       - year
-    StatusEnum:
+    SeedLot:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        germplasm_db_id:
+          type: string
+          readOnly: true
+        program:
+          type: integer
+        program_name:
+          type: string
+          readOnly: true
+        lot_code:
+          type: string
+          readOnly: true
+          description: Unique seed packet identifier, e.g. LOT-2026-0042
+        quantity_grams:
+          type: number
+          format: double
+        reserved_grams:
+          type: number
+          format: double
+          description: Quantity reserved for pending trials or distributions
+        seed_count:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        storage_location:
+          type: string
+          description: 'Physical location: e.g. Cold Room 1, Rack C, Box 12'
+          maxLength: 200
+        harvest_date:
+          type: string
+          format: date
+          nullable: true
+        source_plot:
+          type: integer
+          nullable: true
+        source_plot_number:
+          type: integer
+          readOnly: true
+        germination_rate:
+          type: number
+          format: double
+          nullable: true
+          description: Germination rate percentage (0.0 to 100.0)
+        germination_date:
+          type: string
+          format: date
+          nullable: true
+          description: Date of last germination test
+        status:
+          $ref: '#/components/schemas/SeedLotStatusEnum'
+        is_low_stock:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+        recent_transactions:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - created_by_username
+      - germplasm
+      - germplasm_db_id
+      - germplasm_name
+      - id
+      - is_low_stock
+      - lot_code
+      - program
+      - program_name
+      - recent_transactions
+      - source_plot_number
+      - updated_at
+    SeedLotStatusEnum:
+      enum:
+      - available
+      - depleted
+      - reserved
+      - quarantine
+      type: string
+      description: |-
+        * `available` - Available
+        * `depleted` - Depleted
+        * `reserved` - Reserved
+        * `quarantine` - Quarantine
+    SeedTransaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        seed_lot:
+          type: integer
+        transaction_type:
+          $ref: '#/components/schemas/TransactionTypeEnum'
+        quantity_grams:
+          type: number
+          format: double
+          description: Delta in grams (positive for deposit, negative for deduction)
+        transaction_date:
+          type: string
+          format: date
+          readOnly: true
+        destination_trial:
+          type: integer
+          nullable: true
+        destination_trial_name:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by_username:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - created_by_username
+      - destination_trial_name
+      - id
+      - quantity_grams
+      - seed_lot
+      - transaction_date
+      - transaction_type
+    StartingCornerEnum:
+      enum:
+      - BL
+      - BR
+      - TL
+      - TR
+      type: string
+      description: |-
+        * `BL` - Bottom-Left
+        * `BR` - Bottom-Right
+        * `TL` - Top-Left
+        * `TR` - Top-Right
+    Status1c6Enum:
       enum:
       - planned
-      - planted
+      - pollinated
       - harvested
-      - discarded
+      - failed
       type: string
       description: |-
         * `planned` - Planned
-        * `planted` - Planted
+        * `pollinated` - Pollinated
         * `harvested` - Harvested
-        * `discarded` - Discarded
+        * `failed` - Failed
+    TraitCategoryEnum:
+      enum:
+      - disease
+      - agronomic
+      - quality
+      - phenology
+      - abiotic
+      type: string
+      description: |-
+        * `disease` - Disease Resistance
+        * `agronomic` - Agronomic / Yield
+        * `quality` - Grain Quality
+        * `phenology` - Phenology / Adaptation
+        * `abiotic` - Abiotic Stress
+    TraitPanel:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        program:
+          type: integer
+          nullable: true
+          description: If null, panel is available to all programs.
+        program_name:
+          type: string
+          readOnly: true
+        variable_ids:
+          type: array
+          items:
+            type: integer
+        variable_details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationVariable'
+          readOnly: true
+        variable_count:
+          type: integer
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - id
+      - name
+      - program_name
+      - updated_at
+      - variable_count
+      - variable_details
+      - variable_ids
+    TransactionTypeEnum:
+      enum:
+      - initial_deposit
+      - harvest_deposit
+      - planting_deduction
+      - distribution
+      - adjustment
+      type: string
+      description: |-
+        * `initial_deposit` - Initial Deposit
+        * `harvest_deposit` - Harvest Deposit
+        * `planting_deduction` - Planting Deduction
+        * `distribution` - Distribution
+        * `adjustment` - Inventory Adjustment
     Trial:
       type: object
       properties:
@@ -4740,7 +8794,6 @@ components:
           maxLength: 255
         trial_code:
           type: string
-          maxLength: 255
         brapi_study_db_id:
           type: string
           maxLength: 255
@@ -4751,16 +8804,19 @@ components:
           readOnly: true
         location:
           type: integer
+          nullable: true
         location_name:
           type: string
           readOnly: true
         season:
           type: integer
+          nullable: true
         season_name:
           type: string
           readOnly: true
         design_type:
-          $ref: '#/components/schemas/DesignTypeEnum'
+          type: string
+          default: RCBD
         num_reps:
           type: integer
           maximum: 9223372036854775807
@@ -4772,7 +8828,14 @@ components:
           minimum: 0
           format: int64
           nullable: true
-          description: Incomplete block size for alpha-lattice designs.
+          description: Incomplete block size for alpha-lattice and augmented block
+            designs.
+        prep_fraction:
+          type: number
+          format: double
+          nullable: true
+          description: Fraction of test entries to partially replicate (P-Rep designs,
+            0.0–1.0). Default 0.25.
         planting_date:
           type: string
           format: date
@@ -4783,6 +8846,35 @@ components:
           nullable: true
         notes:
           type: string
+        status:
+          $ref: '#/components/schemas/TrialStatusEnum'
+        generation:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+          description: Breeding generation index (0=F0, 1=F1, etc.) for pipeline tracking.
+        field_rows:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Total physical field grid rows.
+        field_cols:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Total physical field grid columns.
+        starting_corner:
+          $ref: '#/components/schemas/StartingCornerEnum'
+        advancement_direction:
+          $ref: '#/components/schemas/AdvancementDirectionEnum'
+        layout_schema:
+          $ref: '#/components/schemas/LayoutSchemaEnum'
         plot_count:
           type: integer
           readOnly: true
@@ -4804,17 +8896,24 @@ components:
       - created_at
       - created_by_username
       - id
-      - location
       - location_name
       - name
       - plot_count
       - program
       - program_name
-      - season
       - season_name
-      - trial_code
       - updated_at
       - updated_by_username
+    TrialStatusEnum:
+      enum:
+      - active
+      - completed
+      - archived
+      type: string
+      description: |-
+        * `active` - Active
+        * `completed` - Completed
+        * `archived` - Archived
     UserProfile:
       type: object
       properties:

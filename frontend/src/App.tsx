@@ -13,6 +13,7 @@ import MultiEnvironmentAnalysis from './pages/MultiEnvironmentAnalysis'
 import Traits from './pages/Traits'
 import SeedInventory from './pages/SeedInventory'
 import AuditTrail from './pages/AuditTrail'
+import Genomics from './pages/Genomics'
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
@@ -32,6 +33,7 @@ function ProtectedLayout() {
           <Route path="/setup"        element={<Setup />} />
           <Route path="/analysis"     element={<MultiEnvironmentAnalysis />} />
           <Route path="/traits"       element={<Traits />} />
+          <Route path="/genomics"     element={<Genomics />} />
           <Route path="/audit"        element={<AuditTrail />} />
           <Route path="*"             element={<Navigate to="/" replace />} />
         </Routes>

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.germplasm",
     "apps.trials",
+    "apps.genomics",
     "apps.brapi",
     "drf_spectacular",
 ]

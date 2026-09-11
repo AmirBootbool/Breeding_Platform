@@ -56,5 +56,6 @@ urlpatterns = [
     path("api/", include("apps.core.urls")),
     path("api/", include("apps.germplasm.urls")),
     path("api/", include("apps.trials.urls")),
+    path("api/", include("apps.genomics.urls")),
     path("brapi/v2/", include("apps.brapi.urls")),
 ]

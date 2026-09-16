@@ -1,31 +1,43 @@
 # Implementation Roadmap
 
-Updated: 2026-07-20
+Updated: 2026-09-12
 
 This roadmap contains detailed implementation instructions for each task.
-Each section is self-contained: a builder model can read any single section
-and implement it without reading the others.
+Phases 1–13 are self-contained, forward-looking build instructions written
+before their code existed. Phases 14–20 were added retroactively to bring
+this document in line with a large amount of shipped work that had outrun
+it; they summarize what was built rather than prescribing steps for a
+builder to follow. For full user-facing feature detail, [docs/WIKI.md](docs/WIKI.md)
+and its 11 chapters are the up-to-date reference — this roadmap tracks
+phase-level status, not day-to-day feature documentation.
 
 ---
 
 ## Phase Summary
 
-| Phase | Status        | Description                       |
-|-------|---------------|-----------------------------------|
-| 1     | ✅ Done       | Security hardening                |
-| 2     | ✅ Done       | REST API implementation           |
-| 3     | ✅ Done       | Database optimization             |
-| 4     | ✅ Done       | Feature completeness & quality    |
-| 5     | ✅ Done       | Production readiness              |
-| 6     | ✅ Done       | Documentation & tech-debt cleanup |
-| 7     | ✅ Done       | Custom browser frontend           |
-| 8     | ✅ Done       | Frontend CRUD Operations          |
-| 9     | ✅ Done       | Frontend depth & bulk workflows   |
-| 10    | ✅ Done       | Alpha-lattice & augmented designs |
-| 11    | ✅ Done       | BrAPI v2 write support            |
-| 12    | ✅ Done       | Observability & ops hardening     |
-| 13    | ✅ Done       | Multi-environment trial analysis  |
-
+| Phase | Status                        | Description                       |
+|-------|-------------------------------|------------------------------------|
+| 1     | ✅ Done                       | Security hardening                |
+| 2     | ✅ Done                       | REST API implementation           |
+| 3     | ✅ Done                       | Database optimization             |
+| 4     | ✅ Done                       | Feature completeness & quality    |
+| 5     | ✅ Done                       | Production readiness              |
+| 6     | ✅ Done                       | Documentation & tech-debt cleanup |
+| 7     | ✅ Done                       | Custom browser frontend           |
+| 8     | ✅ Done                       | Frontend CRUD Operations          |
+| 9     | ✅ Done                       | Frontend depth & bulk workflows   |
+| 10    | ✅ Done                       | Alpha-lattice & augmented designs |
+| 11    | ✅ Done                       | BrAPI v2 write support            |
+| 12    | ✅ Done                       | Observability & ops hardening     |
+| 13    | ✅ Done                       | Multi-environment trial analysis  |
+| 14    | ✅ Done                       | Crossing blocks, seed inventory & multi-crop standardization |
+| 15    | ✅ Done                       | Deployment hardening, E2E testing & breeding cycle simulation |
+| 16    | ✅ Done                       | Spatial analytics, offline sync v1 & platform versatility |
+| 17    | ✅ Done                       | Offline-first field scoring & sync center v2 |
+| 18    | ✅ Done                       | Interactive map wizard, plot editor & data table |
+| 19    | ✅ Done                       | Genomic selection (GBLUP/GEBVs) & marker-assisted selection |
+| 20    | ✅ Done                       | 11-chapter wiki documentation & operations manual |
+| 21    | ✅ Done                       | Multi-tenant program scoping & crash hardening |
 
 ---
 
@@ -1600,3 +1612,362 @@ Add joint analysis across multiple seasons and locations, estimating broad-sense
 | 13.5 Frontend comparison view | 3–4 h |
 | 13.6 Pedigree-aware family grouping (optional) | 2–3 h |
 | **Phase 13 total** | **~13–18 h** |
+
+---
+
+## Phase 14: Crossing Blocks, Seed Inventory & Multi-Crop Standardization — ✅ COMPLETE
+
+### Goal
+
+Move breeding-workflow data (crossing plans, physical seed stock, pedigree
+ancestry) out of spreadsheets and CLI-only tooling into first-class,
+role-scoped models and UI, and generalize the platform beyond a single
+hardcoded crop.
+
+### What Shipped
+
+- **`apps.germplasm.CrossingBlock`**: named crossing sessions with a map
+  pattern (`male_first` / `female_first` / `alternating`), optional
+  reciprocal generation, and a program/location/season scope.
+- **`apps.germplasm.crossing_service`**: `plan_crosses` (pairs female × male
+  candidate lists, honoring the map pattern), `execute_cross` /
+  `execute_all_crosses` (harvest transition that auto-creates the F1
+  `Germplasm` progeny record with a generated Purdy pedigree string and a
+  `SeedLot`), and `generate_crossing_map` (nursery sowing layout).
+- **`CrossingBlockViewSet`** (`/api/crossing-blocks/`) actions:
+  `plan_crosses`, `execute_all`, `crossing_map`, `export_map`, `bulk_status`.
+- **Diallel matrix visualizer** (frontend `CrossingBlock.tsx`): N×N
+  parent-pair heatmap with one-click cross initiation and status coloring
+  (planned/pollinated/harvested/failed).
+- **`apps.germplasm.SeedLot` / `SeedTransaction`**: gram-level seed
+  inventory with reserved-vs-available quantities, storage location text,
+  germination rate/date, and an immutable transaction ledger
+  (`initial_deposit`, `harvest_deposit`, `planting_deduction`,
+  `distribution`, `adjustment`) via `record_seed_transaction` in
+  `seed_services.py`.
+- **`SeedLotViewSet`** (`/api/seed-lots/`) actions: `adjust`, `label`,
+  `bulk-labels`, `split`, `low_stock`; **`SeedTransactionViewSet`**
+  (`/api/seed-transactions/`, read-only) for the ledger.
+- **Barcode/QR label generation** (`build_barcode_label_data` in
+  `seed_services.py`) for printable seed-packet sheets.
+- **Interactive pedigree tree visualizer**: recursive female/male ancestry
+  traversal surfaced as an expandable tree in the Germplasm inspection
+  drawer.
+- **Multi-crop standardization**: `Germplasm.species` generalized beyond
+  wheat, automatic species resolution, and trait/observation-variable
+  scoping revisited so ontologies aren't hardcoded to one crop.
+- **Field Book CSV ingestion** and a sunlight (high-glare, outdoor-readable)
+  UI theme.
+
+### Phase 14 Complete When
+
+- [x] Crossing blocks progress through planned → pollinated → harvested/failed
+      with F1 germplasm + seed lot auto-creation on harvest.
+- [x] Diallel matrix UI supports one-click cross creation and reciprocal
+      auto-generation.
+- [x] Seed inventory tracks quantity, reservations, and a full transaction
+      ledger; lots can be split and printed as barcode labels.
+- [x] Pedigree ancestry is browsable as an interactive tree.
+- [x] Species/trait scoping no longer assumes a single hardcoded crop.
+
+---
+
+## Phase 15: Deployment Hardening, E2E Testing & Breeding Cycle Simulation — ✅ COMPLETE
+
+### Goal
+
+Make the platform deployable behind a reverse proxy in production, add
+end-to-end browser test coverage, and provide a synthetic data generator
+for demos, training, and load-testing multi-generation breeding programs.
+
+### What Shipped
+
+- **Production Docker Compose** (`docker-compose.prod.yml`) with an Nginx
+  reverse proxy in front of Gunicorn + the built frontend bundle.
+- **Playwright E2E suite** exercising core browser workflows end-to-end
+  (login, trial creation, observation entry) against a running stack.
+- **Automated 7-generation breeding cycle simulation** (F0→F7): a management
+  command/service that fabricates a full pipeline — crossing diallel,
+  advancing generations, trial layouts, and multi-environment trials (MET)
+  — for demo data and pipeline stress-testing.
+
+### Phase 15 Complete When
+
+- [x] `docker-compose.prod.yml` builds and serves the app behind Nginx.
+- [x] Playwright E2E tests run against the built stack in CI.
+- [x] The breeding-cycle simulator generates a coherent F0–F7 pipeline with
+      crosses, trials, and MET data in one command.
+
+---
+
+## Phase 16: Spatial Analytics, Offline Sync v1, Audit Trail & Platform Versatility — ✅ COMPLETE
+
+### Goal
+
+Round out the trial and germplasm domain models with the fields breeders
+actually asked for (status, generation, checks, tags, categorical traits),
+give trial data a spatial view, and take the first pass at an offline sync
+path plus an in-app audit trail (rather than requiring Django Admin).
+
+### What Shipped
+
+- **Spatial field heatmaps**: `TrialViewSet.spatial_heatmap` renders a
+  trait-colored 2D plot grid using each `Plot`'s `row`/`column` coordinates.
+- **Offline PWA sync (v1)** and an **in-app audit trail** — the first
+  iteration of what Phase 17 (sync center) and the Phase 9 `created_by`/
+  `updated_by` fields matured into a dedicated Setup UI tab.
+- **Platform versatility enhancements** across core models:
+  - `Trial.status` (active/completed/archived) and `Trial.generation`
+    (breeding generation index for pipeline tracking).
+  - `apps.trials.TraitPanel` — reusable named groupings of observation
+    variables for a scoring event, exposed via `TraitPanelViewSet`.
+  - `Germplasm.tags` (JSON) and `Germplasm.is_check` for permanent check-line
+    badging throughout trial layouts and analysis.
+  - `ObservationVariable.category` and `categorical_options` for 1–9 scale
+    / text-choice traits, plus min/max validation.
+- **Frontend**: rich multi-field filter bar and card/table view toggle in
+  Trial Manager; trial clone action; a Pedigree tab on Trial Detail;
+  check-line badges and CSV export in the Germplasm list; trait-criteria
+  filtering and a rank view in the Advance Plots tab; a bar/scatter toggle
+  on the summary chart; category filtering and usage counts on the Traits
+  page; a breeding-pipeline widget on the Dashboard.
+
+### Phase 16 Complete When
+
+- [x] Spatial heatmap renders trait values over the physical plot grid.
+- [x] Trial and Germplasm models carry status/generation/check/tag fields
+      used consistently across layouts, filters, and exports.
+- [x] Trait Panels group observation variables for scoring events.
+- [x] Categorical observation variables are supported end-to-end.
+
+---
+
+## Phase 17: Offline-First Field Scoring & Sync Center v2 — ✅ COMPLETE
+
+### Goal
+
+Make field scoring work with zero connectivity: cache a trial's plots and
+traits to a tablet before heading to the field, record observations locally,
+and reconcile with the server once back in range — building on the Phase 16
+sync groundwork with an installable PWA and a dedicated Sync Center.
+
+### What Shipped
+
+- **Installable PWA** (manifest + service worker) with an
+  "📥 Cache Trial for Offline Scoring" action that pulls a trial's plots and
+  observation variables into `IndexedDB`.
+- **Offline field scoring mode**: large touch-friendly inputs, plot
+  walking order matching the trial's serpentine layout, writes queued
+  locally with timestamps while offline.
+- **Sync Center** (`OfflineSyncCenterModal.tsx`, `syncManager.ts`,
+  `offlineStorage.ts`): a header sync-status badge, a pending-record queue,
+  and a batch "Upload Pending Observations" action that replays the queue
+  through the existing `bulk_create` observation endpoint and surfaces
+  per-record server validation results.
+- Fixed the new-field creation modal (in the advancement flow) to offer the
+  full set of design choices, replication counts, and robust trial
+  code/location fallbacks.
+
+### Phase 17 Complete When
+
+- [x] A trial can be cached for offline use and scored with no network.
+- [x] Offline observations queue locally and sync in one batch action when
+      connectivity returns, with per-record error feedback.
+- [x] The advancement/new-field modal exposes all design types and
+      replication settings without silent fallbacks.
+
+---
+
+## Phase 18: Interactive Map Wizard, Plot Editor & Data Table — ✅ COMPLETE
+
+### Goal
+
+Give trial managers a visual, spatial way to lay out and inspect a field —
+not just a generated list of plots — including manual correction after
+randomization.
+
+### What Shipped
+
+- **Map Wizard**: guided field-grid setup (rows/columns, starting corner,
+  serpentine/cartesian layout schema) that pairs with the existing RCBD /
+  alpha-lattice / augmented / p-Rep / Latin Square layout generators.
+- **Plot Editor**: `TrialViewSet.batch_update_plots` and `add_grid_cells`
+  actions let a trial manager manually correct plot positions/assignments
+  after generation, and extend a grid with additional cells.
+- **Interactive plot grid** (`PlotGrid.tsx`): color-by selector (replication
+  / entry type / trait phenotype heatmap), click-to-inspect popover showing
+  parentage, seed-lot source, and observation history, and a print-layout
+  mode for field clipboards.
+- **Trial data table**: a tabular alternative view of the same plot data for
+  bulk review and export.
+
+### Phase 18 Complete When
+
+- [x] Field grid dimensions and layout schema are configurable in a guided
+      wizard.
+- [x] Plots can be manually repositioned/edited after generation without
+      regenerating the whole layout.
+- [x] The plot grid supports coloring by replication, entry type, or a live
+      trait heatmap, with click-to-inspect detail.
+
+---
+
+## Phase 19: Genomic Selection (GBLUP/GEBVs) & Marker-Assisted Selection — ✅ COMPLETE
+
+### Goal
+
+Add a `apps.genomics` domain so selection decisions can use genome-wide
+marker data (Genomic Selection) and single-gene diagnostic markers
+(Marker-Assisted Selection) alongside phenotypic trial data — the
+"genomic/marker-based analysis" opportunity previously listed as deferred
+in `architecture.md` §10.3 and out of scope in §1.3.
+
+### What Shipped
+
+- **`GenotypeDataset`**: stores a curated marker/genotype dataset ingested
+  from `.vcf`, `.hmp.txt` (HapMap), or a numeric dosage matrix (`.csv`/`.tsv`),
+  with QC settings (MAF threshold, imputation method) and the encoded
+  dosage matrix as JSON. `GenotypeSample` links each sample row to a
+  `Germplasm` accession, tracking call rate and heterozygosity.
+- **`GenomicPrediction`**: one GBLUP/rrBLUP training run for a given trait —
+  references the genotype dataset and the training trial/analysis set,
+  records 5-fold cross-validation accuracy (`cv_accuracy`, `cv_mse`),
+  genomic heritability, variance components, and the fixed-effect mean
+  (`mu`).
+- **`GenomicBreedingValue`**: one GEBV per (prediction, germplasm) —
+  breeding value, reliability (`r²`), standard error, rank, and whether the
+  line was in the training set or is an unphenotyped candidate.
+- **Statistical core** (`apps.genomics.services`): VanRaden Method-1 G-matrix
+  construction with shrinkage regularization, and a Henderson mixed-model
+  equations (MME) solver for GBLUP, producing GEBVs and prediction-error-
+  variance-based reliabilities for every genotyped line — trained and
+  candidate alike.
+- **`DiagnosticMarker`** / **`MarkerScore`**: a library of named functional
+  wheat markers (gene symbol, chromosome, target trait, favorable/
+  unfavorable allele, assay type) and per-accession allele calls
+  (favorable/heterozygous/unfavorable/missing), seeded with common wheat
+  markers (`csLV34`, `Fhb1`, `Rht-B1`, `Rht-D1`, `Ppd-D1`, `Gpc-B1`, `Sr2`,
+  `Glu-D1`).
+- **API** (`/api/genotype-datasets/`, `/api/genomic-predictions/`,
+  `/api/diagnostic-markers/`, `/api/marker-scores/`): dataset upload
+  (`upload_file`) and G-matrix retrieval (`grm_matrix`); prediction training
+  (`run_prediction`), GEBV listing and CSV export (`gebvs`,
+  `export_gebv_csv`); marker defaults seeding (`seed_defaults`) and MAS
+  trait-stacking overview (`stacking_overview`); batch allele-call entry
+  (`batch_score`).
+- **Frontend** (`Genomics.tsx`): dataset upload, a GBLUP run form, a GEBV
+  ranking table, a kinship PCA/heatmap view, and a Lines × Markers MAS
+  trait-stacking matrix with a favorable-allele stacking index.
+
+### Phase 19 Complete When
+
+- [x] VCF/HapMap/matrix genotype datasets can be ingested, QC'd, and
+      imputed.
+- [x] GBLUP training produces GEBVs with cross-validation accuracy and
+      reliability for both trained and candidate lines.
+- [x] Diagnostic markers can be scored per accession and viewed as a
+      trait-stacking matrix.
+- [x] `openapi.yaml` regenerates with 0 errors for the new endpoints.
+
+---
+
+## Phase 20: Wiki Documentation & Operations Manual — ✅ COMPLETE
+
+### Goal
+
+Give every audience (breeders, technicians, genomics specialists, admins,
+developers) a single, feature-complete manual reflecting Phases 14–19,
+since `architecture.md`/`IMPLEMENTATION_ROADMAP.md` track engineering
+phase history rather than day-to-day user-facing feature documentation.
+
+### What Shipped
+
+- **`docs/WIKI.md`**: master portal with a chapter map and role-based
+  reading paths (breeder, field technician, genomics specialist, engineer).
+- **11 chapters** under `docs/wiki/`: Getting Started; Germplasm & Pedigree;
+  Crossing Blocks; Seed Inventory; Trial Management & Layouts; Phenotyping
+  & Offline PWA; Multi-Environment Analysis; Genomic Selection & MAS; Data
+  Exchange & BrAPI; Admin Setup & Audit; Developer & Statistical Reference
+  (architecture, math derivations, dev workflows).
+
+### Phase 20 Complete When
+
+- [x] Every major feature area (Phases 7–19) has a corresponding wiki
+      chapter.
+- [x] The developer reference chapter documents the VanRaden/Henderson MME
+      formulas and current app/domain boundaries.
+
+---
+
+## Phase 21: Multi-Tenant Program Scoping & Crash Hardening — ✅ COMPLETE
+
+### Goal
+
+Every model above is `Program`-scoped by FK (directly or through a parent),
+but until this phase, viewsets did not enforce that a user can only see or
+write records belonging to their own program — RBAC governed *what actions*
+a role could take, not *which program's rows* they applied to. This phase
+closes that gap and, alongside it, hardens views against malformed input
+and race conditions that would otherwise 500 or corrupt data.
+
+### What Shipped
+
+- **`apps.core.mixins.ProgramScopedQuerySetMixin`**: restricts a
+  `ModelViewSet`'s queryset to the requesting user's program. Platform
+  staff/superusers see everything; a program-level `admin` role stays
+  scoped to their own program like every other role. A user with no
+  profile or no program gets an empty queryset and cannot create records —
+  fail closed. Also rejects `create` attempts that explicitly target a
+  different program's ID. Wired into the core (`Program`, `Season`; plus a
+  bespoke same-program/own-profile rule on `UserProfile`), germplasm
+  (`Germplasm`, `Cross`, `CrossingBlock`, `SeedLot`, `SeedTransaction`),
+  trials (`Trial`, `Plot`, `TraitPanel`, `Observation`, `AnalysisSet`),
+  genomics (`GenotypeDataset`, `GenomicPrediction`, `DiagnosticMarker`,
+  `MarkerScore`), and **BrAPI** (`studies`, `germplasm`, `observations`,
+  `observationunits`, `programs`) viewsets — including the models that
+  have no direct `program` FK, scoped via a derived lookup instead
+  (`female_parent__program_id` on `Cross`, `germplasm__program_id` on
+  `MarkerScore`, `plot__trial__program_id` on `Observation`/BrAPI
+  observations, and so on).
+- **`apps.core.utils.safe_int` / `safe_float`**: defensive query-param/
+  payload parsing that returns a default instead of raising on missing or
+  malformed values — applied to every previously-unguarded `int(...)` /
+  `float(...)` call on request input across core, trials, germplasm, and
+  BrAPI views (limit/count/threshold/ssd_count params, and BrAPI's
+  `*DbId` query filters, which previously 500'd on a non-numeric value
+  instead of returning a clean `400`).
+- **Race-condition fixes**: `select_for_update()` on cross-code sequence
+  generation (`crossing_service._next_cross_code`) and on seed-lot balance
+  mutations (`seed_services.record_seed_transaction`, `SeedLotViewSet.split`),
+  so two concurrent requests against the same row serialize instead of
+  racing on a stale balance or a duplicate code.
+- **Data-integrity fixes**: `GenomicPrediction.genotype_dataset` and
+  `GenomicBreedingValue.prediction` changed from `CASCADE` to `PROTECT`
+  (deleting a dataset or prediction no longer silently wipes dependent
+  GEBV history); a `unique_germplasm_name` helper prevents auto-generated
+  advancement/harvest names from colliding; ambiguous germplasm-name
+  matches during genotype-file upload are left unlinked and reported
+  rather than guessed at; genotype-matrix parsing rejects unrecognized
+  negative sentinel values instead of silently corrupting dosage coding;
+  a real bug where GEBV search filtered on a raw queryset object instead
+  of `germplasm_id__in=...` (a latent crash) was fixed.
+- **New test suites**: `test_program_scoping.py`, `test_crash_hardening.py`,
+  and `test_data_integrity.py` under `apps/core/tests/`,
+  `apps/genomics/tests/`, `apps/germplasm/tests/`, and `apps/trials/tests/`,
+  plus a new `apps/brapi/tests/` package with its own program-scoping and
+  crash-hardening suites.
+
+### Phase 21 Complete When
+
+- [x] Every program-scoped viewset (core, germplasm, trials, genomics,
+      BrAPI) denies cross-program reads/writes for non-staff users.
+- [x] Crash-hardening tests cover malformed query params and payloads across
+      all four domains without producing 500s.
+- [x] Data-integrity tests confirm cross-program FK references are rejected
+      at the model/service layer, not just the viewset layer.
+- [x] The working tree is committed and this section is folded into the
+      "Done" phase table above.
+- [x] `python -m pytest -q` passes with the full suite (260 passed, 1
+      skipped — 261 tests total).
+- [x] `openapi.yaml` regenerates with 0 errors (39 pre-existing BrAPI
+      read-only warnings, unchanged from before this phase).

@@ -1,7 +1,10 @@
 # Wheat Breeding Platform — API Reference
 
-> **Last updated:** July 31 2026
-> This document describes the REST API as currently implemented.
+> **Last updated:** September 12 2026
+> This document describes the REST API as currently implemented. For
+> feature-level, non-technical documentation see [docs/WIKI.md](docs/WIKI.md);
+> for the broader system reference (data model, repo structure) see
+> [docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -85,7 +88,9 @@ All viewsets use **`RoleBasedPermission`** — not plain `IsAuthenticated`.
 | **technician** | Read all; write only on observations, and update/partial-update on plots |
 | **viewer** | Read-only everywhere |
 
-Per-viewset `write_roles` are listed in the endpoint table below. Some viewsets also define `role_action_permissions` to grant write access on specific actions (e.g. `PlotViewSet` allows technicians to `update` and `partial_update`).
+Per-viewset `write_roles` are listed in the endpoint table below. Some viewsets also define `role_action_permissions` to grant write access on specific actions (e.g. `PlotViewSet` allows technicians to `update` and `partial_update`). One endpoint departs from the table above: **Seed Lots** (`api/seed-lots/`) grants `technician` full write access (create/update/delete), not just observation-style writes, since recording physical seed movements is routine field/store work.
+
+**Multi-tenant program scoping (Phase 21):** most viewsets listed below additionally inherit `apps.core.mixins.ProgramScopedQuerySetMixin`, which restricts list/retrieve/update/delete to rows belonging to the requester's own program (via a direct `program` FK or, where a model has none, a derived lookup such as `female_parent__program_id` on `Cross` or `germplasm__program_id` on `MarkerScore`) and rejects `create` requests that explicitly target a different program's ID. Django staff/superusers bypass this and see everything. This also covers BrAPI (`studies`, `germplasm`, `observations`, `observationunits`, `programs`) — a BrAPI client is scoped exactly like an internal-API caller. See [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) Phase 21.
 
 ---
 
@@ -167,15 +172,86 @@ Uses `select_related('user', 'program')`.
 | Write Roles | `admin`, `breeder` |
 |---|---|
 
-Uses `select_related` for parent/program lookups.
+Uses `select_related` for parent/program lookups. By default only
+`is_archived=False` rows are returned — pass `?archived=true` to include
+archived accessions.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | int | read-only |
-| _model fields_ | — | all model fields included |
-| `parent_female_name` | string | read-only, computed |
-| `parent_male_name` | string | read-only, computed |
+| `name`, `species`, `program`, `parent_female`, `parent_male`, `pedigree_string`, `cross_type`, `generation`, `year_developed`, `tags`, `is_check`, `notes`, `is_archived` | — | writable model fields |
+| `germplasm_db_id` | string | read-only, auto-generated |
 | `program_name` | string | read-only, computed |
+| `parent_female_name` / `parent_male_name` | string | read-only, computed |
+| `created_at` / `updated_at` | datetime | read-only |
+| `created_by_username` / `updated_by_username` | string | read-only |
+
+**Custom action — `bulk_import`**
+
+```
+POST api/germplasm/bulk_import/       (multipart/form-data)
+```
+
+Uploads a CSV (`file`) of germplasm rows for a given `program` (name).
+Optional `dry_run=true` validates without persisting. Reuses
+`apps.germplasm.services.import_germplasm_csv` — the same engine behind the
+`import_germplasm` management command. Whole-file rollback on any row
+error.
+
+```bash
+curl -X POST http://localhost:8000/api/germplasm/bulk_import/ \
+  -H "Authorization: Token abc123..." \
+  -F "file=@germplasm.csv" \
+  -F "program=Spring Wheat 2026" \
+  -F "dry_run=false"
+```
+
+Response: `{"created": <int>, "skipped": <int>, "errors": [{"row": <int>, "detail": "..."}]}`, `201` if no errors, `400` otherwise (with `created` reported as `0`).
+
+**Custom action — `advance`**
+
+```
+POST api/germplasm/advance/
+```
+
+Advances selected accessions to the next breeding generation. Body:
+`{"germplasm_ids": [1, 2], "method": "bulk" | "ssd", "ssd_count": 3}`.
+`bulk` creates one selfed progeny per line; `ssd` (Single Seed Descent)
+creates `ssd_count` progeny per line. Returns
+`{"created_count": <int>, "created_ids": [...]}`.
+
+**Custom action — `bulk_archive`**
+
+```
+POST api/germplasm/bulk_archive/
+```
+
+Body: `{"ids": [1, 2, 3]}`. Sets `is_archived=True` on the given IDs
+(soft-delete — archived accessions are hidden from the default list but not
+removed). Returns `{"archived_count": <int>}`.
+
+**Custom action — `bulk_delete`**
+
+```
+POST api/germplasm/bulk_delete/
+```
+
+Body: `{"ids": [1, 2, 3]}`. Hard-deletes each accession individually —
+rows referenced by an existing `Cross` or `SeedLot` (`PROTECT`) are skipped
+rather than aborting the whole batch. Returns
+`{"deleted_count": <int>, "deleted_ids": [...], "skipped": [{"id": <int>, "detail": "..."}]}`,
+`200` if nothing was skipped, `409` otherwise.
+
+**Custom action — `pedigree_tree`**
+
+```
+GET api/germplasm/{id}/pedigree_tree/?depth=3&direction=ancestors
+```
+
+Recursively walks female/male parentage (`direction=ancestors`, default) or
+progeny (`direction=descendants`) up to `depth` generations (default `3`)
+and returns a nested tree for the pedigree visualizer. `404` if the
+germplasm ID does not exist.
 
 #### Crosses — `api/crosses/`
 
@@ -187,10 +263,183 @@ Uses `select_related` for parent/location lookups.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | int | read-only |
-| _model fields_ | — | all model fields included |
-| `female_parent_name` | string | read-only, computed |
-| `male_parent_name` | string | read-only, computed |
-| `location_name` | string | read-only, computed |
+| `cross_code`, `female_parent`, `male_parent`, `crossing_block`, `status`, `is_reciprocal`, `map_position`, `cross_date`, `location`, `notes` | — | writable model fields |
+| `status` | string | `planned` / `pollinated` / `harvested` / `failed` |
+| `progeny` | int (FK) | set automatically when a crossing block executes the cross |
+| `progeny_name` | string | read-only, computed |
+| `female_parent_name` / `male_parent_name` / `location_name` | string | read-only, computed |
+| `created_at` / `updated_at` | datetime | read-only |
+
+Crosses are typically created in bulk via a Crossing Block's `plan_crosses`
+action (below) rather than one at a time.
+
+#### Crossing Blocks — `api/crossing-blocks/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+A named crossing session grouping multiple `Cross` records. Uses a list
+serializer (summary fields + `cross_count`) and a detail serializer that
+additionally nests every `Cross` in the block.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name`, `program`, `location`, `season`, `map_pattern`, `include_reciprocals`, `notes` | — | writable model fields |
+| `map_pattern` | string | `male_first` / `female_first` / `alternating` |
+| `cross_count` | int | read-only, annotated |
+| `program_name` / `location_name` / `season_name` | string | read-only, computed |
+| `crosses` | array | detail view (`GET .../{id}/`) only — nested `Cross` entries |
+| `created_at` / `updated_at` | datetime | read-only |
+
+**Custom action — `plan_crosses`**
+
+```
+POST api/crossing-blocks/{id}/plan_crosses/
+```
+
+Body: `{"female_ids": [1, 2], "male_ids": [3, 4]}` (each a non-empty list
+of `Germplasm` IDs; unknown IDs are rejected with a `400`). Pairs females ×
+males following the block's `map_pattern` (and generates the reciprocal
+pairing too if `include_reciprocals=True`), creating `planned` `Cross`
+records.
+
+```bash
+curl -X POST http://localhost:8000/api/crossing-blocks/1/plan_crosses/ \
+  -H "Authorization: Token abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"female_ids": [10, 11], "male_ids": [20, 21]}'
+```
+
+Response: `{"created_count": <int>, "crosses": [...]}`, `201`.
+
+**Custom action — `execute_all`**
+
+```
+POST api/crossing-blocks/{id}/execute_all/
+```
+
+Transitions every `planned`/`pollinated` cross in the block to `harvested`,
+auto-creating the F1 `Germplasm` progeny (generated Purdy pedigree string,
+`cross_type="biparental"`, `generation=1`) and a `SeedLot` for each.
+Returns `{"executed_count": <int>, "progeny": [{"id", "name", "germplasm_db_id"}, ...]}`.
+
+**Custom action — `crossing_map`**
+
+```
+GET api/crossing-blocks/{id}/crossing_map/
+```
+
+Returns the ordered nursery sowing/diallel map (`{"map": [...]}`) used to
+drive the diallel matrix visualizer.
+
+**Custom action — `export_map`**
+
+```
+GET api/crossing-blocks/{id}/export_map/
+```
+
+Streams the same map as a downloadable CSV (`Position, Type, Entry, Cross
+Code, Female, Male`) for printing.
+
+**Custom action — `bulk_status`**
+
+```
+POST api/crossing-blocks/{id}/bulk_status/
+```
+
+Body: `{"cross_ids": [1, 2], "status": "pollinated", "notes": "optional"}`.
+Bulk-updates `status` (and optionally `notes`) on the given crosses within
+the block. `cross_ids` and `status` are required. Returns
+`{"updated_count": <int>, "status": "<status>"}`.
+
+#### Seed Lots — `api/seed-lots/`
+
+| Write Roles | `admin`, `breeder`, `technician` |
+|---|---|
+
+A physical seed packet/lot. Creating a lot with `quantity_grams > 0`
+automatically records an `initial_deposit` transaction.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `germplasm`, `program`, `quantity_grams`, `reserved_grams`, `seed_count`, `storage_location`, `harvest_date`, `source_plot`, `germination_rate`, `germination_date`, `status`, `notes` | — | writable model fields |
+| `status` | string | `available` / `depleted` / `reserved` / `quarantine` |
+| `lot_code` | string | read-only, auto-generated (`LOT-000042`) |
+| `germplasm_name`, `germplasm_db_id`, `program_name`, `source_plot_number`, `created_by_username` | string | read-only, computed |
+| `is_low_stock` | bool | read-only, `true` when `quantity_grams < 50` and `status == "available"` |
+| `recent_transactions` | array | read-only, last 5 `SeedTransaction` entries |
+| `created_at` / `updated_at` | datetime | read-only |
+
+**Custom action — `adjust`**
+
+```
+POST api/seed-lots/{id}/adjust/
+```
+
+Body: `{"transaction_type": "adjustment", "quantity_grams": -25, "notes": "...", "destination_trial": <id, optional>}`.
+Records a ledger entry via `record_seed_transaction` and updates the lot's
+balance. `transaction_type` defaults to `adjustment`;
+`quantity_grams` is required and must be numeric (negative values are
+valid — they subtract from the balance). Returns
+`{"status": "success", "transaction": {...}, "seed_lot": {...}}`.
+
+**Custom action — `label`**
+
+```
+GET api/seed-lots/{id}/label/
+```
+
+Returns the field data (`build_barcode_label_data`) for one printable
+barcode/QR label.
+
+**Custom action — `bulk-labels`**
+
+```
+POST api/seed-lots/bulk-labels/
+```
+
+Body: `{"lot_ids": [1, 2, 3]}`. Returns `{"labels": [...], "count": <int>}`
+for a printable label sheet across multiple lots.
+
+**Custom action — `split`**
+
+```
+POST api/seed-lots/{id}/split/
+```
+
+Body: `{"quantity_grams": 100, "storage_location": "optional", "notes": "optional"}`.
+Atomically (row-locked) subtracts `quantity_grams` from the parent lot and
+creates a new sub-lot with that quantity, logging paired ledger
+transactions on both. `quantity_grams` must be greater than `0` and
+strictly less than the parent's current `quantity_grams`. Returns
+`{"status": "success", "parent_lot": {...}, "new_lot": {...}}`, `201`.
+
+**Custom action — `low_stock`**
+
+```
+GET api/seed-lots/low_stock/?threshold=50
+```
+
+Returns available lots with `quantity_grams` below `threshold` (default
+`50`).
+
+#### Seed Transactions — `api/seed-transactions/`
+
+Read-only (`ReadOnlyModelViewSet`) — the immutable ledger behind Seed Lots.
+Scoped by `seed_lot__program_id` rather than a direct `program` field.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `seed_lot`, `transaction_type`, `quantity_grams`, `destination_trial`, `notes` | — | model fields |
+| `transaction_type` | string | `initial_deposit` / `harvest_deposit` / `planting_deduction` / `distribution` / `adjustment` |
+| `destination_trial_name`, `created_by_username` | string | read-only, computed |
+| `transaction_date`, `created_at` | datetime | read-only |
+
+Filterable by `seed_lot`, `transaction_type`, `destination_trial`; orderable
+by `transaction_date`/`created_at`.
 
 ---
 
@@ -198,7 +447,7 @@ Uses `select_related` for parent/location lookups.
 
 #### Trials — `api/trials/`
 
-| Write Roles | `admin`, `breeder` |
+| Write Roles | `admin`, `breeder` (`import_fieldbook` also allows `technician`) |
 |---|---|
 
 Annotates `plot_count`; uses `select_related('program', 'location', 'season')`.
@@ -206,11 +455,14 @@ Annotates `plot_count`; uses `select_related('program', 'location', 'season')`.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | int | read-only |
-| _model fields_ | — | all model fields included |
-| `program_name` | string | read-only, computed |
-| `location_name` | string | read-only, computed |
-| `season_name` | string | read-only, computed |
+| `name`, `trial_code`, `brapi_study_db_id`, `program`, `location`, `season`, `design_type`, `num_reps`, `block_size`, `prep_fraction`, `planting_date`, `harvest_date`, `notes`, `status`, `generation`, `field_rows`, `field_cols`, `starting_corner`, `advancement_direction`, `layout_schema` | — | writable model fields |
+| `trial_code` | string | optional on create — auto-generated (`TR-<NAME>-<6 hex>`) if omitted |
+| `location` / `season` | int (FK) | optional on create — falls back to the first `Location`/the program's first `Season` (creating a default if none exists) rather than rejecting the request |
+| `design_type` | string | `RCBD` / `alpha_lattice` / `augmented` / `prep` / `latin_square` / `augmented_block` / `unreplicated` / `other`; case-insensitive on input |
+| `status` | string | `active` / `completed` / `archived` |
+| `program_name` / `location_name` / `season_name` | string | read-only, computed |
 | `plot_count` | int | read-only, annotated |
+| `created_by_username` / `updated_by_username` | string | read-only |
 
 **Custom action — `create_plots`**
 
@@ -218,11 +470,14 @@ Annotates `plot_count`; uses `select_related('program', 'location', 'season')`.
 POST api/trials/{id}/create_plots/
 ```
 
-Generates plot layouts and randomization for a trial. Accessible to `admin` and `breeder` roles. Supports all three design types:
+Generates plot layouts and randomization for a trial. Accessible to `admin` and `breeder` roles. Supports every design type; the design-specific fields (`block_size` for alpha-lattice/augmented block, `prep_fraction` for p-Rep) must already be set on the Trial:
 
 - **RCBD**: Replicates all entries.
 - **Alpha-lattice**: Groups entries into incomplete blocks. Requires `block_size` (even divisor of entry count) set on the Trial beforehand.
 - **Augmented**: Replicates check entries across all replicates, while test entries appear exactly once total. Requires passing `check_germplasm_ids` in the request payload.
+- **P-Rep**: Partially replicates a fraction (`prep_fraction`) of test entries; checks replicated across all blocks.
+- **Latin Square**: Two-directional row/column blocking; requires `num_reps = 1`.
+- **Unreplicated**: Single-plot headrows, one plot per entry.
 
 ##### Request Parameters:
 * `germplasm_ids` (array of integers, optional): Defaults to all germplasm in the trial's program.
@@ -254,6 +509,110 @@ GET api/trials/{id}/summary/
 Returns count, mean, minimum, maximum, standard deviation, and coefficient of
 variation for each numeric observation variable in the trial.
 
+**Custom action — `export_csv`**
+
+```
+GET api/trials/{id}/export_csv/
+```
+
+Streams a CSV of every observation in the trial (`plot_number,
+germplasm_name, rep, variable_name, value_numeric, value_text, value_date,
+observation_time, notes`) as an attachment download.
+
+**Custom action — `export_fieldbook`**
+
+```
+GET api/trials/{id}/export_fieldbook/
+```
+
+Streams a Field Book App-compatible CSV (`plot_id, range, plot, entry` plus
+one empty column per observation variable) as an attachment download.
+
+**Custom action — `import_fieldbook`**
+
+```
+POST api/trials/{id}/import_fieldbook/       (multipart/form-data)
+```
+
+Uploads a Field Book CSV export (`file`) and creates `Observation` records
+for this trial, matching `plot_id` to `Plot.plot_number` and trait columns
+to `ObservationVariable.name`. Optional `dry_run=true` validates only.
+Allows `admin`, `breeder`, and `technician`.
+
+**Custom action — `harvest_plots`**
+
+```
+POST api/trials/{id}/harvest_plots/
+```
+
+Body: `{"plot_ids": [1, 2], "method": "bulk" | "ssd", "ssd_count": 3}`.
+Harvests the given plots into new self-pollinated `Germplasm` progeny —
+`bulk` creates one bulk-advance line per plot, `ssd` creates `ssd_count`
+Single Seed Descent lines per plot. Returns
+`{"created_count": <int>, "created_ids": [...]}`.
+
+**Custom action — `advance_plots`**
+
+```
+POST api/trials/{id}/advance_plots/
+```
+
+Body: `{"plot_ids": [1, 2], "selections_per_plot": 1, "selection_method": "SSD"}`.
+Advances selected plots to next-generation `Germplasm` records (selection
+methods include `SSD`, `Single Spike`, `Single Plant`, `Special Bulk` — see
+`apps.trials.services.advance_plots`). Returns
+`{"detail": "...", "created_count": <int>, "created_ids": [...]}`, `201`.
+
+**Custom action — `spatial_heatmap`**
+
+```
+GET api/trials/{id}/spatial_heatmap/?variable_id={id}
+```
+
+Returns a 2D spatial matrix of one variable's observation values across the
+plot grid (`row`/`column` coordinates when available, falling back to
+`rep`/`plot_number`), plus row/column margin means and overall min/max/mean
+— the data backing the spatial heatmap view. `variable_id` is required
+(`400` if missing, `404` if the variable doesn't exist). Response shape:
+`{"trial_id", "trial_code", "variable": {...}, "stats": {"min", "max", "mean", "count"}, "dimensions": {"rows", "columns", "coordinate_type"}, "row_margins": [...], "col_margins": [...], "cells": [...], "excluded_plot_count"}`.
+
+**Custom action — `export_map`**
+
+```
+GET api/trials/{id}/export_map/
+```
+
+Streams the field layout as a CSV, including `row`/`column`,
+`incomplete_block`, `is_check`/`is_border`, and precomputed horizontal- and
+vertical-serpentine walking order for each plot — for printable field maps
+and clipboard sheets.
+
+**Custom action — `batch_update_plots`**
+
+```
+PATCH api/trials/{id}/batch_update_plots/
+```
+
+Body: `{"plots": [{"id": 1, "germplasm_id": 5, "is_check": true, "row": 2, "column": 3, ...}, ...]}`.
+Manual plot-editor corrections after layout generation — updates any of
+`germplasm`/`germplasm_id`, `is_check`, `is_border`, `status`, `row`,
+`column`, `rep` on each listed plot in one atomic transaction. A
+`germplasm_id` not belonging to the trial's program returns `400` before
+any row is saved. Returns `{"detail": "...", "updated_count": <int>}`.
+
+**Custom action — `add_grid_cells`**
+
+```
+POST api/trials/{id}/add_grid_cells/
+```
+
+Body: `{"type": "row" | "column", "location": "top" | "bottom" | "left" | "right", "count": 1, "fill_germplasm_id": null, "is_border": true}`.
+Extends the trial's field grid by `count` (1–20) rows or columns, filled
+with `fill_germplasm_id` (or the trial's first plot's germplasm if
+omitted), and shifts existing plot coordinates as needed. Updates
+`field_rows`/`field_cols` on the Trial. Returns
+`{"detail": "...", "created_count": <int>, "field_rows": <int>, "field_cols": <int>}`, `201`.
+
 #### Plots — `api/plots/`
 
 | Write Roles | `admin`, `breeder` (create/delete) — `technician` may also `update`/`partial_update` |
@@ -264,7 +623,8 @@ Uses `select_related('trial', 'germplasm')`. The viewset defines `role_action_pe
 | Field | Type | Notes |
 |---|---|---|
 | `id` | int | read-only |
-| _model fields_ | — | all model fields included |
+| `trial`, `germplasm`, `rep`, `block`, `plot_number`, `incomplete_block`, `is_check`, `is_border`, `row`, `column`, `status` | — | writable model fields |
+| `status` | string | `planned` / `planted` / `harvested` / `discarded` |
 | `trial_code` | string | read-only, computed |
 | `germplasm_name` | string | read-only, computed |
 
@@ -273,7 +633,32 @@ Uses `select_related('trial', 'germplasm')`. The viewset defines `role_action_pe
 | Write Roles | `admin`, `breeder` |
 |---|---|
 
-All model fields are included in the serializer.
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name`, `variable_code`, `description`, `unit`, `data_type`, `min_value`, `max_value`, `crop`, `category`, `categorical_options`, `is_required` | — | writable model fields |
+| `data_type` | string | includes `categorical` — pair with `categorical_options` for the allowed value list |
+| `category` | string | `agronomic` / `disease` / `quality` / `phenology` / `morphological` / `abiotic` |
+| `panel_ids` | array of int | read-only — Trait Panels this variable belongs to |
+| `usage_count` | int | read-only, annotated — number of Observations recorded against this variable |
+| `created_by_username` / `updated_by_username` | string | read-only |
+
+#### Trait Panels — `api/trait-panels/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+A reusable named grouping of `ObservationVariable`s for a scoring event
+(e.g. "Early Season Agronomy Panel"). A `program=null` panel is global and
+visible to every program.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name`, `description`, `category`, `program`, `variable_ids` | — | writable model fields; `variable_ids` is a list of `ObservationVariable` IDs |
+| `variable_details` | array | read-only, full nested `ObservationVariable` objects |
+| `variable_count` | int | read-only, annotated |
+| `program_name` / `created_by_username` | string | read-only, computed |
 
 #### Observations — `api/observations/`
 
@@ -285,10 +670,30 @@ Uses `select_related` for related lookups.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | int | read-only |
-| _model fields_ | — | all model fields included |
+| `plot`, `variable`, `observation_time`, `value_text`, `value_numeric`, `value_date`, `notes` | — | writable model fields |
 | `trial_code` | string | read-only, computed |
 | `germplasm_name` | string | read-only, computed |
 | `variable_name` | string | read-only, computed |
+
+**Custom action — `bulk_create`**
+
+```
+POST api/observations/bulk_create/
+```
+
+Body: `{"observations": [{"plot": 1, "variable": 2, "value_numeric": 3.4}, ...]}`.
+Validates and saves every row in one atomic transaction — the spreadsheet
+grid entry mode's endpoint. Any invalid row rolls back the whole batch.
+
+```bash
+curl -X POST http://localhost:8000/api/observations/bulk_create/ \
+  -H "Authorization: Token <technician-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"observations": [{"plot": 1, "variable": 2, "value_numeric": 8.5}, {"plot": 1, "variable": 3, "value_numeric": 95.0}]}'
+```
+
+Response on success: `{"created": [...], "errors": []}`, `201`. On any
+failure: `{"created": [], "errors": [{"index": <int>, "detail": "..."}]}`, `400`.
 
 #### Analysis Sets — `api/analysis-sets/`
 
@@ -336,7 +741,214 @@ curl "http://localhost:8000/api/analysis-sets/1/ranking/?variable=3" \
 
 ---
 
-### 5.4 BrAPI v2 (`apps/brapi/`)
+### 5.4 Genomics App (`apps/genomics/`)
+
+Genomic Selection (GBLUP) and Marker-Assisted Selection (MAS). All four
+endpoints require `IsAuthenticated` plus `RoleBasedPermission`.
+`GenotypeSample` (linking one dataset row to a `Germplasm` accession) has
+no standalone CRUD endpoint — samples are created as a side effect of
+`upload_file` and read as part of the dataset/prediction responses below.
+
+#### Genotype Datasets — `api/genotype-datasets/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name`, `program`, `species`, `file_format`, `imputation_method`, `maf_threshold`, `description` | — | writable model fields |
+| `file_format` | string | `matrix` / `vcf` / `hapmap` |
+| `marker_count` / `sample_count` | int | read-only, set by `upload_file` |
+| `program_name` / `created_by_username` | string | read-only, computed |
+| `created_at` / `updated_at` | datetime | read-only |
+
+Deleting a dataset with existing `GenomicPrediction` runs is rejected with
+`409 Conflict` (predictions must be deleted first) rather than cascading.
+
+**Custom action — `upload_file`**
+
+```
+POST api/genotype-datasets/upload_file/       (multipart/form-data)
+```
+
+Uploads and parses a genotype file — `.vcf`, `.hmp.txt` (HapMap), or a
+numeric dosage `.csv`/`.tsv` matrix (auto-detected from `file_format` or
+the filename) — up to 50MB. Required form fields: `file`, `program`.
+Optional: `name` (defaults to the filename), `file_format`,
+`imputation_method` (`mean` / `mode` / `none`, default `mean`),
+`maf_threshold` (default `0.05`), `species` (default `Triticum aestivum`),
+`description`. Runs MAF filtering and imputation
+(`qc_and_impute_matrix`), stores the cleaned dosage matrix, and links each
+sample to an existing `Germplasm` by matching name or `germplasm_db_id` —
+a sample name matching more than one accession is left unlinked and
+reported back rather than guessed at.
+
+```bash
+curl -X POST http://localhost:8000/api/genotype-datasets/upload_file/ \
+  -H "Authorization: Token abc123..." \
+  -F "file=@lines_2026.vcf" \
+  -F "program=1" \
+  -F "name=2026 GBS Panel" \
+  -F "maf_threshold=0.05"
+```
+
+Response: `{"dataset": {...}, "qc_stats": {...}, "ambiguous_links": [...], "warning": "..."}` (the last two only present if any sample matched multiple accessions), `201`.
+
+**Custom action — `grm_matrix`**
+
+```
+GET api/genotype-datasets/{id}/grm_matrix/
+```
+
+Computes the VanRaden Method-1 genomic relationship matrix (with 0.01
+shrinkage) from the dataset's stored dosage matrix, plus a 2D PCA
+projection for population-structure visualization and a heatmap slice
+(capped at 40 samples). Response:
+`{"sample_count", "marker_count", "samples": [...], "pca_coordinates": [{"sample_id", "pc1", "pc2"}, ...], "heatmap": {"samples": [...], "matrix": [[...]]}}`.
+
+#### Genomic Predictions — `api/genomic-predictions/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+One GBLUP/rrBLUP training run for a trait.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name`, `program`, `trait`, `genotype_dataset`, `training_trial`, `training_analysis_set`, `model_type` | — | writable model fields (also set directly by `run_prediction`) |
+| `n_training` / `n_candidates` | int | read-only — training vs. unphenotyped-candidate line counts |
+| `cv_accuracy` / `cv_mse` | float | read-only — 5-fold cross-validation Pearson r and MSE |
+| `genomic_heritability` | float | read-only — SNP-based $h^2$ |
+| `variance_genomic` / `variance_residual` | float | read-only |
+| `status` | string | read-only — `pending` / `completed` / `failed` |
+| `trait_name`, `trait_unit`, `genotype_dataset_name`, `training_trial_name`, `training_analysis_set_name`, `program_name`, `created_by_username` | string | read-only, computed |
+
+Deleting a prediction also deletes its `GenomicBreedingValue` rows in the
+same request (they are `PROTECT`ed against unrelated cascades, but a
+direct delete of the parent prediction is an intentional action with no
+separate "delete GEBVs first" step).
+
+**Custom action — `run_prediction`**
+
+```
+POST api/genomic-predictions/run_prediction/
+```
+
+Trains a GBLUP model and persists both the `GenomicPrediction` run and one
+`GenomicBreedingValue` per genotyped line (training and candidate alike).
+Required: `name`, `program`, `trait` (an `ObservationVariable` ID),
+`genotype_dataset`. Also required: one of `training_trial` or
+`training_analysis_set` (the source of phenotypic observations to train
+against). Optional: `heritability_prior` (default `0.50`), `k_folds`
+(default `5`). Builds the VanRaden G-matrix, runs k-fold cross-validation,
+fits the Henderson MME GBLUP solver over the full dataset, and
+auto-creates a placeholder `Germplasm` record for any genotyped sample with
+no matching accession.
+
+```bash
+curl -X POST http://localhost:8000/api/genomic-predictions/run_prediction/ \
+  -H "Authorization: Token abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"name": "2026 Yield GBLUP", "program": 1, "trait": 4, "genotype_dataset": 2, "training_trial": 7, "heritability_prior": 0.5, "k_folds": 5}'
+```
+
+Response: `{"prediction": {...}, "cross_validation": {...}, "top_candidates": [...]}` (top 10 GEBVs by rank), `201`.
+
+**Custom action — `gebvs`**
+
+```
+GET api/genomic-predictions/{id}/gebvs/?search=&is_training=
+```
+
+Paginated list of `GenomicBreedingValue` rows for this prediction, ordered
+by `rank`. `search` filters by germplasm name (substring); `is_training`
+(`true`/`false`) filters trained vs. candidate lines. Each row exposes
+`gebv`, `predicted_performance` (population mean `mu` + `gebv`),
+`reliability`, `standard_error`, `rank`, `is_training`,
+`observed_phenotype`.
+
+**Custom action — `export_gebv_csv`**
+
+```
+GET api/genomic-predictions/{id}/export_gebv_csv/
+```
+
+Downloads all GEBVs for the prediction as CSV (`Rank, Sample_ID,
+Germplasm_Name, Germplasm_DB_ID, GEBV, Reliability, Standard_Error,
+Is_Training_Set, Observed_Phenotype`).
+
+#### Diagnostic Markers — `api/diagnostic-markers/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+A library of named functional wheat markers for MAS. A `program=null`
+marker is global and visible to every program.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `name`, `gene_symbol`, `chromosome`, `target_trait`, `trait_category`, `favorable_allele`, `unfavorable_allele`, `assay_type`, `effect_description`, `program` | — | writable model fields |
+| `trait_category` | string | `disease` / `agronomic` / `quality` / `phenology` / `abiotic` |
+| `assay_type` | string | `KASP` / `TaqMan` / `PCR_Gel` / `SNP_Chip` |
+| `program_name` | string | read-only, computed |
+| `created_at` | datetime | read-only |
+
+**Custom action — `seed_defaults`**
+
+```
+POST api/diagnostic-markers/seed_defaults/
+```
+
+Body: `{"program_id": <id, optional>}`. Seeds the standard wheat functional
+marker library (`csLV34`/Lr34, `Fhb1`, `Rht-B1`, `Rht-D1`, `Ppd-D1`,
+`Gpc-B1`, `Sr2`, `Glu-D1`) — global if `program_id` is omitted, scoped to
+that program otherwise. Idempotent-friendly: only genuinely new markers are
+created. Returns `{"seeded_count": <int>, "total_markers": <int>, "markers": [...]}`.
+
+#### Marker Scores — `api/marker-scores/`
+
+| Write Roles | `admin`, `breeder` |
+|---|---|
+
+One allele call per `(marker, germplasm)` pair. Scoped by
+`germplasm__program_id` (the marker's own `program` may be null/global, so
+scoping follows the accession being scored instead).
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | int | read-only |
+| `marker`, `germplasm`, `call_status`, `raw_genotype`, `notes` | — | writable model fields |
+| `call_status` | string | `favorable` / `heterozygous` / `unfavorable` / `missing` |
+| `marker_name`, `gene_symbol`, `germplasm_name`, `germplasm_db_id` | string | read-only, computed |
+| `updated_at` | datetime | read-only |
+
+**Custom action — `stacking_overview`**
+
+```
+GET api/marker-scores/stacking_overview/?program={id}&germplasm_ids=1,2,3
+```
+
+Returns the full Lines × Markers matrix with a favorable-allele stacking
+index per accession (0–100%), optionally filtered to `program` and/or a
+comma-separated `germplasm_ids` list.
+
+**Custom action — `batch_score`**
+
+```
+POST api/marker-scores/batch_score/
+```
+
+Body: `{"scores": [{"marker_id": 1, "germplasm_id": 5, "call_status": "favorable", "raw_genotype": "A:A", "notes": "..."}, ...]}`.
+Upserts (`update_or_create`) each `(marker_id, germplasm_id)` score in one
+transaction; entries missing either ID are silently skipped. Returns
+`{"status": "success", "updated_count": <int>}`.
+
+---
+
+### 5.5 BrAPI v2 (`apps/brapi/`)
 
 The authenticated BrAPI compatibility API is rooted at `/brapi/v2/`. It
 provides `serverinfo`, `studies`, `germplasm`, `observations`,
@@ -388,7 +1000,7 @@ curl -X PUT http://localhost:8000/brapi/v2/observationunits/42 \
 # 400 — plot layout cannot be modified via BrAPI
 ```
 
-### 5.5 Metrics (`/api/metrics/`)
+### 5.6 Metrics (`/api/metrics/`)
 
 A public, unauthenticated endpoint (like `/api/health/`) exposing
 Prometheus-format text metrics: standard HTTP request/latency
@@ -403,7 +1015,7 @@ an example Prometheus scrape configuration.
 curl http://localhost:8000/api/metrics/
 ```
 
-### 5.6 Audit Endpoint (`/api/audit/recent_changes/`)
+### 5.7 Audit Endpoint (`/api/audit/recent_changes/`)
 
 An admin-only endpoint returning a consolidated chronological feed of recent additions and updates across core models (`Program`, `Location`, `Season`, `Germplasm`, `Trial`, `ObservationVariable`). 
 
@@ -459,6 +1071,10 @@ curl "http://localhost:8000/api/germplasm/?ordering=-name" \
 # Filter trials by program and design
 curl "http://localhost:8000/api/trials/?program=1&design_type=RCBD" \
   -H "Authorization: Token abc123..."
+
+# Filter seed lots by status and storage location
+curl "http://localhost:8000/api/seed-lots/?status=available&storage_location=Cold+Room+1" \
+  -H "Authorization: Token abc123..."
 ```
 
 ---
@@ -490,6 +1106,24 @@ curl -X PATCH http://localhost:8000/api/plots/42/ \
   -d '{"notes": "Lodging observed"}'
 ```
 
+### Create a crossing block
+
+```bash
+curl -X POST http://localhost:8000/api/crossing-blocks/ \
+  -H "Authorization: Token abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"name": "2026 Diallel Panel", "program": 1, "map_pattern": "male_first", "include_reciprocals": true}'
+```
+
+### Record a seed lot inventory adjustment (as technician)
+
+```bash
+curl -X POST http://localhost:8000/api/seed-lots/12/adjust/ \
+  -H "Authorization: Token <technician-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"transaction_type": "planting_deduction", "quantity_grams": -150, "notes": "Sown to 2026 Yield Trial"}'
+```
+
 ### Record an observation (as technician)
 
 ```bash
@@ -508,7 +1142,14 @@ The following capabilities are not currently implemented:
 | Feature | Status |
 |---|---|
 | BrAPI writes beyond germplasm/observations/observation-unit status | `studies`, `observationvariables`/`variables`, `locations`, `programs`, and `serverinfo` remain read-only; plot layout is not writeable via BrAPI on any resource |
-| Advanced genomic analysis | Genomic/marker-based analysis is outside the current scope |
+| Spreadsheet formats beyond CSV | No native Excel (`.xlsx`) import/export — CSV only, on both the germplasm and trial/Field Book paths |
+| Multi-institution data federation | Not implemented |
+| Drone or image-based phenotyping | Not implemented |
+
+Genomic/marker-based analysis and multi-tenant program-scoping
+enforcement, both previously listed here as gaps, are no longer
+boundaries — see §5.4 (Genomics App) and the RBAC note in §4,
+respectively.
 
 A custom browser frontend (Vite + React + TypeScript) is implemented and
 described in [docs/architecture.md](docs/architecture.md) — it is no longer

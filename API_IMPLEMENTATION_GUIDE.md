@@ -1,6 +1,6 @@
 # Wheat Breeding Platform — API Reference
 
-> **Last updated:** September 12 2026
+> **Last updated:** September 16 2026
 > This document describes the REST API as currently implemented. For
 > feature-level, non-technical documentation see [docs/WIKI.md](docs/WIKI.md);
 > for the broader system reference (data model, repo structure) see
@@ -91,6 +91,8 @@ All viewsets use **`RoleBasedPermission`** — not plain `IsAuthenticated`.
 Per-viewset `write_roles` are listed in the endpoint table below. Some viewsets also define `role_action_permissions` to grant write access on specific actions (e.g. `PlotViewSet` allows technicians to `update` and `partial_update`). One endpoint departs from the table above: **Seed Lots** (`api/seed-lots/`) grants `technician` full write access (create/update/delete), not just observation-style writes, since recording physical seed movements is routine field/store work.
 
 **Multi-tenant program scoping (Phase 21):** most viewsets listed below additionally inherit `apps.core.mixins.ProgramScopedQuerySetMixin`, which restricts list/retrieve/update/delete to rows belonging to the requester's own program (via a direct `program` FK or, where a model has none, a derived lookup such as `female_parent__program_id` on `Cross` or `germplasm__program_id` on `MarkerScore`) and rejects `create` requests that explicitly target a different program's ID. Django staff/superusers bypass this and see everything. This also covers BrAPI (`studies`, `germplasm`, `observations`, `observationunits`, `programs`) — a BrAPI client is scoped exactly like an internal-API caller. See [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) Phase 21.
+
+**CSV/Excel spreadsheet support (Phase 22):** the germplasm and Field Book import endpoints (`bulk_import`, `import_fieldbook`) accept either `.csv` or `.xlsx` uploads — the format is detected from the uploaded filename, not a separate parameter. Five export endpoints (trial `export_csv`, `export_fieldbook`, `export_map`; genomics `export_gebv_csv`; crossing-block `export_map`) accept an **`output_format=xlsx`** query parameter (default `csv`) to download an `.xlsx` workbook instead. Use `output_format`, not `format` — the latter is reserved by DRF's own content negotiation (`URL_FORMAT_OVERRIDE`) and a request using it 404s before reaching the view at all. See [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) Phase 22.
 
 ---
 
@@ -192,11 +194,13 @@ archived accessions.
 POST api/germplasm/bulk_import/       (multipart/form-data)
 ```
 
-Uploads a CSV (`file`) of germplasm rows for a given `program` (name).
-Optional `dry_run=true` validates without persisting. Reuses
+Uploads a CSV or XLSX (`file`) of germplasm rows for a given `program`
+(name) — format is detected from the filename extension. Optional
+`dry_run=true` validates without persisting. Reuses
 `apps.germplasm.services.import_germplasm_csv` — the same engine behind the
-`import_germplasm` management command. Whole-file rollback on any row
-error.
+`import_germplasm` management command and the Germplasm Browser's
+"📤 Bulk Import" modal. Whole-file rollback on any row error. A corrupted
+or mismatched-extension file returns a `400`, not a 500.
 
 ```bash
 curl -X POST http://localhost:8000/api/germplasm/bulk_import/ \
@@ -337,10 +341,12 @@ drive the diallel matrix visualizer.
 
 ```
 GET api/crossing-blocks/{id}/export_map/
+GET api/crossing-blocks/{id}/export_map/?output_format=xlsx
 ```
 
-Streams the same map as a downloadable CSV (`Position, Type, Entry, Cross
-Code, Female, Male`) for printing.
+Downloads the same map as CSV (default, streamed) or, with
+`output_format=xlsx`, as an Excel workbook — `Position, Type, Entry, Cross
+Code, Female, Male`, for printing.
 
 **Custom action — `bulk_status`**
 
@@ -513,20 +519,25 @@ variation for each numeric observation variable in the trial.
 
 ```
 GET api/trials/{id}/export_csv/
+GET api/trials/{id}/export_csv/?output_format=xlsx
 ```
 
-Streams a CSV of every observation in the trial (`plot_number,
-germplasm_name, rep, variable_name, value_numeric, value_text, value_date,
-observation_time, notes`) as an attachment download.
+Downloads every observation in the trial (`plot_number, germplasm_name,
+rep, variable_name, value_numeric, value_text, value_date,
+observation_time, notes`) as an attachment. The default CSV response is
+streamed; `output_format=xlsx` downloads a buffered Excel workbook with
+the same columns instead.
 
 **Custom action — `export_fieldbook`**
 
 ```
 GET api/trials/{id}/export_fieldbook/
+GET api/trials/{id}/export_fieldbook/?output_format=xlsx
 ```
 
-Streams a Field Book App-compatible CSV (`plot_id, range, plot, entry` plus
-one empty column per observation variable) as an attachment download.
+Downloads a Field Book App-compatible file (`plot_id, range, plot, entry`
+plus one empty column per observation variable) as CSV (default,
+streamed) or, with `output_format=xlsx`, as an Excel workbook.
 
 **Custom action — `import_fieldbook`**
 
@@ -534,10 +545,13 @@ one empty column per observation variable) as an attachment download.
 POST api/trials/{id}/import_fieldbook/       (multipart/form-data)
 ```
 
-Uploads a Field Book CSV export (`file`) and creates `Observation` records
-for this trial, matching `plot_id` to `Plot.plot_number` and trait columns
-to `ObservationVariable.name`. Optional `dry_run=true` validates only.
-Allows `admin`, `breeder`, and `technician`.
+Uploads a Field Book CSV or XLSX export (`file`) and creates `Observation`
+records for this trial, matching `plot_id` to `Plot.plot_number` and trait
+columns to `ObservationVariable.name` — format is detected from the
+filename extension. Optional `dry_run=true` validates only. Allows
+`admin`, `breeder`, and `technician`. Shares its parsing implementation
+(`apps.trials.services.import_fieldbook_csv`) with the `import_fieldbook`
+management command.
 
 **Custom action — `harvest_plots`**
 
@@ -580,12 +594,14 @@ plot grid (`row`/`column` coordinates when available, falling back to
 
 ```
 GET api/trials/{id}/export_map/
+GET api/trials/{id}/export_map/?output_format=xlsx
 ```
 
-Streams the field layout as a CSV, including `row`/`column`,
-`incomplete_block`, `is_check`/`is_border`, and precomputed horizontal- and
-vertical-serpentine walking order for each plot — for printable field maps
-and clipboard sheets.
+Downloads the field layout, including `row`/`column`, `incomplete_block`,
+`is_check`/`is_border`, and precomputed horizontal- and vertical-serpentine
+walking order for each plot — for printable field maps and clipboard
+sheets. Streamed CSV by default; `output_format=xlsx` downloads a buffered
+Excel workbook instead.
 
 **Custom action — `batch_update_plots`**
 
@@ -873,11 +889,14 @@ by `rank`. `search` filters by germplasm name (substring); `is_training`
 
 ```
 GET api/genomic-predictions/{id}/export_gebv_csv/
+GET api/genomic-predictions/{id}/export_gebv_csv/?output_format=xlsx
 ```
 
-Downloads all GEBVs for the prediction as CSV (`Rank, Sample_ID,
-Germplasm_Name, Germplasm_DB_ID, GEBV, Reliability, Standard_Error,
-Is_Training_Set, Observed_Phenotype`).
+Downloads all GEBVs for the prediction (`Rank, Sample_ID, Germplasm_Name,
+Germplasm_DB_ID, GEBV, Reliability, Standard_Error, Is_Training_Set,
+Observed_Phenotype`) as CSV (default) or, with `output_format=xlsx`, as an
+Excel workbook. The action's name is unchanged from before Excel support
+was added — only the query parameter is new.
 
 #### Diagnostic Markers — `api/diagnostic-markers/`
 
@@ -1115,6 +1134,14 @@ curl -X POST http://localhost:8000/api/crossing-blocks/ \
   -d '{"name": "2026 Diallel Panel", "program": 1, "map_pattern": "male_first", "include_reciprocals": true}'
 ```
 
+### Download a trial's observations as an Excel workbook
+
+```bash
+curl -X GET "http://localhost:8000/api/trials/7/export_csv/?output_format=xlsx" \
+  -H "Authorization: Token abc123..." \
+  -o observations.xlsx
+```
+
 ### Record a seed lot inventory adjustment (as technician)
 
 ```bash
@@ -1142,14 +1169,14 @@ The following capabilities are not currently implemented:
 | Feature | Status |
 |---|---|
 | BrAPI writes beyond germplasm/observations/observation-unit status | `studies`, `observationvariables`/`variables`, `locations`, `programs`, and `serverinfo` remain read-only; plot layout is not writeable via BrAPI on any resource |
-| Spreadsheet formats beyond CSV | No native Excel (`.xlsx`) import/export — CSV only, on both the germplasm and trial/Field Book paths |
 | Multi-institution data federation | Not implemented |
 | Drone or image-based phenotyping | Not implemented |
+| Client-side "quick export" CSV buttons | `GermplasmBrowser`'s selection export and the generic `DataTable` export build a CSV in the browser from already-fetched data with no backend call — deliberately not given an Excel option in Phase 22; would need a frontend spreadsheet library |
 
-Genomic/marker-based analysis and multi-tenant program-scoping
-enforcement, both previously listed here as gaps, are no longer
-boundaries — see §5.4 (Genomics App) and the RBAC note in §4,
-respectively.
+Genomic/marker-based analysis, multi-tenant program-scoping enforcement,
+and spreadsheet formats beyond CSV, all previously listed here as gaps,
+are no longer boundaries — see §5.4 (Genomics App), the RBAC note in §4,
+and the CSV/Excel note in §4, respectively.
 
 A custom browser frontend (Vite + React + TypeScript) is implemented and
 described in [docs/architecture.md](docs/architecture.md) — it is no longer

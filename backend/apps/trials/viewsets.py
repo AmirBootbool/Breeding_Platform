@@ -12,6 +12,7 @@ from django.http import StreamingHttpResponse
 
 from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
+from apps.core.spreadsheet import build_xlsx_response
 from apps.germplasm.models import Germplasm
 
 from .models import AnalysisSet, Observation, ObservationVariable, Plot, TraitPanel, Trial
@@ -184,7 +185,7 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def export_csv(self, request, pk=None):
-        """Stream trial observations as a CSV download."""
+        """Download trial observations as a CSV (default) or XLSX file."""
         trial = self.get_object()
         observations = (
             Observation.objects.filter(plot__trial=trial)
@@ -204,6 +205,26 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             "notes",
         ]
 
+        def row_for(obs):
+            return [
+                obs.plot.plot_number,
+                obs.plot.germplasm.name,
+                obs.plot.rep,
+                obs.variable.name,
+                obs.value_numeric if obs.value_numeric is not None else "",
+                obs.value_text or "",
+                obs.value_date if obs.value_date is not None else "",
+                obs.observation_time.isoformat() if obs.observation_time else "",
+                obs.notes or "",
+            ]
+
+        filename_base = f"{trial.trial_code}_observations"
+
+        if request.query_params.get("output_format") == "xlsx":
+            return build_xlsx_response(
+                headers, [row_for(obs) for obs in observations], filename_base
+            )
+
         def generate():
             buf = io.StringIO()
             writer = csv.writer(buf)
@@ -212,28 +233,11 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             for obs in observations:
                 buf = io.StringIO()
                 writer = csv.writer(buf)
-                writer.writerow(
-                    [
-                        obs.plot.plot_number,
-                        obs.plot.germplasm.name,
-                        obs.plot.rep,
-                        obs.variable.name,
-                        obs.value_numeric if obs.value_numeric is not None else "",
-                        obs.value_text or "",
-                        obs.value_date if obs.value_date is not None else "",
-                        (
-                            obs.observation_time.isoformat()
-                            if obs.observation_time
-                            else ""
-                        ),
-                        obs.notes or "",
-                    ]
-                )
+                writer.writerow(row_for(obs))
                 yield buf.getvalue()
 
-        filename = f"{trial.trial_code}_observations.csv"
         response = StreamingHttpResponse(generate(), content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Content-Disposition"] = f'attachment; filename="{filename_base}.csv"'
         return response
 
     @action(detail=True, methods=["post"])
@@ -269,7 +273,7 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def export_fieldbook(self, request, pk=None):
-        """Stream a Field Book compatible CSV download for this trial."""
+        """Download a Field Book compatible CSV (default) or XLSX file for this trial."""
         trial = self.get_object()
         plots = (
             Plot.objects.filter(trial=trial)
@@ -278,29 +282,36 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         )
         variables = list(ObservationVariable.objects.all().order_by("name"))
         var_names = [v.name for v in variables]
+        headers = ["plot_id", "range", "plot", "entry"] + var_names
+
+        def row_for(plot):
+            return [
+                plot.plot_number,
+                plot.rep,
+                plot.plot_number,
+                plot.germplasm.name,
+            ] + [""] * len(variables)
+
+        filename_base = f"{trial.trial_code}_fieldbook"
+
+        if request.query_params.get("output_format") == "xlsx":
+            return build_xlsx_response(
+                headers, [row_for(plot) for plot in plots], filename_base
+            )
 
         def generate():
             buf = io.StringIO()
             writer = csv.writer(buf)
-            writer.writerow(["plot_id", "range", "plot", "entry"] + var_names)
+            writer.writerow(headers)
             yield buf.getvalue()
             for plot in plots:
                 buf = io.StringIO()
                 writer = csv.writer(buf)
-                writer.writerow(
-                    [
-                        plot.plot_number,
-                        plot.rep,
-                        plot.plot_number,
-                        plot.germplasm.name,
-                    ]
-                    + [""] * len(variables)
-                )
+                writer.writerow(row_for(plot))
                 yield buf.getvalue()
 
-        filename = f"{trial.trial_code}_fieldbook.csv"
         response = StreamingHttpResponse(generate(), content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Content-Disposition"] = f'attachment; filename="{filename_base}.csv"'
         return response
 
     @action(
@@ -310,7 +321,7 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         url_path="import_fieldbook",
     )
     def import_fieldbook(self, request, pk=None):
-        """Import observations for this trial from an uploaded Field Book CSV."""
+        """Import observations for this trial from an uploaded Field Book CSV or XLSX file."""
         from django.core.exceptions import ValidationError
         from apps.trials.services import import_fieldbook_csv
 
@@ -320,13 +331,17 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
 
         if not file_obj:
             return Response(
-                {"errors": [{"row": 0, "detail": "CSV file is required (form key 'file')."}]},
+                {"errors": [{"row": 0, "detail": "CSV or XLSX file is required (form key 'file')."}]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             result = import_fieldbook_csv(
-                trial, file_obj.file, dry_run=dry_run, user=request.user
+                trial,
+                file_obj.file,
+                filename=file_obj.name,
+                dry_run=dry_run,
+                user=request.user,
             )
             if result.get("errors"):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
@@ -510,7 +525,8 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def export_map(self, request, pk=None):
-        """Export trial plot map layout as CSV with walking order serpentine numbers."""
+        """Download trial plot map layout as CSV (default) or XLSX, with
+        walking order serpentine numbers."""
         from .services import compute_walking_orders
         trial = self.get_object()
         plots = (
@@ -539,39 +555,46 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             "walking_order_v_serpentine",
         ]
 
+        def row_for(plot):
+            r = plot.row or 1
+            c = plot.column or 1
+            h_order, v_order = compute_walking_orders(r, c, field_rows, field_cols, corner)
+            return [
+                plot.plot_number,
+                plot.germplasm.name,
+                plot.germplasm.id,
+                plot.rep,
+                plot.block or "",
+                plot.incomplete_block or "",
+                plot.row or "",
+                plot.column or "",
+                "TRUE" if plot.is_check else "FALSE",
+                "TRUE" if plot.is_border else "FALSE",
+                plot.status,
+                h_order,
+                v_order,
+            ]
+
+        filename_base = f"{trial.trial_code}_field_map"
+
+        if request.query_params.get("output_format") == "xlsx":
+            return build_xlsx_response(
+                headers, [row_for(plot) for plot in plots], filename_base
+            )
+
         def generate():
             buf = io.StringIO()
             writer = csv.writer(buf)
             writer.writerow(headers)
             yield buf.getvalue()
             for plot in plots:
-                r = plot.row or 1
-                c = plot.column or 1
-                h_order, v_order = compute_walking_orders(r, c, field_rows, field_cols, corner)
                 buf = io.StringIO()
                 writer = csv.writer(buf)
-                writer.writerow(
-                    [
-                        plot.plot_number,
-                        plot.germplasm.name,
-                        plot.germplasm.id,
-                        plot.rep,
-                        plot.block or "",
-                        plot.incomplete_block or "",
-                        plot.row or "",
-                        plot.column or "",
-                        "TRUE" if plot.is_check else "FALSE",
-                        "TRUE" if plot.is_border else "FALSE",
-                        plot.status,
-                        h_order,
-                        v_order,
-                    ]
-                )
+                writer.writerow(row_for(plot))
                 yield buf.getvalue()
 
-        filename = f"{trial.trial_code}_field_map.csv"
         response = StreamingHttpResponse(generate(), content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Content-Disposition"] = f'attachment; filename="{filename_base}.csv"'
         return response
 
     @action(detail=True, methods=["patch"], url_path="batch_update_plots")

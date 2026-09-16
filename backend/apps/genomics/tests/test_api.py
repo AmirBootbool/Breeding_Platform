@@ -181,3 +181,20 @@ def test_genotype_dataset_and_prediction_api(auth_client):
     export_res = client.get(f"/api/genomic-predictions/{pred_id}/export_gebv_csv/")
     assert export_res.status_code == status.HTTP_200_OK
     assert "text/csv" in export_res["Content-Type"]
+
+    # Test XLSX Export
+    import io
+
+    import openpyxl
+
+    xlsx_res = client.get(
+        f"/api/genomic-predictions/{pred_id}/export_gebv_csv/?output_format=xlsx"
+    )
+    assert xlsx_res.status_code == status.HTTP_200_OK
+    assert xlsx_res["Content-Type"] == (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx_res.content))
+    rows = list(wb.active.iter_rows(values_only=True))
+    assert rows[0][0] == "Rank"
+    assert len(rows) == 6  # header + 5 GEBVs

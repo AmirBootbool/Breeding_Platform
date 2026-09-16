@@ -130,6 +130,23 @@ def test_crossing_map_and_csv_export_api(client_for_role, program, location, sea
     assert "Position,Type,Entry,Cross Code,Female,Male" in content
     assert germplasm.name in content
 
+    # Export crossing map XLSX
+    import io
+
+    import openpyxl
+
+    xlsx_response = client.get(
+        f"/api/crossing-blocks/{block.id}/export_map/?output_format=xlsx"
+    )
+    assert xlsx_response.status_code == 200
+    assert xlsx_response["Content-Type"] == (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx_response.content))
+    rows = list(wb.active.iter_rows(values_only=True))
+    assert rows[0] == ("Position", "Type", "Entry", "Cross Code", "Female", "Male")
+    assert any(germplasm.name in (row or ()) for row in rows[1:])
+
 
 @pytest.mark.django_db
 def test_crossing_block_rbac_viewer(client_for_role, program, location, season):

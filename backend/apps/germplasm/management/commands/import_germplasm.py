@@ -5,15 +5,15 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = "Import germplasm records from a CSV file."
+    help = "Import germplasm records from a CSV or XLSX file."
 
     def add_arguments(self, parser):
-        parser.add_argument("csv_file", help="Path to the CSV file")
+        parser.add_argument("csv_file", help="Path to the CSV or XLSX file")
         parser.add_argument("--program", required=True, help="Program name")
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help="Validate CSV format and data correctness without importing.",
+            help="Validate file format and data correctness without importing.",
         )
 
     def handle(self, *args, **options):
@@ -22,7 +22,7 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
 
         if not os.path.exists(csv_file_path):
-            raise CommandError(f"CSV file '{csv_file_path}' does not exist.")
+            raise CommandError(f"File '{csv_file_path}' does not exist.")
 
         self.stdout.write(f"Reading germplasm from: {csv_file_path}")
         self.stdout.write(f"Target Program: {program_name}")
@@ -31,7 +31,9 @@ class Command(BaseCommand):
             from apps.germplasm.services import import_germplasm_csv
 
             with open(csv_file_path, "rb") as f:
-                result = import_germplasm_csv(f, program_name, dry_run=dry_run)
+                result = import_germplasm_csv(
+                    f, program_name, filename=csv_file_path, dry_run=dry_run
+                )
         except ValidationError as ve:
             msg = ve.messages[0] if hasattr(ve, "messages") else str(ve)
             raise CommandError(msg)

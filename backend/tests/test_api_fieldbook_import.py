@@ -1,8 +1,24 @@
 import io
+import openpyxl
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.trials.models import Observation, ObservationVariable, Plot, Trial
+
+
+def make_xlsx_upload(filename, headers, rows):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return SimpleUploadedFile(
+        filename,
+        buf.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 @pytest.fixture
@@ -169,6 +185,55 @@ def test_import_fieldbook_validation_error_rollback(client_for_role, trial_with_
     assert response.status_code == 400
     assert len(response.data["errors"]) > 0
     # Nothing should be committed due to rollback
+    assert Observation.objects.filter(plot__trial=trial).count() == 0
+
+
+@pytest.mark.django_db
+def test_import_fieldbook_xlsx_success(client_for_role, trial_with_plots, fieldbook_variables):
+    client = client_for_role("breeder")
+    trial, plots = trial_with_plots
+
+    file_obj = make_xlsx_upload(
+        "fb_export.xlsx",
+        ["plot_id", "Plant height", "Grain yield", "Heading date", "Field notes"],
+        [
+            [101, 85.5, 4.2, "2026-05-10", "Good vigor"],
+            [102, 90.0, 3.8, "2026-05-12", "Slight lodging"],
+        ],
+    )
+
+    response = client.post(
+        f"/api/trials/{trial.id}/import_fieldbook/",
+        {"file": file_obj},
+        format="multipart",
+    )
+
+    assert response.status_code == 200
+    assert response.data["imported_count"] == 8  # 2 rows * 4 traits
+    assert len(response.data["errors"]) == 0
+
+    obs_p1_ph = Observation.objects.get(plot__plot_number=101, variable=fieldbook_variables["height"])
+    assert obs_p1_ph.value_numeric == 85.5
+
+
+@pytest.mark.django_db
+def test_import_fieldbook_corrupted_xlsx_returns_400_not_500(client_for_role, trial_with_plots, fieldbook_variables):
+    client = client_for_role("breeder")
+    trial, plots = trial_with_plots
+
+    # A .csv renamed to .xlsx is not a valid OOXML/zip container.
+    file_obj = SimpleUploadedFile(
+        "fb_bad.xlsx",
+        b"plot_id,Plant height\n101,85.0\n",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    response = client.post(
+        f"/api/trials/{trial.id}/import_fieldbook/",
+        {"file": file_obj},
+        format="multipart",
+    )
+    assert response.status_code == 400
     assert Observation.objects.filter(plot__trial=trial).count() == 0
 
 

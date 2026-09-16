@@ -1,15 +1,14 @@
-import csv
-import io
-
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
 from apps.core.models import Program, get_default_species_for_crop
+from apps.core.spreadsheet import SpreadsheetReadError, read_spreadsheet_rows
 from apps.germplasm.models import Germplasm
 
 
-def import_germplasm_csv(file_obj, program_name, dry_run=False):
-    """Parse and optionally persist germplasm rows from an uploaded CSV.
+def import_germplasm_csv(file_obj, program_name, filename="", dry_run=False):
+    """Parse and optionally persist germplasm rows from an uploaded CSV or
+    XLSX file.
 
     Returns a dict: {"created": int, "skipped": int,
                      "errors": [{"row": int, "detail": str}]}
@@ -19,20 +18,22 @@ def import_germplasm_csv(file_obj, program_name, dry_run=False):
     except Program.DoesNotExist as exc:
         raise ValidationError(f"Program '{program_name}' does not exist.") from exc
 
-    text_stream = io.TextIOWrapper(file_obj, encoding="utf-8")
-    reader = csv.DictReader(text_stream)
+    try:
+        fieldnames, rows = read_spreadsheet_rows(file_obj, filename)
+    except SpreadsheetReadError as exc:
+        raise ValidationError(str(exc)) from exc
 
     # Header validation — must contain at least "name"
-    if not reader.fieldnames or "name" not in reader.fieldnames:
+    if not fieldnames or "name" not in fieldnames:
         raise ValidationError(
-            f"CSV is missing required headers. Found: {reader.fieldnames}"
+            f"File is missing required headers. Found: {fieldnames}"
         )
 
     created = 0
     skipped = 0
     errors = []
     with transaction.atomic():
-        for i, row in enumerate(reader, start=2):  # header is row 1
+        for i, row in enumerate(rows, start=2):  # header is row 1
             # csv.DictReader fills a short row's missing trailing columns
             # with None (not a missing key), so row.get(field, "") never
             # falls back to "" for those - it returns None, and .strip()

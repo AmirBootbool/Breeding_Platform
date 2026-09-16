@@ -854,48 +854,53 @@ def compute_cross_environment_ranking(analysis_set, variable):
     return ranking
 
 
-def import_fieldbook_csv(trial: Trial, file_obj, dry_run: bool = False, user=None) -> dict:
-    """Import or update observations for a trial from an uploaded Field Book CSV file.
+def import_fieldbook_csv(
+    trial: Trial, file_obj, filename: str = "", dry_run: bool = False, user=None
+) -> dict:
+    """Import or update observations for a trial from an uploaded Field Book
+    CSV or XLSX file.
 
     Returns dict with imported_count, updated_count, matched_variables, and errors.
     """
-    import csv
-    import io
     from django.core.exceptions import ValidationError
     from django.db import transaction
     from django.utils import timezone
     from django.utils.dateparse import parse_date
 
+    from apps.core.spreadsheet import SpreadsheetReadError, read_spreadsheet_rows
+
     from .models import Observation, ObservationVariable, Plot
 
+    # Normalize every accepted input shape (an uploaded file with .read(),
+    # a plain string of CSV content, or an already-open text stream) down
+    # to one object with .read() so it can go through the shared reader,
+    # which needs a single consistent contract.
     if hasattr(file_obj, "read"):
-        raw = file_obj.read()
-        if isinstance(raw, str):
-            text = raw
-        else:
-            try:
-                text = raw.decode("utf-8-sig")
-            except UnicodeDecodeError:
-                text = raw.decode("latin-1")
-        stream = io.StringIO(text)
+        readable = file_obj
     elif isinstance(file_obj, str):
-        stream = io.StringIO(file_obj)
-    else:
-        stream = file_obj
+        import io
 
-    reader = csv.DictReader(stream)
-    if not reader.fieldnames:
-        raise ValidationError("CSV file is empty or missing headers.")
+        readable = io.StringIO(file_obj)
+    else:
+        readable = file_obj
+
+    try:
+        fieldnames, rows = read_spreadsheet_rows(readable, filename)
+    except SpreadsheetReadError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    if not fieldnames:
+        raise ValidationError("File is empty or missing headers.")
 
     plot_id_col = None
     for col in ["plot_id", "plot", "plot_number", "plotnumber", "Plot"]:
-        if col in reader.fieldnames:
+        if col in fieldnames:
             plot_id_col = col
             break
 
     if not plot_id_col:
         raise ValidationError(
-            f"CSV is missing plot identifier column (plot_id/plot/plot_number). Found headers: {reader.fieldnames}"
+            f"File is missing plot identifier column (plot_id/plot/plot_number). Found headers: {fieldnames}"
         )
 
     # Load all variables and build mapping by name, variable_code, and lowercased keys
@@ -909,7 +914,7 @@ def import_fieldbook_csv(trial: Trial, file_obj, dry_run: bool = False, user=Non
             var_map[var.variable_code.lower()] = var
 
     matched_cols = {}
-    for col in reader.fieldnames:
+    for col in fieldnames:
         if col == plot_id_col:
             continue
         cleaned_col = col.strip()
@@ -920,7 +925,7 @@ def import_fieldbook_csv(trial: Trial, file_obj, dry_run: bool = False, user=Non
 
     if not matched_cols:
         raise ValidationError(
-            f"No matching observation variable columns found in CSV. Found headers: {reader.fieldnames}"
+            f"No matching observation variable columns found in file. Found headers: {fieldnames}"
         )
 
     # Pre-fetch trial plots into a lookup dict: plot_number -> Plot
@@ -931,8 +936,12 @@ def import_fieldbook_csv(trial: Trial, file_obj, dry_run: bool = False, user=Non
     errors = []
 
     with transaction.atomic():
-        for row_idx, row in enumerate(reader, start=2):
-            plot_raw = row.get(plot_id_col, "").strip()
+        for row_idx, row in enumerate(rows, start=2):
+            # A short CSV row leaves trailing DictReader columns present
+            # with value None rather than absent - `(row.get(col) or "")`
+            # guards both that and a genuinely-missing column the same way
+            # the germplasm importer does.
+            plot_raw = (row.get(plot_id_col) or "").strip()
             if not plot_raw:
                 errors.append({"row": row_idx, "detail": "Missing plot identifier."})
                 continue
@@ -955,7 +964,7 @@ def import_fieldbook_csv(trial: Trial, file_obj, dry_run: bool = False, user=Non
                 continue
 
             for col_name, var in matched_cols.items():
-                cell_val = row.get(col_name, "").strip()
+                cell_val = (row.get(col_name) or "").strip()
                 if cell_val == "":
                     continue
 

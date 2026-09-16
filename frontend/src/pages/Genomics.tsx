@@ -56,6 +56,7 @@ export default function Genomics() {
 
   // 1. Prediction State
   const [selectedPrediction, setSelectedPrediction] = useState<GenomicPrediction | null>(null)
+  const [gebvExportFormat, setGebvExportFormat] = useState<'csv' | 'xlsx'>('csv')
   const [showTrainModal, setShowTrainModal] = useState(false)
   const [gebvFilter, setGebvFilter] = useState<'all' | 'candidates' | 'training'>('all')
   const [gebvSearch, setGebvSearch] = useState('')
@@ -391,14 +392,26 @@ export default function Genomics() {
 
               <div className="flex items-center gap-2">
                 {currentPred && (
-                  <a
-                    href={genomics.predictions.exportCsvUrl(currentPred.id)}
-                    className="btn btn-sm btn-outline"
-                    download
-                    title="Download GEBVs as CSV"
-                  >
-                    ⬇ Export GEBVs CSV
-                  </a>
+                  <>
+                    <select
+                      className="select select-sm bg-base-100"
+                      style={{ width: 90 }}
+                      value={gebvExportFormat}
+                      onChange={e => setGebvExportFormat(e.target.value as 'csv' | 'xlsx')}
+                      title="Export file format"
+                    >
+                      <option value="csv">CSV</option>
+                      <option value="xlsx">Excel</option>
+                    </select>
+                    <a
+                      href={genomics.predictions.exportCsvUrl(currentPred.id, gebvExportFormat)}
+                      className="btn btn-sm btn-outline"
+                      download
+                      title="Download GEBVs"
+                    >
+                      ⬇ Export GEBVs
+                    </a>
+                  </>
                 )}
                 {canWrite && (
                   <button

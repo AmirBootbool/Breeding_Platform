@@ -58,7 +58,9 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         from apps.germplasm.services import import_germplasm_csv
 
         try:
-            result = import_germplasm_csv(file_obj.file, program_name, dry_run=dry_run)
+            result = import_germplasm_csv(
+                file_obj.file, program_name, filename=file_obj.name, dry_run=dry_run
+            )
         except ValidationError as ve:
             detail = ve.messages[0] if hasattr(ve, "messages") else str(ve)
             return Response(

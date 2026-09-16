@@ -287,12 +287,20 @@ async function apiFetch<T>(
   return res.json() as Promise<T>
 }
 
-export async function downloadFile(path: string, defaultFilename: string) {
+export type ExportFormat = 'csv' | 'xlsx'
+
+function withFormat(path: string, format?: ExportFormat) {
+  if (!format || format === 'csv') return path
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}output_format=${format}`
+}
+
+export async function downloadFile(path: string, defaultFilename: string, format?: ExportFormat) {
   const token = getToken()
   const headers: Record<string, string> = {}
   if (token) headers['Authorization'] = `Token ${token}`
 
-  const res = await fetch(`${BASE}${path}`, { headers })
+  const res = await fetch(`${BASE}${withFormat(path, format)}`, { headers })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new ApiError(res.status, body?.errors ?? body)
@@ -378,6 +386,12 @@ export const seasons = {
     apiFetch<void>(`/seasons/${id}/`, { method: 'DELETE' }),
 }
 
+export interface GermplasmBulkImportResult {
+  created: number
+  skipped: number
+  errors: { row: number; detail: string }[]
+}
+
 // ---- Germplasm -------------------------------------------------------------
 
 export const germplasm = {
@@ -407,7 +421,7 @@ export const germplasm = {
       method: 'POST',
       body: JSON.stringify({ germplasm_ids, method, ssd_count }),
     }),
-  bulkImport: async (file: File, program: string, dryRun: boolean) => {
+  bulkImport: async (file: File, program: string, dryRun: boolean): Promise<GermplasmBulkImportResult> => {
     const token = getToken()
     const headers: Record<string, string> = {}
     if (token) {
@@ -424,16 +438,12 @@ export const germplasm = {
       body: formData,
     })
 
+    const body = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
       throw new ApiError(res.status, body?.errors ?? body)
     }
 
-    return res.json() as Promise<{
-      created: number
-      skipped: number
-      errors: { row: number; detail: string }[]
-    }>
+    return body as GermplasmBulkImportResult
   },
   getPedigreeTree: (id: number, depth: number = 3, direction: string = 'ancestors') =>
     apiFetch<PedigreeNode>(`/germplasm/${id}/pedigree_tree/?depth=${depth}&direction=${direction}`),
@@ -471,9 +481,14 @@ export const trials = {
     ),
   summary: (id: number) =>
     apiFetch<{ trial: string; summary: TrialSummaryRow[] }>(`/trials/${id}/summary/`),
-  exportMap: (id: number) => downloadFile(`/trials/${id}/export_map/`, `trial-${id}-map.csv`),
-  exportBook: (id: number) => downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`),
-  exportFieldBook: (id: number) => downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`),
+  exportMap: (id: number, format?: ExportFormat) =>
+    downloadFile(`/trials/${id}/export_map/`, `trial-${id}-map.csv`, format),
+  exportCsv: (id: number, format?: ExportFormat) =>
+    downloadFile(`/trials/${id}/export_csv/`, `trial-${id}-observations.csv`, format),
+  exportBook: (id: number, format?: ExportFormat) =>
+    downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`, format),
+  exportFieldBook: (id: number, format?: ExportFormat) =>
+    downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`, format),
   importFieldBook: async (trialId: number, file: File, dryRun: boolean = false): Promise<FieldBookImportResult> => {
     const token = getToken()
     const headers: Record<string, string> = {}
@@ -737,7 +752,8 @@ export const crossingBlocks = {
     ),
   getCrossingMap: (id: number) =>
     apiFetch<{ map: CrossingMapEntry[] }>(`/crossing-blocks/${id}/crossing_map/`),
-  exportMap: (id: number) => downloadFile(`/crossing-blocks/${id}/export_map/`, `crossing_map.csv`),
+  exportMap: (id: number, format?: ExportFormat) =>
+    downloadFile(`/crossing-blocks/${id}/export_map/`, `crossing_map.csv`, format),
   bulkUpdateStatus: (id: number, data: { cross_ids: number[]; status: string; notes?: string }) =>
     apiFetch<{ updated_count: number; status: string }>(
       `/crossing-blocks/${id}/bulk_status/`,
@@ -1069,8 +1085,8 @@ export const genomics = {
       apiFetch<PaginatedResponse<GenomicBreedingValue>>(
         `/genomic-predictions/${predictionId}/gebvs/?page_size=100${params}`
       ),
-    exportCsvUrl: (predictionId: number) =>
-      `${BASE}/genomic-predictions/${predictionId}/export_gebv_csv/`,
+    exportCsvUrl: (predictionId: number, format?: ExportFormat) =>
+      `${BASE}${withFormat(`/genomic-predictions/${predictionId}/export_gebv_csv/`, format)}`,
     delete: (id: number) =>
       apiFetch<void>(`/genomic-predictions/${id}/`, { method: 'DELETE' }),
   },

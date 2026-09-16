@@ -1,23 +1,35 @@
 import csv
 
+from openpyxl import Workbook
+
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.trials.models import Observation, Trial
 
 
 class Command(BaseCommand):
-    help = "Export trial observations to a CSV file or stdout."
+    help = "Export trial observations to a CSV or XLSX file, or CSV to stdout."
 
     def add_arguments(self, parser):
         parser.add_argument("--trial", required=True, help="Trial code")
         parser.add_argument(
             "--output",
-            help="Path to the output CSV file. If omitted, writes to stdout.",
+            help="Path to the output file. If omitted, writes CSV to stdout.",
+        )
+        parser.add_argument(
+            "--format",
+            choices=["csv", "xlsx"],
+            default="csv",
+            help="Output format (default: csv).",
         )
 
     def handle(self, *args, **options):
         trial_code = options["trial"]
         output_path = options["output"]
+        fmt = options["format"]
+
+        if fmt == "xlsx" and not output_path:
+            raise CommandError("--output is required when --format xlsx is used.")
 
         try:
             trial = Trial.objects.get(trial_code=trial_code)
@@ -42,27 +54,40 @@ class Command(BaseCommand):
             "notes",
         ]
 
+        def row_for(obs):
+            return [
+                obs.plot.plot_number,
+                obs.plot.germplasm.name,
+                obs.plot.rep,
+                obs.variable.name,
+                obs.value_numeric if obs.value_numeric is not None else "",
+                obs.value_text or "",
+                obs.value_date if obs.value_date is not None else "",
+                obs.observation_time.isoformat() if obs.observation_time else "",
+                obs.notes or "",
+            ]
+
+        if fmt == "xlsx":
+            wb = Workbook(write_only=True)
+            ws = wb.create_sheet()
+            ws.append(headers)
+            for obs in observations:
+                ws.append(row_for(obs))
+            try:
+                wb.save(output_path)
+            except OSError as e:
+                raise CommandError(f"Failed to write to file: {e}")
+            self.stdout.write(
+                f"Successfully exported data for trial '{trial_code}' "
+                f"to {output_path}"
+            )
+            return
+
         def write_csv(f):
             writer = csv.writer(f)
             writer.writerow(headers)
             for obs in observations:
-                writer.writerow(
-                    [
-                        obs.plot.plot_number,
-                        obs.plot.germplasm.name,
-                        obs.plot.rep,
-                        obs.variable.name,
-                        obs.value_numeric if obs.value_numeric is not None else "",
-                        obs.value_text or "",
-                        obs.value_date if obs.value_date is not None else "",
-                        (
-                            obs.observation_time.isoformat()
-                            if obs.observation_time
-                            else ""
-                        ),
-                        obs.notes or "",
-                    ]
-                )
+                writer.writerow(row_for(obs))
 
         if output_path:
             try:
@@ -72,7 +97,7 @@ class Command(BaseCommand):
                     f"Successfully exported data for trial '{trial_code}' "
                     f"to {output_path}"
                 )
-            except Exception as e:
+            except OSError as e:
                 raise CommandError(f"Failed to write to file: {e}")
         else:
             # Write to stdout

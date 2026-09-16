@@ -9,17 +9,21 @@ function DownloadButton({
   label,
   url,
   icon,
+  format,
 }: {
   id: string
   label: string
   url: string
   icon: string
+  format: 'csv' | 'xlsx'
 }) {
   const token = useAuthStore(s => s.token)
 
   async function handleDownload() {
     // Use fetch with auth header, then trigger blob download
-    const res = await fetch(url, {
+    const separator = url.includes('?') ? '&' : '?'
+    const fullUrl = format === 'xlsx' ? `${url}${separator}output_format=xlsx` : url
+    const res = await fetch(fullUrl, {
       headers: { Authorization: `Token ${token}` },
     })
     if (!res.ok) {
@@ -48,6 +52,7 @@ function DownloadButton({
 
 export default function DataExport() {
   const [selectedTrial, setSelectedTrial] = useState<Trial | null>(null)
+  const [format, setFormat] = useState<'csv' | 'xlsx'>('csv')
 
   const { data: trialsData, isLoading } = useQuery({
     queryKey: ['trials-export'],
@@ -101,11 +106,33 @@ export default function DataExport() {
               {selectedTrial.season_name}
             </p>
 
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-sm font-semibold">File format:</span>
+              <div style={{ display: 'flex', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
+                <button
+                  id="export-format-csv"
+                  className={`btn btn-sm ${format === 'csv' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ borderRadius: 0, padding: '4px 12px' }}
+                  onClick={() => setFormat('csv')}
+                >
+                  CSV
+                </button>
+                <button
+                  id="export-format-xlsx"
+                  className={`btn btn-sm ${format === 'xlsx' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ borderRadius: 0, padding: '4px 12px' }}
+                  onClick={() => setFormat('xlsx')}
+                >
+                  Excel
+                </button>
+              </div>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-              {/* Observations CSV */}
+              {/* Observations */}
               <div className="card" style={{ background: 'var(--bg-elevated)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>
-                  📄 Observations CSV
+                  📄 Observations
                 </div>
                 <p className="text-sm text-muted mb-4">
                   All recorded observations for this trial: plot number, germplasm,
@@ -113,16 +140,17 @@ export default function DataExport() {
                 </p>
                 <DownloadButton
                   id="download-obs-csv"
-                  label="Download Observations CSV"
+                  label={`Download Observations ${format === 'xlsx' ? 'Excel' : 'CSV'}`}
                   url={`/api/trials/${selectedTrial.id}/export_csv/`}
                   icon="⬇"
+                  format={format}
                 />
               </div>
 
-              {/* Field Book CSV */}
+              {/* Field Book */}
               <div className="card" style={{ background: 'var(--bg-elevated)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 'var(--space-2)' }}>
-                  📱 Field Book CSV
+                  📱 Field Book
                 </div>
                 <p className="text-sm text-muted mb-4">
                   Plot layout in Field Book Android app format: plot_id, range,
@@ -130,9 +158,10 @@ export default function DataExport() {
                 </p>
                 <DownloadButton
                   id="download-fieldbook-csv"
-                  label="Download Field Book CSV"
+                  label={`Download Field Book ${format === 'xlsx' ? 'Excel' : 'CSV'}`}
                   url={`/api/trials/${selectedTrial.id}/export_fieldbook/`}
                   icon="⬇"
+                  format={format}
                 />
               </div>
             </div>

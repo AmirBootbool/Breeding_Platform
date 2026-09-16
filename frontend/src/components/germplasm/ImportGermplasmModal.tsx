@@ -1,21 +1,22 @@
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { trials, Trial, FieldBookImportResult, ApiError } from '../../api/client'
+import { germplasm, Program, GermplasmBulkImportResult, ApiError } from '../../api/client'
 
-interface ImportFieldBookModalProps {
-  trial: Trial
+interface ImportGermplasmModalProps {
+  programList: Program[]
   onClose: () => void
   onSuccess?: () => void
 }
 
-export default function ImportFieldBookModal({
-  trial,
+export default function ImportGermplasmModal({
+  programList,
   onClose,
   onSuccess,
-}: ImportFieldBookModalProps) {
+}: ImportGermplasmModalProps) {
   const [file, setFile] = useState<File | null>(null)
+  const [programName, setProgramName] = useState(programList[0]?.name ?? '')
   const [dryRun, setDryRun] = useState(false)
-  const [result, setResult] = useState<FieldBookImportResult | null>(null)
+  const [result, setResult] = useState<GermplasmBulkImportResult | null>(null)
   const [error, setError] = useState<string>('')
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -24,16 +25,16 @@ export default function ImportFieldBookModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error('Please select a CSV file to import.')
-      return trials.importFieldBook(trial.id, file, dryRun)
+      if (!file) throw new Error('Please select a CSV or Excel file to import.')
+      if (!programName) throw new Error('Please select a program.')
+      return germplasm.bulkImport(file, programName, dryRun)
     },
     onSuccess: (data) => {
       setResult(data)
       setError('')
-      if (!data.dry_run && (!data.errors || data.errors.length === 0)) {
-        qc.invalidateQueries({ queryKey: ['observations-for-trial', trial.id] })
-        qc.invalidateQueries({ queryKey: ['trial-summary', trial.id] })
-        qc.invalidateQueries({ queryKey: ['observations'] })
+      if (!dryRun && (!data.errors || data.errors.length === 0)) {
+        qc.invalidateQueries({ queryKey: ['germplasm'] })
+        qc.invalidateQueries({ queryKey: ['germplasm-all'] })
         if (onSuccess) onSuccess()
       }
     },
@@ -41,16 +42,7 @@ export default function ImportFieldBookModal({
       if (err instanceof ApiError) {
         const detail = err.detail
         if (typeof detail === 'object' && detail !== null && 'errors' in detail) {
-          const resObj = detail as FieldBookImportResult
-          setResult(resObj)
-        } else if (Array.isArray(detail)) {
-          setResult({
-            imported_count: 0,
-            updated_count: 0,
-            matched_variables: [],
-            errors: detail,
-            dry_run: dryRun,
-          })
+          setResult(detail as GermplasmBulkImportResult)
         } else {
           setError(typeof detail === 'string' ? detail : JSON.stringify(detail))
         }
@@ -60,13 +52,17 @@ export default function ImportFieldBookModal({
     },
   })
 
+  function isSupportedFile(name: string) {
+    const lower = name.toLowerCase()
+    return lower.endsWith('.csv') || lower.endsWith('.xlsx')
+  }
+
   function handleFileDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setIsDragging(false)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0]
-      const lower = droppedFile.name.toLowerCase()
-      if (lower.endsWith('.csv') || lower.endsWith('.xlsx')) {
+      if (isSupportedFile(droppedFile.name)) {
         setFile(droppedFile)
         setResult(null)
         setError('')
@@ -90,8 +86,9 @@ export default function ImportFieldBookModal({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <p className="text-sm text-muted">
-        Upload observation scores from your tablet or Field Book Android app for trial{' '}
-        <strong style={{ color: 'var(--text-main)' }}>{trial.trial_code}</strong>.
+        Bulk-create germplasm accessions from a CSV or Excel file. Required column:{' '}
+        <code>name</code>. Optional: <code>species, pedigree_string, cross_type,
+        year_developed, notes</code>.
       </p>
 
       {error && (
@@ -100,6 +97,20 @@ export default function ImportFieldBookModal({
           <span>{error}</span>
         </div>
       )}
+
+      <div className="form-group">
+        <label className="form-label">Program <span style={{ color: 'var(--status-danger)' }}>*</span></label>
+        <select
+          id="import-germplasm-program"
+          className="form-input"
+          value={programName}
+          onChange={(e) => setProgramName(e.target.value)}
+        >
+          {programList.map((p) => (
+            <option key={p.id} value={p.name}>{p.name}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Drop Zone */}
       <div
@@ -140,10 +151,11 @@ export default function ImportFieldBookModal({
         ) : (
           <div>
             <p className="font-medium text-sm">
-              Click to select or drag and drop a Field Book CSV or Excel file here
+              Click to select or drag and drop a CSV or Excel file here
             </p>
             <p className="text-xs text-muted mt-1">
-              Supports standard Field Book format with plot/plot_id and trait columns
+              Columns: name (required), species, pedigree_string, cross_type,
+              year_developed, notes
             </p>
           </div>
         )}
@@ -157,37 +169,23 @@ export default function ImportFieldBookModal({
             checked={dryRun}
             onChange={(e) => setDryRun(e.target.checked)}
           />
-          <span><strong>Dry Run (Validate Only)</strong> — check CSV headers, plots, and values without saving</span>
+          <span><strong>Validate Only (Dry Run)</strong> — check rows without saving</span>
         </label>
       </div>
 
       {/* Result Display */}
       {result && !hasErrors && (
-        <div className={`alert ${result.dry_run ? 'alert-info' : 'alert-success'}`}>
+        <div className={`alert ${dryRun ? 'alert-info' : 'alert-success'}`}>
           <span>✓</span>
           <div>
             <strong>
-              {result.dry_run ? 'Dry Run Validation Passed!' : 'Field Book Imported Successfully!'}
+              {dryRun ? 'Dry Run Validation Passed!' : 'Germplasm Imported Successfully!'}
             </strong>
             <p className="text-xs mt-1">
-              {result.dry_run
-                ? `Ready to import ${result.imported_count + result.updated_count} observations.`
-                : `Created ${result.imported_count} new and updated ${result.updated_count} existing observations.`}
+              {dryRun
+                ? `Ready to create ${result.skipped > 0 ? `new accessions (${result.skipped} duplicate name(s) will be skipped)` : 'the accessions in this file'}.`
+                : `Created ${result.created} accession(s)${result.skipped > 0 ? `, skipped ${result.skipped} duplicate(s)` : ''}.`}
             </p>
-            {result.matched_variables.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1 items-center">
-                <span className="text-xs font-semibold">Matched Traits:</span>
-                {result.matched_variables.map((v) => (
-                  <span
-                    key={v}
-                    className="badge badge-neutral"
-                    style={{ fontSize: '0.75rem' }}
-                  >
-                    {v}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -197,7 +195,7 @@ export default function ImportFieldBookModal({
         <div className="alert alert-error" style={{ display: 'block' }}>
           <div className="flex items-center gap-2 font-semibold">
             <span>⚠</span>
-            <span>Import failed with {result?.errors.length} error(s). All database changes were rolled back.</span>
+            <span>Import failed with {result?.errors.length} error(s). No accessions were saved.</span>
           </div>
           <div
             className="table-container mt-3"
@@ -214,11 +212,7 @@ export default function ImportFieldBookModal({
                 {result?.errors.map((err, idx) => (
                   <tr key={idx}>
                     <td>{err.row > 0 ? `Row ${err.row}` : 'File'}</td>
-                    <td>
-                      {typeof err.detail === 'object'
-                        ? JSON.stringify(err.detail)
-                        : String(err.detail)}
-                    </td>
+                    <td>{String(err.detail)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -234,12 +228,12 @@ export default function ImportFieldBookModal({
           onClick={onClose}
           disabled={mutation.isPending}
         >
-          {result && !result.dry_run && !hasErrors ? 'Done' : 'Cancel'}
+          {result && !dryRun && !hasErrors ? 'Done' : 'Cancel'}
         </button>
         <button
-          id="import-fieldbook-submit-btn"
+          id="import-germplasm-submit-btn"
           className="btn btn-primary"
-          disabled={!file || mutation.isPending}
+          disabled={!file || !programName || mutation.isPending}
           onClick={() => mutation.mutate()}
         >
           {mutation.isPending ? (
@@ -248,7 +242,7 @@ export default function ImportFieldBookModal({
               {dryRun ? 'Validating…' : 'Importing…'}
             </>
           ) : dryRun ? (
-            'Validate CSV'
+            'Validate File'
           ) : (
             '📥 Upload & Import'
           )}

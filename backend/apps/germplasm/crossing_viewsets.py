@@ -1,14 +1,11 @@
-import csv
-import io
-
 from django.db.models import Count
-from django.http import HttpResponse
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
+from apps.core.spreadsheet import build_spreadsheet_response
 from apps.germplasm.crossing_serializers import (
     CrossingBlockDetailSerializer,
     CrossingBlockListSerializer,
@@ -99,32 +96,27 @@ class CrossingBlockViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="export_map")
     def export_map(self, request, pk=None):
-        """Export crossing map as CSV for printing."""
+        """Export crossing map as CSV (default) or XLSX for printing."""
         block = self.get_object()
         map_data = generate_crossing_map(block)
 
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
-        response[
-            "Content-Disposition"
-        ] = f'attachment; filename="crossing_map_{block.name}.csv"'
+        headers = ["Position", "Type", "Entry", "Cross Code", "Female", "Male"]
+        rows = [
+            [
+                entry["position"],
+                entry["type"],
+                entry["entry_name"],
+                entry.get("cross_code", ""),
+                entry.get("female_name", ""),
+                entry.get("male_name", ""),
+            ]
+            for entry in map_data
+        ]
 
-        writer = csv.writer(response)
-        writer.writerow(
-            ["Position", "Type", "Entry", "Cross Code", "Female", "Male"]
+        fmt = request.query_params.get("output_format")
+        return build_spreadsheet_response(
+            fmt, headers, rows, f"crossing_map_{block.name}"
         )
-        for entry in map_data:
-            writer.writerow(
-                [
-                    entry["position"],
-                    entry["type"],
-                    entry["entry_name"],
-                    entry.get("cross_code", ""),
-                    entry.get("female_name", ""),
-                    entry.get("male_name", ""),
-                ]
-            )
-
-        return response
 
     @action(detail=True, methods=["post"], url_path="bulk_status")
     def bulk_update_status(self, request, pk=None):

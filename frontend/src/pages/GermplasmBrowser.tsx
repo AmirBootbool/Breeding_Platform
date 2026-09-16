@@ -7,6 +7,7 @@ import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SendToTrialModal from '../components/SendToTrialModal'
 import PedigreeTreeModal from '../components/pedigree/PedigreeTreeModal'
+import ImportGermplasmModal from '../components/germplasm/ImportGermplasmModal'
 import { DataTable, Column } from '../components/common/DataTable'
 
 // ---- Cross type badge -------------------------------------------------------
@@ -357,6 +358,7 @@ export default function GermplasmBrowser() {
   const [selected, setSelected] = useState<Germplasm | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showCreate, setShowCreate] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const [advancedIds, setAdvancedIds] = useState<number[]>([])
   const [showAdvanceSuccessPrompt, setShowAdvanceSuccessPrompt] = useState(false)
@@ -480,6 +482,9 @@ export default function GermplasmBrowser() {
         subtitle={`${filteredResults.length} entries shown (${data?.count ?? 0} total)`}
         actions={canWrite ? (
           <div className="flex gap-2">
+            <button id="bulk-import-germplasm-btn" className="btn btn-secondary" onClick={() => setShowBulkImport(true)}>
+              📤 Bulk Import
+            </button>
             <button id="add-germplasm-btn" className="btn btn-primary" onClick={() => setShowCreate(true)}>
               + Add Germplasm
             </button>
@@ -784,6 +789,15 @@ export default function GermplasmBrowser() {
             germplasmList={germplasmList}
             onClose={() => setShowCreate(false)}
             onSaved={() => setShowCreate(false)}
+          />
+        </Modal>
+      )}
+
+      {showBulkImport && (
+        <Modal title="Bulk Import Germplasm" onClose={() => setShowBulkImport(false)} wide>
+          <ImportGermplasmModal
+            programList={programList}
+            onClose={() => setShowBulkImport(false)}
           />
         </Modal>
       )}

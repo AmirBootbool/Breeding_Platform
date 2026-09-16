@@ -896,7 +896,7 @@ paths:
   /api/crossing-blocks/{id}/export_map/:
     get:
       operationId: api_crossing_blocks_export_map_retrieve
-      description: Export crossing map as CSV for printing.
+      description: Export crossing map as CSV (default) or XLSX for printing.
       parameters:
       - in: path
         name: id
@@ -1535,7 +1535,8 @@ paths:
   /api/genomic-predictions/{id}/export_gebv_csv/:
     get:
       operationId: api_genomic_predictions_export_gebv_csv_retrieve
-      description: Download all GEBVs for this prediction as a CSV file.
+      description: Download all GEBVs for this prediction as a CSV (default) or XLSX
+        file.
       parameters:
       - in: path
         name: id
@@ -5258,7 +5259,7 @@ paths:
   /api/trials/{id}/export_csv/:
     get:
       operationId: api_trials_export_csv_retrieve
-      description: Stream trial observations as a CSV download.
+      description: Download trial observations as a CSV (default) or XLSX file.
       parameters:
       - in: path
         name: id
@@ -5281,7 +5282,8 @@ paths:
   /api/trials/{id}/export_fieldbook/:
     get:
       operationId: api_trials_export_fieldbook_retrieve
-      description: Stream a Field Book compatible CSV download for this trial.
+      description: Download a Field Book compatible CSV (default) or XLSX file for
+        this trial.
       parameters:
       - in: path
         name: id
@@ -5304,8 +5306,9 @@ paths:
   /api/trials/{id}/export_map/:
     get:
       operationId: api_trials_export_map_retrieve
-      description: Export trial plot map layout as CSV with walking order serpentine
-        numbers.
+      description: |-
+        Download trial plot map layout as CSV (default) or XLSX, with
+        walking order serpentine numbers.
       parameters:
       - in: path
         name: id
@@ -5372,7 +5375,7 @@ paths:
     post:
       operationId: api_trials_import_fieldbook_create
       description: Import observations for this trial from an uploaded Field Book
-        CSV.
+        CSV or XLSX file.
       parameters:
       - in: path
         name: id

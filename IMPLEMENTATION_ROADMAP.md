@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-Updated: 2026-09-12
+Updated: 2026-09-16
 
 This roadmap contains detailed implementation instructions for each task.
 Phases 1–13 are self-contained, forward-looking build instructions written
@@ -38,6 +38,7 @@ phase-level status, not day-to-day feature documentation.
 | 19    | ✅ Done                       | Genomic selection (GBLUP/GEBVs) & marker-assisted selection |
 | 20    | ✅ Done                       | 11-chapter wiki documentation & operations manual |
 | 21    | ✅ Done                       | Multi-tenant program scoping & crash hardening |
+| 22    | ✅ Done                       | Spreadsheet formats beyond CSV (Excel import/export) |
 
 ---
 
@@ -1971,3 +1972,461 @@ and race conditions that would otherwise 500 or corrupt data.
       skipped — 261 tests total).
 - [x] `openapi.yaml` regenerates with 0 errors (39 pre-existing BrAPI
       read-only warnings, unchanged from before this phase).
+
+---
+
+## Phase 22: Spreadsheet Formats Beyond CSV (Excel Import/Export) — ✅ COMPLETE
+
+### Goal
+
+Every import/export path in the platform is CSV-only today. Add native
+`.xlsx` support alongside CSV — not instead of it — across every
+server-generated import and export surface, and close a pre-existing gap
+where the germplasm bulk-import API has never had a UI wired to it.
+
+### Prerequisites
+
+- Phases 1–21 complete.
+- `pandas>=2.0.0` is already a backend dependency and already used for one
+  CSV/TSV import path (`apps/genomics/services.py::parse_matrix_stream`).
+  **`openpyxl` is not installed anywhere in the project** — it is a new
+  dependency this phase adds, needed regardless of whether Excel support is
+  built on raw `openpyxl` or through `pandas.read_excel`/`.to_excel` (both
+  require `openpyxl` as their `.xlsx` engine).
+
+### Scope Decisions
+
+- **In scope:** `.xlsx` read/write for every *server-generated* CSV path:
+  germplasm bulk import, Field Book import (API + CLI), trial observation
+  export, Field Book export, field-map export, GEBV export, and
+  crossing-block map export. Also in scope: building the germplasm
+  bulk-import UI, which currently has no call site (`client.ts` defines
+  `germplasm.bulkImport` but no component calls it — the Phase 9 roadmap
+  entry claimed this UI shipped, but it does not exist in the current
+  codebase; treat this as reconnecting a regression, not net-new scope).
+- **Out of scope:** the purely client-side "quick export" buttons that
+  build a CSV string in the browser from already-fetched JSON with no
+  backend involved (`GermplasmBrowser`'s `exportSelectedCsv`, and the
+  generic `DataTable.handleExportCSV` reused by `GermplasmBrowser`,
+  `SeedInventory`, and `TrialManager`). These stay CSV-only; giving them an
+  Excel option would require a *frontend* spreadsheet library (e.g.
+  SheetJS) and is a smaller, separate follow-up if ever wanted.
+- **Genomics genotype-dataset upload** (`.vcf`/`.hmp.txt`/matrix ingestion)
+  is unaffected — a numeric dosage matrix already accepts `.csv`/`.tsv` via
+  `parse_matrix_stream`, and VCF/HapMap are domain formats, not
+  spreadsheets. Not in scope for this phase.
+
+---
+
+### 22.1 Shared Spreadsheet Utilities (2–3 hours)
+
+**Goal:** one shared module so format-detection logic isn't duplicated
+across five-plus import/export call sites.
+
+**Step-by-step implementation:**
+
+1. Add `openpyxl` to `backend/requirements/base.txt` (pin a major version,
+   e.g. `openpyxl>=3.1,<4.0`).
+
+2. Create `backend/apps/core/spreadsheet.py`:
+
+```python
+import csv
+import io
+
+from openpyxl import Workbook, load_workbook
+from django.http import HttpResponse
+
+XLSX_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+
+def is_xlsx_filename(filename: str) -> bool:
+    return (filename or "").lower().endswith(".xlsx")
+
+
+def read_spreadsheet_rows(file_obj, filename: str) -> list[dict]:
+    """Read a CSV or XLSX file-like object into a list of dict rows,
+    keyed by the header row, with every value coerced to a string (or ""
+    for empty/None cells) — matching csv.DictReader's string-only output
+    so downstream int()/float()/strip() parsing behaves identically
+    regardless of which format was uploaded.
+    """
+    if is_xlsx_filename(filename):
+        wb = load_workbook(filename=file_obj, data_only=True, read_only=True)
+        ws = wb.active
+        rows_iter = ws.iter_rows(values_only=True)
+        try:
+            headers = [str(h).strip() if h is not None else "" for h in next(rows_iter)]
+        except StopIteration:
+            return []
+        rows = []
+        for raw_row in rows_iter:
+            row = {}
+            for i, value in enumerate(raw_row):
+                key = headers[i] if i < len(headers) else f"col_{i}"
+                row[key] = "" if value is None else str(value)
+            rows.append(row)
+        return rows
+
+    text_stream = io.TextIOWrapper(file_obj, encoding="utf-8-sig")
+    return list(csv.DictReader(text_stream))
+
+
+def build_csv_response(headers: list[str], rows: list[list], filename_base: str) -> HttpResponse:
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename_base}.csv"'
+    writer = csv.writer(response)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return response
+
+
+def build_xlsx_response(headers: list[str], rows: list[list], filename_base: str) -> HttpResponse:
+    wb = Workbook(write_only=True)
+    ws = wb.create_sheet()
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    response = HttpResponse(buf.getvalue(), content_type=XLSX_CONTENT_TYPE)
+    response["Content-Disposition"] = f'attachment; filename="{filename_base}.xlsx"'
+    return response
+
+
+def build_spreadsheet_response(
+    fmt: str, headers: list[str], rows: list[list], filename_base: str
+) -> HttpResponse:
+    if fmt == "xlsx":
+        return build_xlsx_response(headers, rows, filename_base)
+    return build_csv_response(headers, rows, filename_base)
+```
+
+   **Important details for the implementer:**
+   - `read_spreadsheet_rows` takes the **raw uploaded file object** (e.g.
+     Django's `UploadedFile.file`) the same way `csv.DictReader` call sites
+     already do today — `load_workbook` accepts a file-like object
+     directly, no temp file needed.
+   - `read_only=True` on `load_workbook` matters for large germplasm/Field
+     Book sheets — it streams rows instead of loading the whole workbook
+     into memory.
+   - `write_only=True` on the `Workbook` constructor is the streaming
+     write-side equivalent; without it, building a multi-thousand-row
+     workbook in memory before the three trial-export actions (§22.5)
+     would be needlessly slow.
+   - `build_csv_response`/`build_xlsx_response` are **buffered**, not
+     streaming. The three existing trial CSV exports use
+     `StreamingHttpResponse` with a row-by-row generator — `.xlsx` has no
+     equivalent streaming write path with `openpyxl`'s public API, so the
+     plan is: **the default CSV response stays streaming and unchanged**;
+     a new `?output_format=xlsx` branch uses these buffered builders instead. This
+     is an acceptable tradeoff at plot/observation-table scale (hundreds to
+     low thousands of rows), not the row-count this platform's biggest
+     genotype datasets reach.
+
+3. **Tests to add** (`backend/apps/core/tests/test_spreadsheet.py`):
+   - `read_spreadsheet_rows` on a valid `.xlsx` returns the same dict shape
+     as `csv.DictReader` would for equivalent CSV content.
+   - A `.xlsx` with a blank row lower down doesn't crash (returns `""` for
+     empty cells, not `None`).
+   - `read_spreadsheet_rows` on a corrupted/truncated `.xlsx` raises a
+     catchable exception (`openpyxl.utils.exceptions.InvalidFileException`
+     or similar) rather than a bare crash — callers (§22.3, §22.4) must
+     catch it and return a clean `400`, not a 500 (Phase 21 crash-hardening
+     spirit).
+   - `build_xlsx_response`/`build_csv_response` round-trip: write rows,
+     re-read with `openpyxl.load_workbook`/`csv.reader`, assert equality.
+
+---
+
+### 22.2 Germplasm Spreadsheet Import (2–3 hours)
+
+**Step-by-step implementation:**
+
+1. In `apps/germplasm/services.py::import_germplasm_csv`, replace the
+   `io.TextIOWrapper(file_obj, ...)` + `csv.DictReader(...)` lines with a
+   call to `read_spreadsheet_rows(file_obj, filename)`. This requires
+   threading a `filename` parameter through:
+   ```python
+   def import_germplasm_csv(file_obj, program_name, filename="", dry_run=False):
+   ```
+   Keep the function name (it now handles both formats, but callers,
+   docs, and existing tests reference this name — a rename is unnecessary
+   churn). Update its docstring to say "CSV or XLSX".
+
+2. Update the two callers to pass `filename`:
+   - `apps/germplasm/viewsets.py::GermplasmViewSet.bulk_import` — pass
+     `file_obj.name` (already available on the Django `UploadedFile`).
+   - `apps/germplasm/management/commands/import_germplasm.py` — pass the
+     `csv_file` path argument itself (its extension is the filename).
+
+3. Wrap the `read_spreadsheet_rows` call in a `try/except` that returns
+   the existing `{"errors": [{"row": 0, "detail": ...}]}` 400 shape on a
+   corrupted/unreadable spreadsheet, matching how a missing `name` header
+   is already reported.
+
+4. **Tests to add** (extend `backend/tests/test_api_germplasm_bulk_import.py`):
+   - Valid `.xlsx` with 3 rows → `created: 3`, 201 (mirror the existing CSV
+     test with an `.xlsx` fixture built via `openpyxl` in the test itself,
+     not a checked-in binary file).
+   - `.xlsx` with a bad row → 400, whole-file rollback, same as CSV.
+   - `dry_run=true` on a valid `.xlsx` → 0 rows persisted.
+   - Corrupted `.xlsx` (e.g. a `.csv` renamed to `.xlsx`, or truncated
+     bytes) → 400 with a clean error, not a 500.
+
+---
+
+### 22.3 Field Book Spreadsheet Import — Dedup + Extend (3–4 hours)
+
+**Context:** `apps/trials/management/commands/import_fieldbook.py`
+currently has its **own, fully independent ~150-line copy** of Field
+Book CSV parsing — it does not call
+`apps.trials.services.import_fieldbook_csv`, the function the API action
+(`TrialViewSet.import_fieldbook`) uses. Adding Excel support means
+touching parsing logic in one place, not two, so this phase folds in a
+dedup that should have happened alongside the original CSV work.
+
+**Step-by-step implementation:**
+
+1. Refactor `import_fieldbook.py` to open the file and delegate entirely
+   to `apps.trials.services.import_fieldbook_csv(trial, file_obj, dry_run=..., user=None)`,
+   removing its duplicate `csv.DictReader`/plot-column-detection/type-
+   coercion logic. Verify its existing test coverage
+   (`backend/tests/test_management_commands.py`) still passes — the
+   service's plot-ID column detection is broader (`plot_id`/`plot`/
+   `plot_number`/`plotnumber`/`Plot`) than the command's own version
+   (`plot_id`/`plot`/`plot_number` only), so this is a behavior widening,
+   not a narrowing; confirm no test relied on the narrower set rejecting a
+   column name the service now accepts.
+
+2. In `apps/trials/services.py::import_fieldbook_csv`, replace its
+   existing multi-branch input handling (bytes/str/stream) with a call to
+   `read_spreadsheet_rows(file_obj, filename)` for the two file-like
+   cases, keeping the plain-string branch (`isinstance(file_obj, str)`)
+   for any direct-string callers. Thread `filename` through: the API
+   action already has `file_obj.name`; the CLI command now passes its
+   path argument (per step 1).
+
+3. In `apps/trials/viewsets.py::TrialViewSet.import_fieldbook`, pass
+   `file_obj.name` into the service call.
+
+4. **Tests to add**:
+   - `backend/tests/test_api_fieldbook_import.py` — `.xlsx` variant of the
+     existing valid-import and malformed-row tests.
+   - `backend/tests/test_management_commands.py` — `import_fieldbook`
+     command with an `.xlsx` fixture; confirm the dedup didn't regress the
+     existing CSV command test.
+
+---
+
+### 22.4 Trial Data Exports — CSV + XLSX (3–4 hours)
+
+**Gotcha discovered during implementation:** the obvious query-param name,
+`?format=`, is reserved by DRF's default content negotiation
+(`URL_FORMAT_OVERRIDE = "format"`) — passing `?format=xlsx` gets
+intercepted before the view even runs, since DRF tries to select a
+renderer for "xlsx" (none is registered) and returns 404/406 instead of
+reaching the action code. Every export action, and every frontend caller,
+uses **`output_format`** instead, specifically to avoid this collision.
+
+**Step-by-step implementation:**
+
+1. For each of `TrialViewSet.export_csv`, `export_fieldbook`, and
+   `export_map` (`apps/trials/viewsets.py`), read a `?output_format=` query
+   param (`csv` default). When `output_format == "xlsx"`, skip the existing
+   `StreamingHttpResponse`/generator path entirely and instead collect
+   the same rows into a `list[list]` and call
+   `build_xlsx_response(headers, rows, filename_base)` from §22.1. The
+   CSV branch is untouched — same headers, same streaming generator, same
+   filename convention.
+
+2. Update the matching management commands
+   (`export_trial_data.py`, `export_fieldbook.py`) to accept
+   `--format csv|xlsx` (default `csv`). When `xlsx`, use
+   `openpyxl.Workbook(write_only=True)` directly (writing to `--output`
+   as a binary file, or `sys.stdout.buffer` if streaming to stdout isn't
+   sensible for a binary format — recommend **requiring `--output` when
+   `--format xlsx` is passed**, since `.xlsx` can't reasonably go to a
+   text stdout the way CSV can).
+
+3. **Tests to add** (extend `backend/tests/test_api_trials.py` and
+   `test_management_commands.py`):
+   - `GET .../export_csv/?output_format=xlsx` → `Content-Type` is the XLSX MIME
+     type, response body round-trips through `openpyxl.load_workbook`
+     (wrapped in `io.BytesIO(response.content)`) to the same rows the
+     existing CSV test asserts.
+   - Same for `export_fieldbook` and `export_map`.
+   - `export_trial_data --format xlsx --output <path>` produces a
+     readable workbook with the expected row count.
+   - `export_fieldbook <command> --format xlsx` without `--output` →
+     clean `CommandError`, not a crash.
+
+---
+
+### 22.5 GEBV and Crossing-Map Exports — CSV + XLSX (1–2 hours)
+
+**Step-by-step implementation:**
+
+1. `apps/genomics/viewsets.py::GenomicPredictionViewSet.export_gebv_csv` —
+   add the same `?output_format=` handling, delegating to
+   `build_spreadsheet_response` from §22.1 instead of its current direct
+   `HttpResponse`+`csv.writer` construction. Keep the URL name/path as-is
+   (already documented in `API_IMPLEMENTATION_GUIDE.md` §5.4); only the
+   query param is new.
+
+2. `apps/germplasm/crossing_viewsets.py::CrossingBlockViewSet.export_map` —
+   same treatment.
+
+3. **Tests to add**: `?output_format=xlsx` variants in
+   `backend/apps/genomics/tests/test_api.py` and (new or existing)
+   crossing-block export tests, same round-trip-via-openpyxl pattern as
+   §22.4.
+
+---
+
+### 22.6 Frontend: Germplasm Bulk-Import UI (3–4 hours)
+
+**Goal:** connect the existing `germplasm.bulkImport` client function
+(defined in `frontend/src/api/client.ts`, currently unused) to a real UI,
+following the same modal pattern as `ImportFieldBookModal.tsx` — the
+Phase 9 roadmap entry describes this UI, but it does not exist in the
+current codebase; this section (re)builds it.
+
+**Step-by-step implementation:**
+
+1. Verify `client.ts`'s `bulkImport`/`bulkImportGermplasm` function still
+   matches the endpoint contract (`POST /api/germplasm/bulk_import/`,
+   `FormData` with `file`, `program`, `dry_run`) — adjust if drifted.
+
+2. Add a new `frontend/src/components/germplasm/ImportGermplasmModal.tsx`
+   (or the equivalent local pattern already used in
+   `GermplasmBrowser.tsx` for its other modals — match whatever that file
+   already does for Create/Edit): file input `accept=".csv,.xlsx"`,
+   program dropdown (reuse the existing program list query), a "Validate
+   only" checkbox mapped to `dry_run`, and a results view showing
+   `created`/`skipped` counts and an `errors` table (row + detail),
+   staying open on error so the user can fix and re-upload — matching the
+   UX already specified for this feature in Phase 9.1 of this document.
+
+3. Add a role-gated "📤 Bulk Import" button next to "+ Add Germplasm" in
+   `GermplasmBrowser.tsx`, wired to open the new modal.
+
+4. **Verify**: `npx tsc --noEmit` and manual exercise of the modal against
+   a running dev server (upload a small CSV, then the same data as
+   `.xlsx`, confirm identical `created`/`errors` results).
+
+---
+
+### 22.7 Frontend: File Inputs & Download Format Toggle (2–3 hours)
+
+**Step-by-step implementation:**
+
+1. `frontend/src/components/trials/ImportFieldBookModal.tsx` — widen the
+   file input from `accept=".csv"` to `accept=".csv,.xlsx"`.
+
+2. `frontend/src/api/client.ts` — extend the shared `downloadFile` helper
+   (and the `exportMap`/`exportFieldBook`/GEBV/crossing-map export
+   functions built on it) to accept an optional `format: 'csv' | 'xlsx'`
+   parameter, appending `?output_format=xlsx` to the request URL and swapping the
+   downloaded filename's extension to match.
+
+3. On `frontend/src/pages/DataExport.tsx` (and any GEBV/crossing-map
+   export buttons elsewhere, e.g. `Genomics.tsx`, `CrossingBlock.tsx`),
+   add a small CSV/Excel toggle (segmented control or `<select>`) next to
+   each existing download button, defaulting to CSV so no existing
+   workflow changes unless a user opts in.
+
+4. **Verify**: `npx tsc --noEmit`, `npm run build`, and a manual download
+   of each export in both formats from a running dev server.
+
+---
+
+### 22.8 Documentation (1–2 hours)
+
+1. `API_IMPLEMENTATION_GUIDE.md` — note the `?output_format=csv|xlsx` query
+   param on every affected export endpoint (§5.2 Seed/Crossing exports are
+   unaffected — only the six listed in §22.4/§22.5 change); note `.xlsx`
+   acceptance on the germplasm `bulk_import` and trial `import_fieldbook`
+   endpoints.
+2. `docs/architecture.md` — remove "Spreadsheet formats beyond CSV" from
+   §1.3 Out of Scope; add `openpyxl` to the §2 technology table; update
+   the germplasm/trials service bullet lists in §6 to mention spreadsheet
+   (not CSV-only) parsing.
+3. `NEXT_PHASE_SUMMARY.md` — remove this item from the remaining
+   opportunities list once shipped; update the test count.
+4. `IMPLEMENTATION_ROADMAP.md` — flip this Phase 22 header and its
+   `Phase Summary` row to ✅ Done, and check off the items below.
+
+---
+
+### Phase 22 Complete When
+
+- [x] Germplasm bulk import accepts both `.csv` and `.xlsx` via the API,
+      the CLI command, and (newly built/reconnected) the browser UI.
+- [x] Field Book import accepts both formats via the API action and the
+      CLI command, sharing one parsing implementation (no more duplicate
+      logic between `services.py` and the management command).
+- [x] Trial observation export, Field Book export, field-map export, GEBV
+      export, and crossing-block map export all support `?output_format=xlsx`
+      alongside their existing (unchanged, still-streaming-where-it-was)
+      CSV behavior.
+- [x] A malformed/corrupted `.xlsx` on any import path returns a clean
+      `400`, never a 500 (Phase 21 crash-hardening standard extended to
+      the new format).
+- [x] All existing tests plus new Phase 22 tests pass (287 passed, 1
+      skipped); `npx tsc --noEmit` and `npm run build` are clean on the
+      frontend.
+- [x] `openapi.yaml` regenerates with 0 new errors (same 39 pre-existing
+      BrAPI read-only warnings as Phase 21).
+- [x] Verified live in a real browser (login → bulk-import a CSV → bulk-
+      import an XLSX → both sets of accessions appear in the Germplasm
+      Browser; Data Export's CSV/Excel toggle correctly changes the
+      button label and the downloaded file's `Content-Type`). Caught and
+      fixed one real bug in the process — see "Bugs found during manual
+      verification" below.
+
+### Bugs Found During Manual Verification
+
+Two real bugs surfaced only by actually driving the feature in a browser —
+neither was caught by the type checker, the build, or the 287-test backend
+suite, because both were about *behavior*, not shape:
+
+1. **DRF's reserved `format` query parameter.** The original plan used
+   `?format=xlsx`, which collided with DRF's built-in content-negotiation
+   override (`URL_FORMAT_OVERRIDE = "format"`) — a request for
+   `.../export_map/?format=xlsx` never reached the view at all; DRF tried
+   to select a renderer for "xlsx", found none, and returned 404 before
+   any application code ran. Caught by a failing test
+   (`test_export_map_xlsx_format`), not by manual browser testing — but
+   it's the same category of gap: a plausible-looking implementation that
+   the type system had no way to flag. Fixed by renaming the query param
+   to `output_format` everywhere (backend actions, frontend callers, this
+   document, and the API guide).
+2. **Bulk-import modal closing before showing its own success message.**
+   `GermplasmBrowser.tsx` wired `ImportGermplasmModal`'s `onSuccess` prop
+   to immediately close the modal (`onSuccess={() => setShowBulkImport(false)}`),
+   copied from a different call site's pattern without checking that this
+   modal's own internal `onSuccess` handler already sets `result` to
+   render a confirmation banner. The result: a successful upload flashed
+   the modal shut before a user could ever see "Created N accession(s)."
+   Only caught by actually uploading a file in a real browser session and
+   watching what happened — `ImportFieldBookModal`'s equivalent call site
+   in `TrialDetail.tsx` was the correct reference (it does *not* auto-close
+   on success; the user dismisses it via the "Done" button). Fixed by
+   removing the auto-close wiring.
+
+### Effort Estimate
+
+| Section | Estimated Hours |
+|---|---:|
+| 22.1 Shared spreadsheet utilities | 2–3 h |
+| 22.2 Germplasm import | 2–3 h |
+| 22.3 Field Book import (dedup + extend) | 3–4 h |
+| 22.4 Trial data exports | 3–4 h |
+| 22.5 GEBV / crossing-map exports | 1–2 h |
+| 22.6 Germplasm bulk-import UI | 3–4 h |
+| 22.7 File inputs & download format toggle | 2–3 h |
+| 22.8 Documentation | 1–2 h |
+| **Phase 22 total** | **~17–25 h** |

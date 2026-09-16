@@ -1,6 +1,13 @@
+import io
+
+import openpyxl
 import pytest
 
 from apps.trials.models import Plot, Trial
+
+XLSX_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 
 @pytest.mark.django_db
@@ -210,6 +217,25 @@ def test_export_csv_returns_csv_download(
 
 
 @pytest.mark.django_db
+def test_export_csv_xlsx_format(auth_client, trial, plot, observation_variable):
+    from apps.trials.models import Observation
+
+    Observation.objects.create(
+        plot=plot, variable=observation_variable, value_numeric=42.5
+    )
+
+    response = auth_client.get(f"/api/trials/{trial.id}/export_csv/?output_format=xlsx")
+    assert response.status_code == 200
+    assert response["Content-Type"] == XLSX_CONTENT_TYPE
+    assert f"{trial.trial_code}_observations.xlsx" in response["Content-Disposition"]
+
+    wb = openpyxl.load_workbook(io.BytesIO(response.content))
+    rows = list(wb.active.iter_rows(values_only=True))
+    assert rows[0][0] == "plot_number"
+    assert any(row[4] == 42.5 for row in rows[1:])
+
+
+@pytest.mark.django_db
 def test_export_fieldbook_returns_csv_download(
     auth_client, trial, plot, observation_variable
 ):
@@ -224,6 +250,19 @@ def test_export_fieldbook_returns_csv_download(
     assert "range" in content
     assert "entry" in content
     assert plot.germplasm.name in content
+
+
+@pytest.mark.django_db
+def test_export_fieldbook_xlsx_format(auth_client, trial, plot, observation_variable):
+    response = auth_client.get(f"/api/trials/{trial.id}/export_fieldbook/?output_format=xlsx")
+    assert response.status_code == 200
+    assert response["Content-Type"] == XLSX_CONTENT_TYPE
+    assert f"{trial.trial_code}_fieldbook.xlsx" in response["Content-Disposition"]
+
+    wb = openpyxl.load_workbook(io.BytesIO(response.content))
+    rows = list(wb.active.iter_rows(values_only=True))
+    assert rows[0][:4] == ("plot_id", "range", "plot", "entry")
+    assert any(row[3] == plot.germplasm.name for row in rows[1:])
 
 
 @pytest.mark.django_db
@@ -407,6 +446,20 @@ def test_export_map_with_walking_orders(client_for_role, trial, plot):
     assert "walking_order_v_serpentine" in content
     assert "is_border" in content
     assert plot.germplasm.name in content
+
+
+@pytest.mark.django_db
+def test_export_map_xlsx_format(client_for_role, trial, plot):
+    client = client_for_role("breeder")
+    response = client.get(f"/api/trials/{trial.id}/export_map/?output_format=xlsx")
+    assert response.status_code == 200
+    assert response["Content-Type"] == XLSX_CONTENT_TYPE
+    assert f"{trial.trial_code}_field_map.xlsx" in response["Content-Disposition"]
+
+    wb = openpyxl.load_workbook(io.BytesIO(response.content))
+    rows = list(wb.active.iter_rows(values_only=True))
+    assert "walking_order_h_serpentine" in rows[0]
+    assert any(row[1] == plot.germplasm.name for row in rows[1:])
 
 
 @pytest.mark.django_db

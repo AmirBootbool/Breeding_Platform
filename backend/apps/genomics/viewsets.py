@@ -1,4 +1,3 @@
-import csv
 import io
 import json
 import logging
@@ -16,12 +15,12 @@ from rest_framework.response import Response
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Avg
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 
 from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.models import Program
 from apps.core.permissions import RoleBasedPermission
+from apps.core.spreadsheet import build_spreadsheet_response
 from apps.germplasm.models import Germplasm
 from apps.trials.models import AnalysisSet, Observation, ObservationVariable, Trial
 
@@ -626,7 +625,7 @@ class GenomicPredictionViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet
 
     @extend_schema(
         responses={200: OpenApiTypes.BINARY},
-        description="Download all GEBVs for this prediction as a CSV file.",
+        description="Download all GEBVs for this prediction as a CSV (default) or XLSX file.",
     )
     @action(detail=True, methods=["get"])
     def export_gebv_csv(self, request, pk=None):
@@ -637,13 +636,7 @@ class GenomicPredictionViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet
             .order_by("rank")
         )
 
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = (
-            f'attachment; filename="gebvs_{prediction.id}_{prediction.trait.name}.csv"'
-        )
-
-        writer = csv.writer(response)
-        writer.writerow([
+        headers = [
             "Rank",
             "Sample_ID",
             "Germplasm_Name",
@@ -653,10 +646,9 @@ class GenomicPredictionViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet
             "Standard_Error",
             "Is_Training_Set",
             "Observed_Phenotype",
-        ])
-
-        for g in gebvs:
-            writer.writerow([
+        ]
+        rows = [
+            [
                 g.rank,
                 g.sample_id,
                 g.germplasm.name,
@@ -666,9 +658,13 @@ class GenomicPredictionViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet
                 g.standard_error or "",
                 "Yes" if g.is_training else "No",
                 g.observed_phenotype if g.observed_phenotype is not None else "",
-            ])
+            ]
+            for g in gebvs
+        ]
 
-        return response
+        filename_base = f"gebvs_{prediction.id}_{prediction.trait.name}"
+        fmt = request.query_params.get("output_format")
+        return build_spreadsheet_response(fmt, headers, rows, filename_base)
 
 
 class DiagnosticMarkerViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):

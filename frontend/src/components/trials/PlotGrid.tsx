@@ -36,6 +36,7 @@ export default function PlotGrid({
 
   // Lock / Unlock State
   const [isLocked, setIsLocked] = useState<boolean>(true)
+  const [mapExportFormat, setMapExportFormat] = useState<'csv' | 'xlsx'>('csv')
   const [isPaintBorderMode, setIsPaintBorderMode] = useState<boolean>(false)
   const [dirtyPlotIds, setDirtyPlotIds] = useState<Set<number>>(new Set())
   const [isSaving, setIsSaving] = useState<boolean>(false)
@@ -626,15 +627,27 @@ export default function PlotGrid({
             </select>
           </div>
 
-          {/* CSV Map Export */}
+          {/* Map Export */}
           {actualTrialId && (
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => trials.exportMap(actualTrialId)}
-              title="Export Field Map CSV with Walking Order Serpentine Numbers"
-            >
-              📥 Export Map CSV
-            </button>
+            <>
+              <select
+                className="form-input"
+                style={{ width: 74, padding: '3px 6px', fontSize: '0.8rem', height: '28px' }}
+                value={mapExportFormat}
+                onChange={e => setMapExportFormat(e.target.value as 'csv' | 'xlsx')}
+                title="Export file format"
+              >
+                <option value="csv">CSV</option>
+                <option value="xlsx">Excel</option>
+              </select>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => trials.exportMap(actualTrialId, mapExportFormat)}
+                title="Export Field Map with Walking Order Serpentine Numbers"
+              >
+                📥 Export Map
+              </button>
+            </>
           )}
 
           {/* Heatmap & Print Layout */}

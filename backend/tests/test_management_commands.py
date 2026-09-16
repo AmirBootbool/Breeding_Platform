@@ -2,6 +2,7 @@ import os
 import tempfile
 from io import StringIO
 
+import openpyxl
 import pytest
 
 from django.core.management import call_command
@@ -21,6 +22,33 @@ def temp_csv_file():
     finally:
         if os.path.exists(path):
             os.remove(path)
+
+
+@pytest.fixture
+def temp_xlsx_file():
+    fd, path = tempfile.mkstemp(suffix=".xlsx")
+    try:
+        os.close(fd)
+        os.remove(path)  # openpyxl/tests write fresh; the empty stub isn't needed
+        yield path
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def write_xlsx(path, headers, rows):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+    wb.save(path)
+
+
+def read_xlsx_rows(path):
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+    return list(ws.iter_rows(values_only=True))
 
 
 @pytest.mark.django_db
@@ -137,7 +165,7 @@ def test_import_germplasm_missing_headers_and_program_errors(temp_csv_file):
     prog = Program.objects.create(name="TestProg")
     with pytest.raises(CommandError) as excinfo:
         call_command("import_germplasm", temp_csv_file, program=prog.name)
-    assert "CSV is missing required headers" in str(excinfo.value)
+    assert "File is missing required headers" in str(excinfo.value)
 
 
 @pytest.mark.django_db
@@ -230,3 +258,142 @@ def test_import_fieldbook_command(
     assert Observation.objects.filter(plot=plot, variable=observation_variable).exists()
     obs = Observation.objects.get(plot=plot, variable=observation_variable)
     assert obs.value_numeric == 92.4
+
+
+@pytest.mark.django_db
+def test_import_germplasm_command_xlsx(program, temp_xlsx_file):
+    write_xlsx(
+        temp_xlsx_file,
+        ["name", "species", "pedigree_string", "cross_type", "year_developed", "notes"],
+        [
+            ["Xlsx Line 1", "Triticum aestivum", "NL1/PASTOR", "biparental", 2024, "High yielding line"],
+            ["Xlsx Line 2", "Triticum aestivum", "", "unknown", "", ""],
+        ],
+    )
+
+    out = StringIO()
+    call_command(
+        "import_germplasm",
+        temp_xlsx_file,
+        program=program.name,
+        stdout=out,
+    )
+
+    stdout_val = out.getvalue()
+    assert "Created: 2" in stdout_val
+    assert "Errors: 0" in stdout_val
+
+    xl1 = Germplasm.objects.get(name="Xlsx Line 1")
+    assert xl1.year_developed == 2024
+
+
+@pytest.mark.django_db
+def test_export_trial_data_command_xlsx_format(
+    trial, germplasm, observation_variable, temp_xlsx_file
+):
+    plot = Plot.objects.create(trial=trial, germplasm=germplasm, rep=1, plot_number=1)
+    Observation.objects.create(
+        plot=plot, variable=observation_variable, value_numeric=88.5, notes="Healthy plant"
+    )
+
+    out = StringIO()
+    call_command(
+        "export_trial_data",
+        trial=trial.trial_code,
+        output=temp_xlsx_file,
+        format="xlsx",
+        stdout=out,
+    )
+
+    assert "Successfully exported data" in out.getvalue()
+    rows = read_xlsx_rows(temp_xlsx_file)
+    assert rows[0] == ("plot_number", "germplasm_name", "rep", "variable_name",
+                        "value_numeric", "value_text", "value_date",
+                        "observation_time", "notes")
+    assert rows[1][:4] == (1, "Line A", 1, "Plant height")
+    assert rows[1][4] == 88.5
+
+
+@pytest.mark.django_db
+def test_export_trial_data_command_xlsx_requires_output(trial):
+    with pytest.raises(CommandError):
+        call_command("export_trial_data", trial=trial.trial_code, format="xlsx")
+
+
+@pytest.mark.django_db
+def test_export_fieldbook_command_xlsx_format(
+    trial, germplasm, observation_variable, temp_xlsx_file
+):
+    Plot.objects.create(trial=trial, germplasm=germplasm, rep=1, plot_number=1)
+
+    out = StringIO()
+    call_command(
+        "export_fieldbook",
+        trial=trial.trial_code,
+        output=temp_xlsx_file,
+        format="xlsx",
+        stdout=out,
+    )
+
+    assert "Successfully exported Field Book layout" in out.getvalue()
+    rows = read_xlsx_rows(temp_xlsx_file)
+    assert rows[0][:4] == ("plot_id", "range", "plot", "entry")
+    assert rows[1][:4] == (1, 1, 1, "Line A")
+
+
+@pytest.mark.django_db
+def test_import_fieldbook_command_xlsx(
+    trial, germplasm, observation_variable, temp_xlsx_file
+):
+    plot = Plot.objects.create(trial=trial, germplasm=germplasm, rep=1, plot_number=1)
+    write_xlsx(
+        temp_xlsx_file,
+        ["plot_id", "range", "plot", "entry", "Plant height"],
+        [[1, 1, 1, "Line A", 92.4]],
+    )
+
+    out = StringIO()
+    call_command(
+        "import_fieldbook",
+        temp_xlsx_file,
+        trial=trial.trial_code,
+        stdout=out,
+    )
+
+    stdout_val = out.getvalue()
+    assert "Observations Saved: 1" in stdout_val
+    assert "Errors: 0" in stdout_val
+
+    obs = Observation.objects.get(plot=plot, variable=observation_variable)
+    assert obs.value_numeric == 92.4
+
+
+@pytest.mark.django_db
+def test_import_fieldbook_command_rolls_back_whole_batch_on_error(
+    trial, germplasm, observation_variable, temp_csv_file
+):
+    # A second plot that doesn't exist in the trial should cause the whole
+    # import to roll back, including the otherwise-valid first row - the
+    # CLI command now shares the API's whole-batch-rollback service
+    # instead of silently keeping partial results.
+    plot = Plot.objects.create(trial=trial, germplasm=germplasm, rep=1, plot_number=1)
+    csv_content = (
+        "plot_id,range,plot,entry,Plant height\n"
+        "1,1,1,Line A,92.4\n"
+        "999,1,999,Line B,50.0\n"
+    )
+    with open(temp_csv_file, "w", encoding="utf-8") as f:
+        f.write(csv_content)
+
+    out = StringIO()
+    call_command(
+        "import_fieldbook",
+        temp_csv_file,
+        trial=trial.trial_code,
+        stdout=out,
+    )
+
+    stdout_val = out.getvalue()
+    assert "Observations Saved: 0" in stdout_val
+    assert "Errors: 1" in stdout_val
+    assert not Observation.objects.filter(plot=plot, variable=observation_variable).exists()

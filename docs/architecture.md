@@ -1,6 +1,6 @@
 # Wheat Breeding Platform — Architecture & Engineering Reference
 
-Last updated: 2026-09-12
+Last updated: 2026-09-16
 
 ## 1. Project Overview
 
@@ -32,7 +32,9 @@ The following capabilities are implemented:
 - Trial creation and plot-layout generation for RCBD, Alpha-lattice,
   Augmented, P-Rep, Latin Square, and Unreplicated trial designs, plus an
   interactive Map Wizard and Plot Editor for manual layout correction.
-- Bulk CSV germplasm import via browser UI and management commands.
+- Bulk CSV/Excel (`.xlsx`) germplasm import via browser UI, API, and
+  management command, sharing one spreadsheet-parsing implementation
+  (`apps.core.spreadsheet`, Phase 22).
 - Plot lifecycle tracking and data-type-aware (including categorical)
   phenotypic observations, grouped by reusable Trait Panels.
 - Bulk observation grid with whole-batch rollback in spreadsheet view, plus
@@ -42,7 +44,9 @@ The following capabilities are implemented:
 - Per-trial numeric summary statistics and multi-trait comparison dashboard.
 - created_by/updated_by audit attribution on core models, surfaced as an
   in-app "Recent Changes" audit trail.
-- CSV trial-data export and Field Book import/export.
+- CSV/Excel trial-data export and Field Book import/export (`?output_format=xlsx`
+  on every trial/GEBV/crossing-map export action; the CSV path stays
+  streaming, Excel export is buffered — Phase 22).
 - Genomic Selection (GBLUP): VCF/HapMap/dosage-matrix genotype ingestion
   with QC/imputation, a VanRaden G-matrix, and a Henderson mixed-model
   solver producing GEBVs with cross-validation accuracy and per-line
@@ -61,17 +65,16 @@ The following capabilities are implemented:
 - Multi-tenant program scoping (`ProgramScopedQuerySetMixin`) enforced
   across core, germplasm, trials, genomics, and BrAPI viewsets, plus
   hardening against malformed query params/payloads (Phase 21).
-- **261 tests** (260 passed, 1 skipped) — see §9.
+- **288 tests** (287 passed, 1 skipped) — see §9.
 
 ### 1.3 Out of Scope
 
-- Spreadsheet formats beyond CSV (e.g. native Excel import/export).
 - Drone or image-based phenotyping.
 - Multi-institution data federation.
 
-Genomic data storage and analysis, previously listed here as deferred, is
-no longer out of scope — see §1.2 and Phase 19 of
-[IMPLEMENTATION_ROADMAP.md](../IMPLEMENTATION_ROADMAP.md).
+Genomic data storage and analysis, and spreadsheet formats beyond CSV,
+previously listed here as deferred, are no longer out of scope — see §1.2
+and Phases 19 and 22 of [IMPLEMENTATION_ROADMAP.md](../IMPLEMENTATION_ROADMAP.md).
 
 ### 1.4 Design Principles
 
@@ -89,8 +92,8 @@ no longer out of scope — see §1.2 and Phase 19 of
 |---|---|
 | Python 3.12+ / Django 5.1 | Application and domain model |
 | Django REST Framework 3.15 | Internal and BrAPI HTTP APIs |
-| `apps.core` | Programs, locations, seasons, profiles, RBAC, program-scoping mixin |
-| `apps.germplasm` | Germplasm, pedigrees, crossing blocks, crosses, seed inventory, CSV import |
+| `apps.core` | Programs, locations, seasons, profiles, RBAC, program-scoping mixin, shared CSV/XLSX spreadsheet utilities |
+| `apps.germplasm` | Germplasm, pedigrees, crossing blocks, crosses, seed inventory, CSV/Excel import |
 | `apps.trials` | Trials, plots, observations, trait panels, statistics, and Field Book workflows |
 | `apps.genomics` | Genotype datasets, GBLUP genomic prediction, GEBVs, diagnostic markers/MAS |
 | `apps.brapi` | BrAPI v2 compatibility serializers, pagination, routes, and views |
@@ -104,6 +107,7 @@ no longer out of scope — see §1.2 and Phase 19 of
 | black, isort, flake8 | Formatting and linting |
 | python-decouple | Environment configuration |
 | pandas / numpy / statsmodels | Phenotypic data processing, heritability modeling, and GBLUP linear algebra |
+| openpyxl | `.xlsx` read/write (`apps.core.spreadsheet`) |
 | **Vite + React 18 + TypeScript** | **Custom browser frontend SPA** |
 | **React Query + Zustand + Recharts** | **Frontend data, state, and charts** |
 | **Service worker + IndexedDB** | **Offline-first PWA field scoring and sync** |
@@ -210,13 +214,13 @@ for the health check and schema documentation.
 | `/api/user-profiles/` | Profile and role CRUD |
 | `/api/audit/recent_changes/` | Chronological recent record changes (admin-only) |
 | `/api/germplasm/` | Germplasm CRUD |
-| `/api/germplasm/bulk_import/` | Bulk CSV germplasm import |
+| `/api/germplasm/bulk_import/` | Bulk CSV/Excel germplasm import |
 | `/api/crosses/` | Cross CRUD |
 | `/api/crossing-blocks/` | Crossing block CRUD |
 | `/api/crossing-blocks/{id}/plan_crosses/` | Pair female × male candidates into planned crosses |
 | `/api/crossing-blocks/{id}/execute_all/` | Harvest all crosses (auto-creates F1 germplasm + seed lots) |
 | `/api/crossing-blocks/{id}/crossing_map/` | Diallel matrix / nursery sowing map |
-| `/api/crossing-blocks/{id}/export_map/` | Export the sowing map |
+| `/api/crossing-blocks/{id}/export_map/` | Export the sowing map (CSV/Excel¹) |
 | `/api/crossing-blocks/{id}/bulk_status/` | Bulk-update cross statuses |
 | `/api/seed-lots/` | Seed lot CRUD |
 | `/api/seed-lots/{id}/adjust/` | Record a ledgered quantity adjustment |
@@ -229,11 +233,12 @@ for the health check and schema documentation.
 | `/api/trials/{id}/create_plots/` | Generate plot layouts (RCBD/alpha-lattice/augmented/p-Rep/Latin Square) |
 | `/api/trials/{id}/harvest_plots/` | Bulk plot harvest transition |
 | `/api/trials/{id}/summary/` | Per-trait numeric statistics |
-| `/api/trials/{id}/export_csv/` | Streaming observations CSV |
+| `/api/trials/{id}/export_csv/` | Observations export — streaming CSV, or buffered Excel¹ |
 | `/api/trials/{id}/advance_plots/` | Advance selected plots to next-generation germplasm |
-| `/api/trials/{id}/export_fieldbook/` | Streaming Field Book CSV |
+| `/api/trials/{id}/export_fieldbook/` | Field Book export — streaming CSV, or buffered Excel¹ |
+| `/api/trials/{id}/import_fieldbook/` | Import/update observations from a Field Book CSV/Excel¹ file |
 | `/api/trials/{id}/spatial_heatmap/` | Trait-colored 2D plot grid |
-| `/api/trials/{id}/export_map/` | Export the field map |
+| `/api/trials/{id}/export_map/` | Export the field map (CSV/Excel¹) |
 | `/api/trials/{id}/batch_update_plots/` | Manual plot-editor corrections after layout generation |
 | `/api/trials/{id}/add_grid_cells/` | Extend a trial's field grid |
 | `/api/plots/` | Plot CRUD |
@@ -250,7 +255,7 @@ for the health check and schema documentation.
 | `/api/genomic-predictions/` | Genomic prediction (GBLUP run) CRUD |
 | `/api/genomic-predictions/run_prediction/` | Train a GBLUP model and produce GEBVs |
 | `/api/genomic-predictions/{id}/gebvs/` | List GEBVs for a prediction run |
-| `/api/genomic-predictions/{id}/export_gebv_csv/` | Export GEBVs as CSV |
+| `/api/genomic-predictions/{id}/export_gebv_csv/` | Export GEBVs (CSV/Excel¹) |
 | `/api/diagnostic-markers/` | Diagnostic marker library CRUD |
 | `/api/diagnostic-markers/seed_defaults/` | Seed the default wheat functional-marker library |
 | `/api/marker-scores/` | Marker allele-call CRUD |
@@ -261,6 +266,10 @@ List viewsets support `DjangoFilterBackend`, `SearchFilter`, and
 `OrderingFilter`, with a default page size of 100. Program-scoped viewsets
 additionally restrict results to the requester's own program via
 `ProgramScopedQuerySetMixin` (Phase 21).
+
+¹ Format selection uses the query parameter **`output_format=xlsx`**
+(default `csv`) — not `format`, which is reserved by DRF's own content
+negotiation and would 404 before reaching the view (Phase 22).
 
 ### 4.2 BrAPI v2
 
@@ -295,6 +304,21 @@ profile are treated as viewers. Viewsets can override write roles per action.
 
 ## 6. Services and Data Exchange
 
+`apps/core/spreadsheet.py` contains the shared CSV/XLSX layer every
+import and export path below is built on (Phase 22):
+
+- `read_spreadsheet_rows`: detects CSV vs. `.xlsx` by filename and returns
+  `(headers, rows)`, with every cell value coerced to a string (an
+  integer-valued Excel float like `2018.0` collapses to `"2018"`) so
+  downstream parsing behaves identically regardless of upload format.
+  Raises `SpreadsheetReadError` on a corrupted/mismatched file — every
+  caller turns that into a `400`, never a 500.
+- `build_csv_response` / `build_xlsx_response` / `build_spreadsheet_response`:
+  response builders for the export side. CSV stays streaming where a view
+  already streamed; XLSX is always buffered in memory (openpyxl has no
+  public streaming-write API), which is an accepted tradeoff at this
+  platform's plot/observation-table scale.
+
 `apps/trials/services.py` contains:
 
 - `generate_rcbd_layout`, `generate_alpha_lattice_layout`, `generate_augmented_layout`: deterministic layout randomization generators.
@@ -302,10 +326,11 @@ profile are treated as viewers. Viewsets can override write roles per action.
 - `compute_trial_summary`: calculates per-variable descriptive statistics.
 - `compute_heritability`: fits phenotype G+E mixed models and estimates broad-sense heritability ($H^2$).
 - `compute_cross_environment_ranking`: estimates environment-adjusted mean performance across multiple environments.
+- `import_fieldbook_csv`: parses a Field Book CSV/XLSX file (via `apps.core.spreadsheet`) into created/updated `Observation` records, used by both the `import_fieldbook` API action and the `import_fieldbook` management command — a single shared implementation (Phase 22 removed a divergent duplicate that used to live only in the command).
 
 `apps/germplasm/services.py` contains:
 
-- `import_germplasm_csv`: transactional bulk CSV germplasm parser and validation engine.
+- `import_germplasm_csv`: transactional bulk CSV/XLSX germplasm parser and validation engine, shared by the API, the browser UI, and the `import_germplasm` management command.
 
 `apps/germplasm/crossing_service.py` contains:
 
@@ -346,7 +371,8 @@ wheat-breeding-platform/
 ├── backend/
 │   ├── apps/
 │   │   ├── brapi/
-│   │   ├── core/          ← + mixins.py (ProgramScopedQuerySetMixin), utils.py
+│   │   ├── core/          ← + mixins.py (ProgramScopedQuerySetMixin),
+│   │   │                    utils.py, spreadsheet.py (CSV/XLSX)
 │   │   ├── germplasm/     ← + crossing_service.py, crossing_viewsets.py,
 │   │   │                    seed_services.py, seed_viewsets.py
 │   │   ├── trials/
@@ -358,7 +384,7 @@ wheat-breeding-platform/
 │   ├── src/
 │   │   ├── api/           ← typed API client
 │   │   ├── components/    ← Sidebar, TopBar, PlotGrid, ObservationGrid,
-│   │   │                     OfflineSyncCenterModal
+│   │   │                     OfflineSyncCenterModal, ImportGermplasmModal
 │   │   ├── pages/         ← Login, Dashboard, GermplasmBrowser, CrossingBlock,
 │   │   │                     SeedInventory, TrialManager, ObservationEntry,
 │   │   │                     MultiEnvironmentAnalysis, Genomics, Traits,
@@ -405,18 +431,27 @@ configured.
 
 ## 9. Testing
 
-The verified baseline is **260 passed, 1 skipped** (261 tests total via
+The verified baseline is **287 passed, 1 skipped** (288 tests total via
 `pytest --collect-only`). The skipped test exercises optional Sentry
 initialization and runs when the production Sentry dependency is
 installed. This includes the Phase 21 hardening suites
 (`test_program_scoping.py`, `test_crash_hardening.py`,
 `test_data_integrity.py` under `apps/core`, `apps/germplasm`,
-`apps/trials`, `apps/genomics`, and `apps/brapi/tests/`), on top of the
-Phase 14–19 crossing/seed/genomics/trial-editor domains and their test
-coverage. The last documented baseline before this growth (through Phase
-13) was 114 tests. A precise per-area breakdown is not maintained here —
-use `--collect-only -q` grouped by directory for a current count by
-domain.
+`apps/trials`, `apps/genomics`, and `apps/brapi/tests/`) and Phase 22's
+CSV/XLSX round-trip coverage (`apps/core/tests/test_spreadsheet.py` plus
+`.xlsx` variants added to the germplasm/fieldbook import and trial/GEBV/
+crossing-map export test files), on top of the Phase 14–19 crossing/seed/
+genomics/trial-editor domains and their test coverage. The last documented
+baseline before this growth (through Phase 13) was 114 tests. Phase 22's
+frontend changes (the germplasm bulk-import modal and the CSV/Excel
+format toggles) were additionally verified live in a real browser —
+login, upload a CSV, upload an `.xlsx`, confirm both sets of records
+appear, toggle export format and confirm the downloaded file's
+`Content-Type` — which caught two bugs (see
+[IMPLEMENTATION_ROADMAP.md](../IMPLEMENTATION_ROADMAP.md) Phase 22) that
+neither the type checker nor the test suite would have. A precise
+per-area breakdown is not maintained here — use `--collect-only -q`
+grouped by directory for a current count by domain.
 
 Run:
 
@@ -443,14 +478,13 @@ Schema generation completes with 0 errors. W001 warnings from drf-spectacular fo
 
 ### 10.3 Remaining Product Opportunities
 
-- Spreadsheet formats beyond CSV (e.g. native Excel import/export).
 - Multi-institution data federation.
 - Drone or image-based phenotyping integration.
 
-Advanced multi-environment analysis (§13) and genomic/marker-based analysis
-(§19) shipped and are no longer opportunities, and multi-tenant program
-scoping (§21) is likewise no longer an open item. These remaining items
-are opportunities, not scheduled roadmap work.
+Advanced multi-environment analysis (§13), genomic/marker-based analysis
+(§19), multi-tenant program scoping (§21), and spreadsheet formats beyond
+CSV (§22) have all shipped and are no longer open items. The two
+remaining items above are opportunities, not scheduled roadmap work.
 
 ## 11. Coding Rules
 

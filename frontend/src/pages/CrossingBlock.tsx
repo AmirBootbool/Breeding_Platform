@@ -220,6 +220,7 @@ export default function CrossingBlock() {
   const [selectedCrossIds, setSelectedCrossIds] = useState<number[]>([])
   const [mapEntries, setMapEntries] = useState<CrossingMapEntry[]>([])
   const [executionResult, setExecutionResult] = useState<{ executed_count: number } | null>(null)
+  const [mapExportFormat, setMapExportFormat] = useState<'csv' | 'xlsx'>('csv')
 
   const qc = useQueryClient()
 
@@ -660,9 +661,21 @@ export default function CrossingBlock() {
                   </div>
 
                   <div className="modal-footer" style={{ justifyContent: 'space-between', paddingTop: 'var(--space-4)', gap: 'var(--space-2)' }}>
-                    <button className="btn btn-secondary" onClick={() => crossingBlocks.exportMap(activeBlock.id)}>
-                      ⬇ Export Map CSV
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="form-input"
+                        style={{ width: 90, padding: '4px 8px' }}
+                        value={mapExportFormat}
+                        onChange={e => setMapExportFormat(e.target.value as 'csv' | 'xlsx')}
+                        title="Export file format"
+                      >
+                        <option value="csv">CSV</option>
+                        <option value="xlsx">Excel</option>
+                      </select>
+                      <button className="btn btn-secondary" onClick={() => crossingBlocks.exportMap(activeBlock.id, mapExportFormat)}>
+                        ⬇ Export Map
+                      </button>
+                    </div>
                     {!executionResult && (
                       <button
                         id="execute-crosses-btn"

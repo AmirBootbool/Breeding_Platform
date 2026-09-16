@@ -26,6 +26,7 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
   const [cachedIsStale, setCachedIsStale] = useState(false)
   const [downloadingOffline, setDownloadingOffline] = useState(false)
   const [offlineMessage, setOfflineMessage] = useState<string | null>(null)
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx'>('csv')
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -154,19 +155,30 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
               >
                 📥 Import Field Book
               </button>
+              <select
+                id="export-format-select"
+                className="form-input"
+                style={{ width: 90, padding: '4px 8px' }}
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value as 'csv' | 'xlsx')}
+                title="Export file format"
+              >
+                <option value="csv">CSV</option>
+                <option value="xlsx">Excel</option>
+              </select>
               <button
                 id="export-fieldbook-btn"
                 className="btn btn-secondary"
-                onClick={() => trials.exportFieldBook(trial.id)}
+                onClick={() => trials.exportFieldBook(trial.id, exportFormat)}
               >
-                📄 Export Field Book CSV
+                📄 Export Field Book
               </button>
               <button
                 id="export-map-btn"
                 className="btn btn-secondary"
-                onClick={() => trials.exportMap(trial.id)}
+                onClick={() => trials.exportMap(trial.id, exportFormat)}
               >
-                🗺️ Export Trial Map CSV
+                🗺️ Export Trial Map
               </button>
               <button
                 id="download-offline-btn"

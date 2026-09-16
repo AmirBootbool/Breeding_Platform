@@ -77,7 +77,7 @@ async function goTo(page: Page, label: string) {
 async function createGermplasm(
   page: Page,
   name: string,
-  crossType: 'inbred' | 'biparental' | 'self',
+  crossType: 'self' | 'biparental' | 'backcross' | 'doubled_haploid' | 'other' | 'unknown',
   generation: number,
 ) {
   await page.click('#add-germplasm-btn')
@@ -230,7 +230,7 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await expect(page.getByRole('heading', { name: 'Germplasm Browser' })).toBeVisible()
 
       for (const name of [...FEMALE_PARENTS, ...MALE_PARENTS]) {
-        await createGermplasm(page, name, 'inbred', 0)
+        await createGermplasm(page, name, 'self', 0)
       }
 
       // Spot-check: first female parent appears in table

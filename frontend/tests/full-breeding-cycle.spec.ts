@@ -273,15 +273,15 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
 
       for (const name of FEMALE_PARENTS) {
         await femaleSearch.fill(name)
-        await page.waitForTimeout(500)
+        await page.waitForTimeout(600)
         const chk = femaleCard
           .locator(`label:has-text("${name}") input[type="checkbox"]`)
           .first()
-        if (await chk.isVisible({ timeout: 5_000 }).catch(() => false)) {
-          await chk.check()
-        }
+        await expect(chk).toBeVisible({ timeout: 10_000 })
+        await chk.check()
       }
       await femaleSearch.fill('')
+      await page.waitForTimeout(400)
 
       // ── Select 4 male parents ────────────────────────────────────────────
       const maleCard = page.locator('.card').filter({ hasText: 'Male Parents (♂)' }).first()
@@ -289,13 +289,12 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
 
       for (const name of MALE_PARENTS) {
         await maleSearch.fill(name)
-        await page.waitForTimeout(500)
+        await page.waitForTimeout(600)
         const chk = maleCard
           .locator(`label:has-text("${name}") input[type="checkbox"]`)
           .first()
-        if (await chk.isVisible({ timeout: 5_000 }).catch(() => false)) {
-          await chk.check()
-        }
+        await expect(chk).toBeVisible({ timeout: 10_000 })
+        await chk.check()
       }
       await maleSearch.fill('')
       await page.waitForTimeout(600)

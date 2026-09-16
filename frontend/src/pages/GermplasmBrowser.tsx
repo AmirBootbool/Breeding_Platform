@@ -161,6 +161,7 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['germplasm'] })
+      qc.invalidateQueries({ queryKey: ['germplasm-all'] })
       onSaved()
       onClose()
     },

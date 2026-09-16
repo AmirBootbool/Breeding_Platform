@@ -232,7 +232,7 @@ export default function CrossingBlock() {
   const { data: locationsData } = useQuery({ queryKey: ['locations'], queryFn: () => locations.list() })
   const { data: seasonsData } = useQuery({ queryKey: ['seasons'], queryFn: () => seasons.list() })
   const { data: allGermplasmData, isLoading: germplasmLoading } = useQuery({
-    queryKey: ['germplasm-all'],
+    queryKey: ['germplasm-all', activeBlock?.id],
     queryFn: () => germplasm.listAll(),
     enabled: !!activeBlock,
   })
@@ -339,6 +339,7 @@ export default function CrossingBlock() {
     setExecutionResult(null)
     setSelectedCrossIds([])
     setActiveTab('table')
+    qc.invalidateQueries({ queryKey: ['germplasm-all'] })
     crossingBlocks.detail(block.id).then(b => {
       if (b.crosses && b.crosses.length > 0) {
         setPlannedCrosses(b.crosses)

@@ -4,10 +4,17 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   workers: 1,
-  reporter: 'list',
+  // Global timeout: 10 minutes – accommodates the full 7-generation breeding cycle
+  timeout: 600_000,
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
+    // Record video for every test so the full pipeline can be reviewed visually
+    video: 'on',
+    // Slightly slower actions make the run more robust on slower CI machines
+    actionTimeout: 30_000,
+    navigationTimeout: 30_000,
   },
   webServer: [
     {

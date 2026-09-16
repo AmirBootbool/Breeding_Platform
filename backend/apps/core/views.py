@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 
 from apps.core.models import Location, Program, Season
+from apps.core.utils import safe_int
 from apps.germplasm.models import Germplasm, SeedLot, SeedTransaction
 from apps.trials.models import ObservationVariable, Trial
 
@@ -63,7 +64,17 @@ class RecentChangesView(APIView):
                 status=403,
             )
 
-        limit = int(request.query_params.get("limit", 50))
+        raw_limit = request.query_params.get("limit")
+        if raw_limit in (None, ""):
+            limit = 50
+        else:
+            limit = safe_int(raw_limit)
+            if limit is None or limit < 1:
+                return Response(
+                    {"detail": "limit must be a positive integer."}, status=400
+                )
+        limit = min(limit, 500)
+
         model_param = request.query_params.get("model", "").strip().lower()
         user_param = request.query_params.get("user", "").strip().lower()
         search_param = request.query_params.get("search", "").strip().lower()
@@ -71,6 +82,13 @@ class RecentChangesView(APIView):
         models_to_check = AUDITED_MODELS
         if model_param and model_param in MODEL_LOOKUP:
             models_to_check = [MODEL_LOOKUP[model_param]]
+
+        # When filtering by user/search, the per-model slice below needs to
+        # look at more than just the most recent `limit` rows - otherwise a
+        # real match sitting just past the cutoff is silently dropped. The
+        # final response is still capped at `limit` either way.
+        has_filter = bool(user_param or search_param)
+        fetch_limit = min(limit * 5, 500) if has_filter else limit
 
         entries = []
         for model in models_to_check:
@@ -96,7 +114,7 @@ class RecentChangesView(APIView):
             if select_relations:
                 qs = qs.select_related(*select_relations)
 
-            qs = qs.order_by(order_field)[:limit]
+            qs = qs.order_by(order_field)[:fetch_limit]
             for obj in qs:
                 created_at_val = getattr(obj, "created_at", None)
                 updated_at_val = getattr(obj, "updated_at", None) or created_at_val
@@ -183,6 +201,9 @@ class EntityHistoryView(APIView):
             )
         if not object_id:
             return Response({"detail": "id query parameter is required."}, status=400)
+        object_id = safe_int(object_id)
+        if object_id is None:
+            return Response({"detail": "id must be a positive integer."}, status=400)
 
         model = MODEL_LOOKUP[model_name]
         try:

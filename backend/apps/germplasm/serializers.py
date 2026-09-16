@@ -40,6 +40,7 @@ class GermplasmSerializer(AuditSerializerMixin, serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "germplasm_db_id",
             "program_name",
             "parent_female_name",
             "parent_male_name",

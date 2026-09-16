@@ -3,13 +3,14 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
+from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
 
 from .models import Cross, Germplasm
 from .serializers import CrossSerializer, GermplasmSerializer
 
 
-class GermplasmViewSet(viewsets.ModelViewSet):
+class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     queryset = Germplasm.objects.select_related(
         "program",
         "parent_female",
@@ -75,12 +76,16 @@ class GermplasmViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="advance")
     def advance(self, request):
+        from apps.core.utils import safe_int
+
         germplasm_ids = request.data.get("germplasm_ids", [])
         method = request.data.get("method")
-        ssd_count = int(request.data.get("ssd_count", 1))
+        ssd_count = safe_int(request.data.get("ssd_count", 1))
 
         if not germplasm_ids or method not in ["bulk", "ssd"]:
             return Response({"detail": "Invalid method or missing IDs."}, status=400)
+        if ssd_count is None or ssd_count < 1:
+            return Response({"detail": "ssd_count must be a positive integer."}, status=400)
 
         from apps.germplasm.services import advance_generation
         germplasm_list = Germplasm.objects.filter(id__in=germplasm_ids)
@@ -101,11 +106,35 @@ class GermplasmViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="bulk_delete")
     def bulk_delete(self, request):
+        from django.db.models import ProtectedError
+
         ids = request.data.get("ids", [])
         if not isinstance(ids, list) or not ids:
             return Response({"detail": "ids must be a non-empty list of integers."}, status=400)
-        deleted, _ = Germplasm.objects.filter(id__in=ids).delete()
-        return Response({"deleted_count": deleted})
+
+        # Delete one at a time: a bulk .delete() aborts entirely on the
+        # first row protected by a Cross/SeedLot reference, so unprotected
+        # rows in the same batch would otherwise never get removed either.
+        deleted_ids = []
+        skipped = []
+        for germplasm in Germplasm.objects.filter(id__in=ids):
+            germplasm_id = germplasm.id  # .delete() clears the instance's pk
+            try:
+                germplasm.delete()
+                deleted_ids.append(germplasm_id)
+            except ProtectedError:
+                skipped.append(
+                    {
+                        "id": germplasm_id,
+                        "detail": "Referenced by an existing cross or seed lot.",
+                    }
+                )
+
+        status_code = 200 if not skipped else 409
+        return Response(
+            {"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "skipped": skipped},
+            status=status_code,
+        )
 
     @action(detail=True, methods=["get"], url_path="pedigree_tree")
     def pedigree_tree(self, request, pk=None):
@@ -125,7 +154,10 @@ class GermplasmViewSet(viewsets.ModelViewSet):
 
         return Response(tree)
 
-class CrossViewSet(viewsets.ModelViewSet):
+class CrossViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    # Cross has no direct `program` field - it's derived from its parents.
+    program_lookup = "female_parent__program_id"
+
     queryset = Cross.objects.select_related(
         "female_parent__program",
         "male_parent__program",

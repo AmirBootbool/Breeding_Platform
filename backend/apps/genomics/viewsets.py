@@ -17,7 +17,9 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Avg
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 
+from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.models import Program
 from apps.core.permissions import RoleBasedPermission
 from apps.germplasm.models import Germplasm
@@ -53,8 +55,28 @@ from .services import (
 
 logger = logging.getLogger("apps.genomics.viewsets")
 
+MAX_GENOTYPE_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 
-class GenotypeDatasetViewSet(viewsets.ModelViewSet):
+
+def _build_unique_lookup(pairs):
+    """Build a {key: value} lookup from (key, value) pairs, but drop any
+    key that appears more than once instead of silently keeping whichever
+    value happened to be inserted last.
+
+    Returns (lookup, ambiguous_keys).
+    """
+    counts = {}
+    lookup = {}
+    for key, value in pairs:
+        counts[key] = counts.get(key, 0) + 1
+        lookup[key] = value
+    ambiguous_keys = {k for k, c in counts.items() if c > 1}
+    for key in ambiguous_keys:
+        lookup.pop(key, None)
+    return lookup, ambiguous_keys
+
+
+class GenotypeDatasetViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     queryset = GenotypeDataset.objects.all().select_related("program", "created_by")
     serializer_class = GenotypeDatasetSerializer
     permission_classes = [IsAuthenticated, RoleBasedPermission]
@@ -66,6 +88,25 @@ class GenotypeDatasetViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models import ProtectedError
+
+        instance = self.get_object()
+        try:
+            instance.delete()
+        except ProtectedError:
+            count = instance.predictions.count()
+            return Response(
+                {
+                    "detail": (
+                        f"Cannot delete: {count} genomic prediction(s) were "
+                        "computed from this dataset. Delete them first."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
         request=OpenApiTypes.OBJECT,
@@ -85,6 +126,17 @@ class GenotypeDatasetViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if file_obj.size > MAX_GENOTYPE_UPLOAD_BYTES:
+            return Response(
+                {
+                    "error": (
+                        f"File exceeds the "
+                        f"{MAX_GENOTYPE_UPLOAD_BYTES // (1024 * 1024)}MB upload limit."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         name = request.data.get("name") or file_obj.name.rsplit(".", 1)[0]
         program_id = request.data.get("program")
         if not program_id:
@@ -99,6 +151,19 @@ class GenotypeDatasetViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Program not found."}, status=status.HTTP_404_NOT_FOUND
             )
+
+        # upload_file is a custom @action, not the standard DRF create()
+        # flow, so ProgramScopedQuerySetMixin.create()'s ownership guard
+        # never runs here - check it explicitly instead.
+        user = request.user
+        if not (user.is_staff or user.is_superuser):
+            profile = getattr(user, "profile", None)
+            user_program_id = profile.program_id if profile else None
+            if user_program_id != program.id:
+                return Response(
+                    {"error": "You cannot upload genotype data under a different program."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         file_format = request.data.get("file_format", "matrix").lower()
         imputation = request.data.get("imputation_method", "mean")
@@ -157,22 +222,31 @@ class GenotypeDatasetViewSet(viewsets.ModelViewSet):
                     created_by=request.user,
                 )
 
-                # Link samples to existing Germplasm where name or germplasm_db_id matches
-                existing_germplasm = {
-                    g.name.lower(): g
+                # Link samples to existing Germplasm where name or germplasm_db_id
+                # matches. Two accessions sharing the same (lowercased) name would
+                # otherwise silently pick whichever one happened to be inserted
+                # last into the lookup dict - drop ambiguous keys instead and
+                # leave those samples unlinked, surfaced below, rather than
+                # guessing which physical line a GEBV belongs to.
+                existing_germplasm, ambiguous_names = _build_unique_lookup(
+                    (g.name.lower(), g)
                     for g in Germplasm.objects.filter(program=program)
-                }
-                existing_db_ids = {
-                    g.germplasm_db_id.lower(): g
+                )
+                existing_db_ids, ambiguous_db_ids = _build_unique_lookup(
+                    (g.germplasm_db_id.lower(), g)
                     for g in Germplasm.objects.filter(program=program)
                     if g.germplasm_db_id
-                }
+                )
 
                 samples_to_create = []
+                ambiguous_links = []
                 for s_name in retained_s:
-                    germ = existing_germplasm.get(s_name.lower()) or existing_db_ids.get(
-                        s_name.lower()
-                    )
+                    key = s_name.lower()
+                    if key in ambiguous_names or key in ambiguous_db_ids:
+                        germ = None
+                        ambiguous_links.append(s_name)
+                    else:
+                        germ = existing_germplasm.get(key) or existing_db_ids.get(key)
                     samples_to_create.append(
                         GenotypeSample(
                             dataset=dataset,
@@ -184,13 +258,18 @@ class GenotypeDatasetViewSet(viewsets.ModelViewSet):
 
                 GenotypeSample.objects.bulk_create(samples_to_create)
 
-            return Response(
-                {
-                    "dataset": GenotypeDatasetSerializer(dataset).data,
-                    "qc_stats": qc_stats,
-                },
-                status=status.HTTP_201_CREATED,
-            )
+            response_data = {
+                "dataset": GenotypeDatasetSerializer(dataset).data,
+                "qc_stats": qc_stats,
+            }
+            if ambiguous_links:
+                response_data["ambiguous_links"] = ambiguous_links
+                response_data["warning"] = (
+                    f"{len(ambiguous_links)} sample(s) matched more than one "
+                    "germplasm record by name and were left unlinked - link "
+                    "them manually."
+                )
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception as exc:
             logger.error("Genotype file upload failed: %s", exc, exc_info=True)
@@ -269,7 +348,7 @@ class GenotypeDatasetViewSet(viewsets.ModelViewSet):
         })
 
 
-class GenomicPredictionViewSet(viewsets.ModelViewSet):
+class GenomicPredictionViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     queryset = GenomicPrediction.objects.all().select_related(
         "program",
         "trait",
@@ -288,6 +367,20 @@ class GenomicPredictionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        # GenomicBreedingValue.prediction is PROTECT (so an unrelated
+        # cascade, e.g. deleting the parent dataset, can never silently
+        # wipe GEBV history) - but deleting a prediction directly is a
+        # deliberate action the user asked for, and there's no separate
+        # endpoint to delete its GEBVs first, so remove them here as part
+        # of the same request rather than leaving completed predictions
+        # permanently undeletable.
+        instance = self.get_object()
+        with transaction.atomic():
+            instance.gebvs.all().delete()
+            instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
         request=OpenApiTypes.OBJECT,
@@ -425,6 +518,7 @@ class GenomicPredictionViewSet(viewsets.ModelViewSet):
                     n_candidates=fit_res["n_candidates"],
                     cv_accuracy=cv_res.get("cv_accuracy"),
                     cv_mse=cv_res.get("cv_mse"),
+                    mu=fit_res.get("mu"),
                     genomic_heritability=fit_res.get("heritability_snp"),
                     variance_genomic=fit_res.get("variance_genomic"),
                     variance_residual=fit_res.get("variance_residual"),
@@ -497,19 +591,24 @@ class GenomicPredictionViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["get"])
     def gebvs(self, request, pk=None):
-        prediction = self.get_object()
+        # Look the prediction up directly instead of via self.get_object(),
+        # which would run the request through self.filter_queryset() first.
+        # GenomicPredictionViewSet declares search_fields on the *prediction*
+        # (name/trait/dataset), so the same "search" query param used below to
+        # search GEBVs by germplasm name would otherwise also be applied to
+        # the outer prediction lookup and 404 it whenever the search term
+        # doesn't happen to match the prediction's own name/trait/dataset.
+        prediction = get_object_or_404(self.get_queryset(), pk=pk)
         qs = GenomicBreedingValue.objects.filter(
             prediction=prediction
-        ).select_related("germplasm", "germplasm__program")
+        ).select_related("prediction", "germplasm", "germplasm__program")
 
         search = request.query_params.get("search")
         if search:
             qs = qs.filter(
-                models_or_q := (
-                    Germplasm.objects.filter(
-                        name__icontains=search
-                    ).values_list("id", flat=True)
-                )
+                germplasm_id__in=Germplasm.objects.filter(
+                    name__icontains=search
+                ).values_list("id", flat=True)
             )
 
         is_training = request.query_params.get("is_training")
@@ -572,7 +671,11 @@ class GenomicPredictionViewSet(viewsets.ModelViewSet):
         return response
 
 
-class DiagnosticMarkerViewSet(viewsets.ModelViewSet):
+class DiagnosticMarkerViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    # A null program means the marker is globally available (see model
+    # help_text), so it must stay visible to every program, not just none.
+    allow_global_rows = True
+
     queryset = DiagnosticMarker.objects.all().select_related("program")
     serializer_class = DiagnosticMarkerSerializer
     permission_classes = [IsAuthenticated, RoleBasedPermission]
@@ -602,7 +705,11 @@ class DiagnosticMarkerViewSet(viewsets.ModelViewSet):
         )
 
 
-class MarkerScoreViewSet(viewsets.ModelViewSet):
+class MarkerScoreViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    # MarkerScore has no direct `program`; scope via the germplasm it was
+    # scored on (not the marker, since a marker's own program can be null).
+    program_lookup = "germplasm__program_id"
+
     queryset = MarkerScore.objects.all().select_related("marker", "germplasm")
     serializer_class = MarkerScoreSerializer
     permission_classes = [IsAuthenticated, RoleBasedPermission]

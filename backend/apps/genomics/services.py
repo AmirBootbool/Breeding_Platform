@@ -165,10 +165,28 @@ def parse_matrix_stream(
     marker_names = [str(col).strip() for col in df.columns]
     matrix = df.to_numpy(dtype=float)
 
-    # If coded as (-1, 0, 1), convert to (0, 1, 2)
-    min_val = np.nanmin(matrix)
-    if min_val < 0:
-        matrix = matrix + 1.0
+    non_missing = matrix[~np.isnan(matrix)]
+    if non_missing.size == 0:
+        raise ValidationError("Genotype matrix contains no non-missing values.")
+
+    unique_vals = np.unique(non_missing)
+    if np.any(unique_vals < 0):
+        # Only remap -1/0/1 coding to 0/1/2 when EVERY non-missing value in the
+        # matrix is actually -1, 0 or 1. A blanket "any negative -> shift whole
+        # matrix by +1" would silently corrupt every dosage if a single cell used
+        # a missing-data sentinel like -9 instead of a blank/NaN.
+        if np.all(np.isin(unique_vals, [-1.0, 0.0, 1.0])):
+            matrix = matrix + 1.0
+        else:
+            bad_values = sorted(
+                float(v) for v in unique_vals if v not in (-1.0, 0.0, 1.0, 2.0)
+            )
+            raise ValidationError(
+                "Genotype matrix contains unexpected negative value(s) "
+                f"{bad_values} that are not valid -1/0/1 dosage codes. "
+                "If these represent missing calls, leave the cell blank instead "
+                "of using a sentinel such as -9."
+            )
 
     return marker_names, sample_names, matrix
 
@@ -465,8 +483,11 @@ def run_k_fold_cross_validation(
 
     k = min(k_folds, n_samples)
     indices = np.arange(n_samples)
-    np.random.seed(42)
-    np.random.shuffle(indices)
+    # A local Generator instead of np.random.seed(42), which would mutate
+    # process-wide numpy state and could alter randomness in a concurrent
+    # request on the same worker.
+    rng = np.random.default_rng(42)
+    rng.shuffle(indices)
     folds = np.array_split(indices, k)
 
     all_observed = []
@@ -662,7 +683,7 @@ def compute_mas_stacking_matrix(
     markers = list(markers_qs)
     total_markers = len(markers)
     if total_markers == 0:
-        return {"markers": [], "lines": []}
+        return {"markers": [], "lines": [], "total_lines": 0, "truncated": False}
 
     germplasm_qs = Germplasm.objects.all().select_related("program")
     if germplasm_ids:
@@ -670,6 +691,7 @@ def compute_mas_stacking_matrix(
     elif program_id:
         germplasm_qs = germplasm_qs.filter(program_id=program_id)
 
+    total_line_count = germplasm_qs.count()
     germplasm_list = list(germplasm_qs[:100])  # limit to 100 lines if unfiltered
 
     # Fetch all scores for these markers & lines
@@ -751,4 +773,6 @@ def compute_mas_stacking_matrix(
         "total_markers": total_markers,
         "markers": markers_meta,
         "lines": lines_data,
+        "total_lines": total_line_count,
+        "truncated": total_line_count > len(germplasm_list),
     }

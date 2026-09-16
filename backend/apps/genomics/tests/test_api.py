@@ -20,10 +20,16 @@ def auth_client(django_user_model):
     return client, user
 
 
+def _assign_program(user, program):
+    user.profile.program = program
+    user.profile.save(update_fields=["program"])
+
+
 @pytest.mark.django_db
 def test_diagnostic_markers_api(auth_client):
     client, user = auth_client
     program = Program.objects.create(name="Bread Wheat", crop="wheat")
+    _assign_program(user, program)
 
     # Seed markers
     seed_res = client.post("/api/diagnostic-markers/seed_defaults/", {"program_id": program.id})
@@ -40,6 +46,7 @@ def test_diagnostic_markers_api(auth_client):
 def test_mas_batch_score_and_stacking_api(auth_client):
     client, user = auth_client
     program = Program.objects.create(name="Bread Wheat", crop="wheat")
+    _assign_program(user, program)
     g = Germplasm.objects.create(name="Line_XYZ", program=program)
     m = DiagnosticMarker.objects.create(
         name="Fhb1_Test",
@@ -77,6 +84,7 @@ def test_mas_batch_score_and_stacking_api(auth_client):
 def test_genotype_dataset_and_prediction_api(auth_client):
     client, user = auth_client
     program = Program.objects.create(name="Durum Wheat", crop="wheat")
+    _assign_program(user, program)
     loc = Location.objects.create(name="Field Station 1", country="US")
     season = Season.objects.create(name="2026", year=2026, program=program)
 
@@ -162,6 +170,12 @@ def test_genotype_dataset_and_prediction_api(auth_client):
     gebv_res = client.get(f"/api/genomic-predictions/{pred_id}/gebvs/")
     assert gebv_res.status_code == status.HTTP_200_OK
     assert gebv_res.data["count"] == 5
+
+    # Fetch GEBVs filtered by germplasm name search
+    search_res = client.get(f"/api/genomic-predictions/{pred_id}/gebvs/?search=Durum_1")
+    assert search_res.status_code == status.HTTP_200_OK
+    assert search_res.data["count"] == 1
+    assert search_res.data["results"][0]["germplasm_name"] == "Durum_1"
 
     # Test CSV Export
     export_res = client.get(f"/api/genomic-predictions/{pred_id}/export_gebv_csv/")

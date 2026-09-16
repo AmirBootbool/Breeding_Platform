@@ -2,6 +2,8 @@ import io
 import numpy as np
 import pytest
 
+from django.core.exceptions import ValidationError
+
 from apps.genomics.services import (
     compute_vanraden_grm,
     parse_hapmap_stream,
@@ -31,6 +33,18 @@ Line_2,1,1,0,2
 Line_3,2,0,0,1
 Line_4,0,2,1,0
 Line_5,0,0,2,2
+"""
+
+SAMPLE_MATRIX_NEG1_CODED = """SampleID,SNP_1,SNP_2,SNP_3
+Line_1,-1,0,1
+Line_2,0,1,-1
+Line_3,1,-1,0
+"""
+
+SAMPLE_MATRIX_MISSING_SENTINEL = """SampleID,SNP_1,SNP_2,SNP_3
+Line_1,0,1,2
+Line_2,2,0,-9
+Line_3,1,2,0
 """
 
 
@@ -73,6 +87,27 @@ def test_parse_matrix_stream():
     assert len(marker_names) == 4
     assert matrix.shape == (5, 4)
     assert matrix[0, 1] == 2.0
+
+
+def test_parse_matrix_stream_remaps_neg1_0_1_coding():
+    # When every non-missing value is -1/0/1, the whole matrix is a legitimate
+    # -1/0/1 dosage encoding and should be remapped to 0/1/2.
+    stream = io.StringIO(SAMPLE_MATRIX_NEG1_CODED)
+    _, _, matrix = parse_matrix_stream(stream)
+
+    assert matrix.min() == 0.0
+    assert matrix.max() == 2.0
+    assert matrix[0, 0] == 0.0  # -1 -> 0
+    assert matrix[0, 2] == 2.0  # 1 -> 2
+
+
+def test_parse_matrix_stream_rejects_missing_value_sentinel():
+    # A matrix that's already 0/1/2 coded, with a single -9 missing-value
+    # sentinel, must be rejected rather than silently shifted by +1 (which
+    # would corrupt every dosage in the matrix, not just the -9 cell).
+    stream = io.StringIO(SAMPLE_MATRIX_MISSING_SENTINEL)
+    with pytest.raises(ValidationError):
+        parse_matrix_stream(stream)
 
 
 def test_qc_and_imputation():

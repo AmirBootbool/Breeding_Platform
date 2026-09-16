@@ -56,7 +56,11 @@ def test_cross_self_cross_via_api(auth_client, germplasm):
 
 
 @pytest.mark.django_db
-def test_duplicate_germplasm_db_id_via_api(auth_client, program, germplasm):
+def test_germplasm_db_id_is_server_generated_not_client_settable(auth_client, program, germplasm):
+    # germplasm_db_id is read-only: a client-supplied value - duplicate or
+    # not - must be silently ignored in favor of the server-generated one,
+    # not accepted (which used to let a colliding value reach the database
+    # and raise an unhandled IntegrityError instead of a clean response).
     response = auth_client.post(
         "/api/germplasm/",
         {
@@ -68,6 +72,6 @@ def test_duplicate_germplasm_db_id_via_api(auth_client, program, germplasm):
         },
         format="json",
     )
-    assert response.status_code == 400
-    assert "errors" in response.data
-    assert "germplasm_db_id" in response.data["errors"]
+    assert response.status_code == 201
+    assert response.data["germplasm_db_id"] != germplasm.germplasm_db_id
+    assert response.data["germplasm_db_id"]

@@ -33,7 +33,12 @@ def import_germplasm_csv(file_obj, program_name, dry_run=False):
     errors = []
     with transaction.atomic():
         for i, row in enumerate(reader, start=2):  # header is row 1
-            name = row.get("name", "").strip()
+            # csv.DictReader fills a short row's missing trailing columns
+            # with None (not a missing key), so row.get(field, "") never
+            # falls back to "" for those - it returns None, and .strip()
+            # on None raises AttributeError. `(row.get(field) or "")`
+            # handles both "column absent" and "column present but None".
+            name = (row.get("name") or "").strip()
             if not name:
                 errors.append({"row": i, "detail": "Missing required field: name"})
                 continue
@@ -44,27 +49,26 @@ def import_germplasm_csv(file_obj, program_name, dry_run=False):
                 continue
 
             try:
+                year_developed_raw = (row.get("year_developed") or "").strip()
                 germplasm = Germplasm(
                     name=name,
                     species=(
-                        row.get("species", "").strip()
+                        (row.get("species") or "").strip()
                         or get_default_species_for_crop(program.crop)
                     ),
                     program=program,
-                    pedigree_string=row.get("pedigree_string", "").strip(),
-                    cross_type=row.get("cross_type", "").strip() or "unknown",
+                    pedigree_string=(row.get("pedigree_string") or "").strip(),
+                    cross_type=(row.get("cross_type") or "").strip() or "unknown",
                     year_developed=(
-                        int(row["year_developed"])
-                        if row.get("year_developed", "").strip()
-                        else None
+                        int(year_developed_raw) if year_developed_raw else None
                     ),
-                    notes=row.get("notes", "").strip(),
+                    notes=(row.get("notes") or "").strip(),
                 )
                 germplasm.full_clean()
                 if not dry_run:
                     germplasm.save()
                 created += 1
-            except (ValidationError, KeyError, ValueError) as exc:
+            except (ValidationError, KeyError, ValueError, AttributeError) as exc:
                 errors.append({"row": i, "detail": str(exc)})
 
         if dry_run or errors:

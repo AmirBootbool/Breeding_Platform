@@ -82,6 +82,20 @@ def auth_client(api_client, user):
 
 
 @pytest.fixture
+def staff_client(db):
+    # A Django staff/superuser is a platform operator, exempt from
+    # per-program scoping (see ProgramScopedQuerySetMixin) - useful for
+    # tests that legitimately need to see or filter across programs.
+    User = get_user_model()
+    user = User.objects.create_user(
+        username="staff_tester", password="password12345", is_staff=True
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.fixture
 def client_for_role(db, program):
     def make_client(role, username=None):
         User = get_user_model()

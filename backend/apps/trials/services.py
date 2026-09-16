@@ -541,6 +541,24 @@ def compute_trial_summary(trial: Trial) -> list[dict]:
     return results
 
 
+def unique_germplasm_name(program, candidate_name: str) -> str:
+    """Return `candidate_name` if it's not already used in `program`,
+    otherwise a disambiguated `candidate_name-2`, `-3`, ... variant.
+
+    Auto-generated names (advancement, harvest) have no built-in
+    uniqueness guarantee - e.g. repeated advancement past the F8 cap
+    keeps producing the identical name - and Germplasm.name has no
+    database-level unique constraint, so two different physical lines
+    could otherwise end up sharing a name.
+    """
+    name = candidate_name
+    suffix = 1
+    while Germplasm.objects.filter(program=program, name=name).exists():
+        suffix += 1
+        name = f"{candidate_name}-{suffix}"
+    return name
+
+
 def advance_plots(plot_ids: list[int], selections_per_plot: int = 1, selection_method: str = "SSD") -> list[int]:
     """Advance selected plots to the next generation by creating new Germplasm records."""
     from .models import Plot
@@ -585,9 +603,9 @@ def advance_plots(plot_ids: list[int], selections_per_plot: int = 1, selection_m
                     sel_suffix = f"-{method_abbr}{i}"
                 
                 full_suffix = f"{gen_suffix}{sel_suffix}"
-                
+
                 new_germplasm = Germplasm.objects.create(
-                    name=f"{clean_name}{full_suffix}",
+                    name=unique_germplasm_name(program, f"{clean_name}{full_suffix}"),
                     pedigree_string=f"{clean_pedigree}{full_suffix}",
                     program=program,
                     parent_female=plot.germplasm,
@@ -671,7 +689,7 @@ def compute_heritability(analysis_set, variable):
         # Random intercept for genotype, nested random effect approximated via
         # a genotype:environment interaction term added as a grouping variable.
         df["geno_env"] = df["germplasm"] + "_" + df["environment"]
-        model = smf.mixedlm("value ~ 1", df, groups=df["germplasm"], re_formula="1")
+        model = smf.mixedlm("value ~ environment", df, groups=df["germplasm"], re_formula="1")
         result = model.fit(reml=True)
 
         var_genotype = float(result.cov_re.iloc[0, 0])
@@ -679,7 +697,7 @@ def compute_heritability(analysis_set, variable):
 
         # Genotype x environment variance estimated as a second pass: fit
         # genotype-within-environment as the grouping variable and subtract.
-        model_gxe = smf.mixedlm("value ~ 1", df, groups=df["geno_env"], re_formula="1")
+        model_gxe = smf.mixedlm("value ~ environment", df, groups=df["geno_env"], re_formula="1")
         result_gxe = model_gxe.fit(reml=True)
         var_geno_plus_gxe = float(result_gxe.cov_re.iloc[0, 0])
         var_gxe = max(var_geno_plus_gxe - var_genotype, 0.0)

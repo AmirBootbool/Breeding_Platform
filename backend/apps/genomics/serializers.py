@@ -88,8 +88,14 @@ class GenomicBreedingValueSerializer(serializers.ModelSerializer):
         ]
 
     def get_predicted_performance(self, obj):
-        # Return estimated total performance if prediction mean is stored or calculated
-        return round(obj.gebv, 4)
+        # Absolute predicted phenotype = population mean + breeding value.
+        # `mu` is null on predictions created before it was persisted -
+        # fall back to the GEBV alone (its old, deviation-from-mean value)
+        # rather than crash.
+        mu = obj.prediction.mu
+        if mu is None:
+            return round(obj.gebv, 4)
+        return round(mu + obj.gebv, 4)
 
 
 class GenomicPredictionSerializer(serializers.ModelSerializer):

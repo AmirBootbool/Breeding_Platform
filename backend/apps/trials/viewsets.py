@@ -10,7 +10,9 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import StreamingHttpResponse
 
+from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
+from apps.germplasm.models import Germplasm
 
 from .models import AnalysisSet, Observation, ObservationVariable, Plot, TraitPanel, Trial
 from .serializers import (
@@ -29,7 +31,8 @@ from .services import (
 )
 
 
-class TrialViewSet(viewsets.ModelViewSet):
+class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    queryset = Trial.objects.all()
     serializer_class = TrialSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder"}
@@ -55,7 +58,9 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return (
-            Trial.objects.select_related("program", "location", "season")
+            super()
+            .get_queryset()
+            .select_related("program", "location", "season")
             .annotate(plot_count=Count("plots"))
             .order_by("trial_code")
         )
@@ -115,26 +120,32 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def harvest_plots(self, request, pk=None):
+        from apps.core.utils import safe_int
+
         trial = self.get_object()
         plot_ids = request.data.get("plot_ids", [])
         method = request.data.get("method")
-        ssd_count = int(request.data.get("ssd_count", 1))
+        ssd_count = safe_int(request.data.get("ssd_count", 1))
 
         if not plot_ids or method not in ["bulk", "ssd"]:
             return Response({"detail": "Invalid method or missing plot IDs."}, status=400)
+        if ssd_count is None or ssd_count < 1:
+            return Response({"detail": "ssd_count must be a positive integer."}, status=400)
 
         plots_qs = trial.plots.filter(id__in=plot_ids).select_related("germplasm")
-        
+
         from apps.germplasm.models import Germplasm
         from django.db import transaction
-        
+
+        from .services import unique_germplasm_name
+
         created_entries = []
         with transaction.atomic():
             for plot in plots_qs:
                 line = plot.germplasm
                 if method == 'bulk':
                     new_line = Germplasm(
-                        name=f"{line.name}-P{plot.plot_number}",
+                        name=unique_germplasm_name(line.program, f"{line.name}-P{plot.plot_number}"),
                         species=line.species,
                         program=line.program,
                         parent_female=line,
@@ -148,7 +159,7 @@ class TrialViewSet(viewsets.ModelViewSet):
                 elif method == 'ssd':
                     for i in range(1, ssd_count + 1):
                         new_line = Germplasm(
-                            name=f"{line.name}-P{plot.plot_number}-{i}",
+                            name=unique_germplasm_name(line.program, f"{line.name}-P{plot.plot_number}-{i}"),
                             species=line.species,
                             program=line.program,
                             parent_female=line,
@@ -159,7 +170,7 @@ class TrialViewSet(viewsets.ModelViewSet):
                         )
                         new_line.save()
                         created_entries.append(new_line)
-                        
+
         return Response({
             "created_count": len(created_entries),
             "created_ids": [g.id for g in created_entries]
@@ -351,12 +362,12 @@ class TrialViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        plots = (
+        plots = list(
             Plot.objects.filter(trial=trial)
             .select_related("germplasm")
             .order_by("rep", "plot_number")
         )
-        if not plots.exists():
+        if not plots:
             return Response(
                 {
                     "trial_id": trial.id,
@@ -383,8 +394,19 @@ class TrialViewSet(viewsets.ModelViewSet):
         has_rc = any(p.row is not None and p.column is not None for p in plots)
         coordinate_type = "row_col" if has_rc else "rep_plot"
 
+        # In row_col mode, a plot missing row/column has no real coordinate
+        # to place it at - substituting rep/plot_number for it would risk
+        # colliding with another plot's genuine row/column values. Exclude
+        # such plots from the grid instead, and report how many were
+        # dropped so the omission is visible rather than silently wrong.
+        if coordinate_type == "row_col":
+            grid_plots = [p for p in plots if p.row is not None and p.column is not None]
+        else:
+            grid_plots = plots
+        excluded_plot_count = len(plots) - len(grid_plots)
+
         numeric_values = []
-        for p in plots:
+        for p in grid_plots:
             obs = obs_map.get(p.id)
             if obs and obs.value_numeric is not None:
                 numeric_values.append(float(obs.value_numeric))
@@ -402,7 +424,7 @@ class TrialViewSet(viewsets.ModelViewSet):
         row_buckets = {}
         col_buckets = {}
 
-        for p in plots:
+        for p in grid_plots:
             obs = obs_map.get(p.id)
             raw_val = (
                 float(obs.value_numeric)
@@ -417,8 +439,9 @@ class TrialViewSet(viewsets.ModelViewSet):
                     norm_val = 0.5
 
             if coordinate_type == "row_col":
-                r_idx = p.row if p.row is not None else p.rep
-                c_idx = p.column if p.column is not None else p.plot_number
+                # grid_plots is already filtered to plots with both set.
+                r_idx = p.row
+                c_idx = p.column
             else:
                 r_idx = p.rep
                 c_idx = p.plot_number
@@ -481,6 +504,7 @@ class TrialViewSet(viewsets.ModelViewSet):
                 "row_margins": row_margins,
                 "col_margins": col_margins,
                 "cells": cells,
+                "excluded_plot_count": excluded_plot_count,
             }
         )
 
@@ -575,6 +599,16 @@ class TrialViewSet(viewsets.ModelViewSet):
                 if "germplasm" in p_data or "germplasm_id" in p_data:
                     gid = p_data.get("germplasm") or p_data.get("germplasm_id")
                     if gid:
+                        if not Germplasm.objects.filter(id=gid, program=trial.program).exists():
+                            return Response(
+                                {
+                                    "detail": (
+                                        f"Germplasm {gid} does not exist or does not "
+                                        "belong to this trial's program."
+                                    )
+                                },
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
                         plot.germplasm_id = gid
                 if "is_check" in p_data:
                     plot.is_check = bool(p_data["is_check"])
@@ -603,21 +637,32 @@ class TrialViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="add_grid_cells")
     def add_grid_cells(self, request, pk=None):
         """Add rows or columns of grid plots (optionally filled with a border/filler germplasm)."""
+        from apps.core.utils import safe_int
+
         trial = self.get_object()
         grid_type = request.data.get("type", "row")  # 'row' or 'column'
         location = request.data.get("location", "top")  # 'top', 'bottom', 'left', 'right'
-        count = int(request.data.get("count", 1))
+        count = safe_int(request.data.get("count", 1))
         fill_germplasm_id = request.data.get("fill_germplasm_id")
         is_border = bool(request.data.get("is_border", True))
 
-        if count < 1 or count > 20:
-            return Response({"detail": "Count must be between 1 and 20."}, status=400)
+        if count is None or count < 1 or count > 20:
+            return Response({"detail": "Count must be an integer between 1 and 20."}, status=400)
 
-        from apps.germplasm.models import Germplasm
         if fill_germplasm_id:
-            germplasm = Germplasm.objects.filter(id=fill_germplasm_id).first()
+            germplasm = Germplasm.objects.filter(
+                id=fill_germplasm_id, program=trial.program
+            ).first()
             if not germplasm:
-                return Response({"detail": "Specified fill germplasm does not exist."}, status=400)
+                return Response(
+                    {
+                        "detail": (
+                            "Specified fill germplasm does not exist or does not "
+                            "belong to this trial's program."
+                        )
+                    },
+                    status=400,
+                )
         else:
             first_plot = trial.plots.first()
             germplasm = first_plot.germplasm if first_plot else Germplasm.objects.first()
@@ -733,7 +778,10 @@ class TrialViewSet(viewsets.ModelViewSet):
         )
 
 
-class PlotViewSet(viewsets.ModelViewSet):
+class PlotViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    program_lookup = "trial__program_id"
+
+    queryset = Plot.objects.all()
     serializer_class = PlotSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder"}
@@ -749,8 +797,9 @@ class PlotViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return (
-            Plot.objects.select_related("trial", "germplasm")
-            .all()
+            super()
+            .get_queryset()
+            .select_related("trial", "germplasm")
             .order_by("trial", "plot_number")
         )
 
@@ -774,7 +823,12 @@ class ObservationVariableViewSet(viewsets.ModelViewSet):
         return ObservationVariable.objects.annotate(usage_count=C("observations")).order_by("name")
 
 
-class TraitPanelViewSet(viewsets.ModelViewSet):
+class TraitPanelViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    # A null program means the panel is available to every program (see
+    # model help_text), same pattern as DiagnosticMarker.
+    allow_global_rows = True
+
+    queryset = TraitPanel.objects.all()
     serializer_class = TraitPanelSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder"}
@@ -787,14 +841,18 @@ class TraitPanelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return (
-            TraitPanel.objects
+            super()
+            .get_queryset()
             .select_related("program", "created_by")
             .prefetch_related("variables")
             .order_by("name")
         )
 
 
-class ObservationViewSet(viewsets.ModelViewSet):
+class ObservationViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    program_lookup = "plot__trial__program_id"
+
+    queryset = Observation.objects.all()
     serializer_class = ObservationSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder", "technician"}
@@ -807,9 +865,9 @@ class ObservationViewSet(viewsets.ModelViewSet):
     filterset_fields = ["plot", "variable", "plot__trial"]
 
     def get_queryset(self):
-        return Observation.objects.select_related(
+        return super().get_queryset().select_related(
             "plot__trial", "plot__germplasm", "variable"
-        ).all()
+        )
 
     @action(detail=False, methods=["post"], url_path="bulk_create")
     def bulk_create(self, request):
@@ -848,7 +906,8 @@ class ObservationViewSet(viewsets.ModelViewSet):
         )
 
 
-class AnalysisSetViewSet(viewsets.ModelViewSet):
+class AnalysisSetViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    queryset = AnalysisSet.objects.all()
     serializer_class = AnalysisSetSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder"}
@@ -861,7 +920,9 @@ class AnalysisSetViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return (
-            AnalysisSet.objects.select_related("program", "created_by")
+            super()
+            .get_queryset()
+            .select_related("program", "created_by")
             .prefetch_related("trials")
             .order_by("name")
         )

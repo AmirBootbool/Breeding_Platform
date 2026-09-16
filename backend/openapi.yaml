@@ -7,6 +7,15 @@ paths:
   /api/analysis-sets/:
     get:
       operationId: api_analysis_sets_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -40,6 +49,15 @@ paths:
           description: ''
     post:
       operationId: api_analysis_sets_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -67,6 +85,15 @@ paths:
   /api/analysis-sets/{id}/:
     get:
       operationId: api_analysis_sets_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -88,6 +115,15 @@ paths:
           description: ''
     put:
       operationId: api_analysis_sets_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -121,6 +157,15 @@ paths:
           description: ''
     patch:
       operationId: api_analysis_sets_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -153,6 +198,15 @@ paths:
           description: ''
     delete:
       operationId: api_analysis_sets_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -171,6 +225,15 @@ paths:
   /api/analysis-sets/{id}/heritability/:
     get:
       operationId: api_analysis_sets_heritability_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -193,6 +256,15 @@ paths:
   /api/analysis-sets/{id}/ranking/:
     get:
       operationId: api_analysis_sets_ranking_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -279,6 +351,15 @@ paths:
   /api/crosses/:
     get:
       operationId: api_crosses_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: female_parent
@@ -324,6 +405,15 @@ paths:
           description: ''
     post:
       operationId: api_crosses_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -351,6 +441,15 @@ paths:
   /api/crosses/{id}/:
     get:
       operationId: api_crosses_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -372,6 +471,15 @@ paths:
           description: ''
     put:
       operationId: api_crosses_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -405,6 +513,15 @@ paths:
           description: ''
     patch:
       operationId: api_crosses_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -437,6 +554,15 @@ paths:
           description: ''
     delete:
       operationId: api_crosses_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -455,6 +581,15 @@ paths:
   /api/crossing-blocks/:
     get:
       operationId: api_crossing_blocks_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -492,6 +627,15 @@ paths:
           description: ''
     post:
       operationId: api_crossing_blocks_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -519,6 +663,15 @@ paths:
   /api/crossing-blocks/{id}/:
     get:
       operationId: api_crossing_blocks_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -540,6 +693,15 @@ paths:
           description: ''
     put:
       operationId: api_crossing_blocks_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -573,6 +735,15 @@ paths:
           description: ''
     patch:
       operationId: api_crossing_blocks_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -605,6 +776,15 @@ paths:
           description: ''
     delete:
       operationId: api_crossing_blocks_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -774,6 +954,15 @@ paths:
   /api/diagnostic-markers/:
     get:
       operationId: api_diagnostic_markers_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: assay_type
@@ -841,6 +1030,15 @@ paths:
           description: ''
     post:
       operationId: api_diagnostic_markers_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -868,6 +1066,15 @@ paths:
   /api/diagnostic-markers/{id}/:
     get:
       operationId: api_diagnostic_markers_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -889,6 +1096,15 @@ paths:
           description: ''
     put:
       operationId: api_diagnostic_markers_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -922,6 +1138,15 @@ paths:
           description: ''
     patch:
       operationId: api_diagnostic_markers_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -954,6 +1179,15 @@ paths:
           description: ''
     delete:
       operationId: api_diagnostic_markers_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1053,6 +1287,15 @@ paths:
   /api/genomic-predictions/:
     get:
       operationId: api_genomic_predictions_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: model_type
@@ -1116,6 +1359,15 @@ paths:
           description: ''
     post:
       operationId: api_genomic_predictions_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -1143,6 +1395,15 @@ paths:
   /api/genomic-predictions/{id}/:
     get:
       operationId: api_genomic_predictions_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1164,6 +1425,15 @@ paths:
           description: ''
     put:
       operationId: api_genomic_predictions_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1197,6 +1467,15 @@ paths:
           description: ''
     patch:
       operationId: api_genomic_predictions_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1229,6 +1508,15 @@ paths:
           description: ''
     delete:
       operationId: api_genomic_predictions_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1374,6 +1662,15 @@ paths:
   /api/genotype-datasets/:
     get:
       operationId: api_genotype_datasets_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: file_format
@@ -1435,6 +1732,15 @@ paths:
           description: ''
     post:
       operationId: api_genotype_datasets_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -1462,6 +1768,15 @@ paths:
   /api/genotype-datasets/{id}/:
     get:
       operationId: api_genotype_datasets_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1483,6 +1798,15 @@ paths:
           description: ''
     put:
       operationId: api_genotype_datasets_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1516,6 +1840,15 @@ paths:
           description: ''
     patch:
       operationId: api_genotype_datasets_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1548,6 +1881,15 @@ paths:
           description: ''
     delete:
       operationId: api_genotype_datasets_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1618,6 +1960,15 @@ paths:
   /api/germplasm/:
     get:
       operationId: api_germplasm_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: cross_type
@@ -1681,6 +2032,15 @@ paths:
           description: ''
     post:
       operationId: api_germplasm_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -1708,6 +2068,15 @@ paths:
   /api/germplasm/{id}/:
     get:
       operationId: api_germplasm_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1729,6 +2098,15 @@ paths:
           description: ''
     put:
       operationId: api_germplasm_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1762,6 +2140,15 @@ paths:
           description: ''
     patch:
       operationId: api_germplasm_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1794,6 +2181,15 @@ paths:
           description: ''
     delete:
       operationId: api_germplasm_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1812,6 +2208,15 @@ paths:
   /api/germplasm/{id}/pedigree_tree/:
     get:
       operationId: api_germplasm_pedigree_tree_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -1834,6 +2239,15 @@ paths:
   /api/germplasm/advance/:
     post:
       operationId: api_germplasm_advance_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -1861,6 +2275,15 @@ paths:
   /api/germplasm/bulk_archive/:
     post:
       operationId: api_germplasm_bulk_archive_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -1888,6 +2311,15 @@ paths:
   /api/germplasm/bulk_delete/:
     post:
       operationId: api_germplasm_bulk_delete_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -1915,6 +2347,15 @@ paths:
   /api/germplasm/bulk_import/:
     post:
       operationId: api_germplasm_bulk_import_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -2132,6 +2573,15 @@ paths:
   /api/marker-scores/:
     get:
       operationId: api_marker_scores_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: call_status
@@ -2187,6 +2637,15 @@ paths:
           description: ''
     post:
       operationId: api_marker_scores_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -2214,6 +2673,15 @@ paths:
   /api/marker-scores/{id}/:
     get:
       operationId: api_marker_scores_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2235,6 +2703,15 @@ paths:
           description: ''
     put:
       operationId: api_marker_scores_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2268,6 +2745,15 @@ paths:
           description: ''
     patch:
       operationId: api_marker_scores_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2300,6 +2786,15 @@ paths:
           description: ''
     delete:
       operationId: api_marker_scores_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2576,6 +3071,15 @@ paths:
   /api/observations/:
     get:
       operationId: api_observations_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -2621,6 +3125,15 @@ paths:
           description: ''
     post:
       operationId: api_observations_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -2648,6 +3161,15 @@ paths:
   /api/observations/{id}/:
     get:
       operationId: api_observations_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2669,6 +3191,15 @@ paths:
           description: ''
     put:
       operationId: api_observations_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2702,6 +3233,15 @@ paths:
           description: ''
     patch:
       operationId: api_observations_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2734,6 +3274,15 @@ paths:
           description: ''
     delete:
       operationId: api_observations_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2752,6 +3301,15 @@ paths:
   /api/observations/bulk_create/:
     post:
       operationId: api_observations_bulk_create_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -2779,6 +3337,15 @@ paths:
   /api/plots/:
     get:
       operationId: api_plots_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: germplasm
@@ -2838,6 +3405,15 @@ paths:
           description: ''
     post:
       operationId: api_plots_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -2865,6 +3441,15 @@ paths:
   /api/plots/{id}/:
     get:
       operationId: api_plots_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2886,6 +3471,15 @@ paths:
           description: ''
     put:
       operationId: api_plots_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2919,6 +3513,15 @@ paths:
           description: ''
     patch:
       operationId: api_plots_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2951,6 +3554,15 @@ paths:
           description: ''
     delete:
       operationId: api_plots_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -2969,6 +3581,15 @@ paths:
   /api/programs/:
     get:
       operationId: api_programs_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: crop
@@ -3022,6 +3643,15 @@ paths:
           description: ''
     post:
       operationId: api_programs_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -3049,6 +3679,15 @@ paths:
   /api/programs/{id}/:
     get:
       operationId: api_programs_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3070,6 +3709,15 @@ paths:
           description: ''
     put:
       operationId: api_programs_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3103,6 +3751,15 @@ paths:
           description: ''
     patch:
       operationId: api_programs_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3135,6 +3792,15 @@ paths:
           description: ''
     delete:
       operationId: api_programs_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3153,6 +3819,15 @@ paths:
   /api/seasons/:
     get:
       operationId: api_seasons_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -3194,6 +3869,15 @@ paths:
           description: ''
     post:
       operationId: api_seasons_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -3221,6 +3905,15 @@ paths:
   /api/seasons/{id}/:
     get:
       operationId: api_seasons_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3242,6 +3935,15 @@ paths:
           description: ''
     put:
       operationId: api_seasons_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3275,6 +3977,15 @@ paths:
           description: ''
     patch:
       operationId: api_seasons_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3307,6 +4018,15 @@ paths:
           description: ''
     delete:
       operationId: api_seasons_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3325,6 +4045,15 @@ paths:
   /api/seed-lots/:
     get:
       operationId: api_seed_lots_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: germplasm
@@ -3384,6 +4113,15 @@ paths:
           description: ''
     post:
       operationId: api_seed_lots_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -3411,6 +4149,15 @@ paths:
   /api/seed-lots/{id}/:
     get:
       operationId: api_seed_lots_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3432,6 +4179,15 @@ paths:
           description: ''
     put:
       operationId: api_seed_lots_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3465,6 +4221,15 @@ paths:
           description: ''
     patch:
       operationId: api_seed_lots_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3497,6 +4262,15 @@ paths:
           description: ''
     delete:
       operationId: api_seed_lots_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3515,6 +4289,15 @@ paths:
   /api/seed-lots/{id}/adjust/:
     post:
       operationId: api_seed_lots_adjust_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3549,6 +4332,15 @@ paths:
   /api/seed-lots/{id}/label/:
     get:
       operationId: api_seed_lots_label_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3571,6 +4363,15 @@ paths:
   /api/seed-lots/{id}/split/:
     post:
       operationId: api_seed_lots_split_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3605,6 +4406,15 @@ paths:
   /api/seed-lots/bulk-labels/:
     post:
       operationId: api_seed_lots_bulk_labels_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -3632,6 +4442,15 @@ paths:
   /api/seed-lots/low_stock/:
     get:
       operationId: api_seed_lots_low_stock_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       security:
@@ -3647,6 +4466,15 @@ paths:
   /api/seed-transactions/:
     get:
       operationId: api_seed_transactions_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: destination_trial
@@ -3702,9 +4530,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedSeedTransactionList'
           description: ''
+    post:
+      operationId: api_seed_transactions_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeedTransaction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SeedTransaction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SeedTransaction'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedTransaction'
+          description: ''
   /api/seed-transactions/{id}/:
     get:
       operationId: api_seed_transactions_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3727,6 +4599,15 @@ paths:
   /api/trait-panels/:
     get:
       operationId: api_trait_panels_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: category
@@ -3784,6 +4665,15 @@ paths:
           description: ''
     post:
       operationId: api_trait_panels_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -3811,6 +4701,15 @@ paths:
   /api/trait-panels/{id}/:
     get:
       operationId: api_trait_panels_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3832,6 +4731,15 @@ paths:
           description: ''
     put:
       operationId: api_trait_panels_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3865,6 +4773,15 @@ paths:
           description: ''
     patch:
       operationId: api_trait_panels_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3897,6 +4814,15 @@ paths:
           description: ''
     delete:
       operationId: api_trait_panels_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -3915,6 +4841,15 @@ paths:
   /api/trials/:
     get:
       operationId: api_trials_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: query
         name: design_type
@@ -3998,6 +4933,15 @@ paths:
           description: ''
     post:
       operationId: api_trials_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - api
       requestBody:
@@ -4025,6 +4969,15 @@ paths:
   /api/trials/{id}/:
     get:
       operationId: api_trials_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4046,6 +4999,15 @@ paths:
           description: ''
     put:
       operationId: api_trials_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4079,6 +5041,15 @@ paths:
           description: ''
     patch:
       operationId: api_trials_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4111,6 +5082,15 @@ paths:
           description: ''
     delete:
       operationId: api_trials_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4235,6 +5215,15 @@ paths:
   /api/trials/{id}/create_plots/:
     post:
       operationId: api_trials_create_plots_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4339,6 +5328,15 @@ paths:
   /api/trials/{id}/harvest_plots/:
     post:
       operationId: api_trials_harvest_plots_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4427,6 +5425,15 @@ paths:
   /api/trials/{id}/summary/:
     get:
       operationId: api_trials_summary_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4631,6 +5638,15 @@ paths:
   /brapi/v2/germplasm:
     get:
       operationId: brapi_v2_germplasm_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -4670,6 +5686,15 @@ paths:
           description: ''
     post:
       operationId: brapi_v2_germplasm_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - brapi
       requestBody:
@@ -4697,6 +5722,15 @@ paths:
   /brapi/v2/germplasm/{id}:
     get:
       operationId: brapi_v2_germplasm_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4781,6 +5815,15 @@ paths:
   /brapi/v2/observations:
     get:
       operationId: brapi_v2_observations_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -4820,6 +5863,15 @@ paths:
           description: ''
     post:
       operationId: brapi_v2_observations_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       tags:
       - brapi
       requestBody:
@@ -4846,6 +5898,15 @@ paths:
   /brapi/v2/observations/{id}:
     get:
       operationId: brapi_v2_observations_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4867,6 +5928,15 @@ paths:
           description: ''
     put:
       operationId: brapi_v2_observations_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4899,6 +5969,15 @@ paths:
           description: ''
     patch:
       operationId: brapi_v2_observations_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4932,6 +6011,15 @@ paths:
   /brapi/v2/observationunits:
     get:
       operationId: brapi_v2_observationunits_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -4969,9 +6057,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBrapiObservationUnitList'
           description: ''
+    post:
+      operationId: brapi_v2_observationunits_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationUnit'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationUnit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrapiObservationUnit'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiObservationUnit'
+          description: ''
   /brapi/v2/observationunits/{id}:
     get:
       operationId: brapi_v2_observationunits_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -4993,6 +6124,15 @@ paths:
           description: ''
     put:
       operationId: brapi_v2_observationunits_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -5025,6 +6165,15 @@ paths:
           description: ''
     patch:
       operationId: brapi_v2_observationunits_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -5120,6 +6269,15 @@ paths:
   /brapi/v2/programs:
     get:
       operationId: brapi_v2_programs_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -5157,9 +6315,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBrapiProgramList'
           description: ''
+    post:
+      operationId: brapi_v2_programs_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrapiProgram'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrapiProgram'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrapiProgram'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiProgram'
+          description: ''
   /brapi/v2/programs/{id}:
     get:
       operationId: brapi_v2_programs_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -5198,6 +6399,15 @@ paths:
   /brapi/v2/studies:
     get:
       operationId: brapi_v2_studies_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - name: ordering
         required: false
@@ -5235,9 +6445,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBrapiStudyList'
           description: ''
+    post:
+      operationId: brapi_v2_studies_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      tags:
+      - brapi
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrapiStudy'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrapiStudy'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrapiStudy'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrapiStudy'
+          description: ''
   /brapi/v2/studies/{id}:
     get:
       operationId: brapi_v2_studies_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
       parameters:
       - in: path
         name: id
@@ -6443,7 +7696,7 @@ components:
           maxLength: 300
         germplasm_db_id:
           type: string
-          maxLength: 100
+          readOnly: true
         species:
           type: string
           maxLength: 100
@@ -6510,6 +7763,7 @@ components:
       required:
       - created_at
       - created_by_username
+      - germplasm_db_id
       - id
       - name
       - parent_female_name
@@ -7755,7 +9009,7 @@ components:
           maxLength: 300
         germplasm_db_id:
           type: string
-          maxLength: 100
+          readOnly: true
         species:
           type: string
           maxLength: 100

@@ -1,12 +1,13 @@
 import pytest
-from apps.core.models import Location, Program, Season
+from apps.core.models import Location, Season
 from apps.germplasm.models import Germplasm
 from apps.trials.models import Observation, ObservationVariable, Plot, Trial
 
 
 @pytest.fixture
-def spatial_trial_setup(db, user):
-    program = Program.objects.create(name="Wheat Bread Program", crop="wheat", created_by=user)
+def spatial_trial_setup(db, program):
+    # Reuse the shared `program` fixture (not a fresh Program) so it lines
+    # up with the `program`-scoped client used by client_for_role().
     location = Location.objects.create(name="Bet Dagan Field")
     season = Season.objects.create(name="2026 Winter", year=2026, program=program)
 

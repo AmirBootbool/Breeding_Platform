@@ -7,6 +7,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
 from apps.germplasm.crossing_serializers import (
     CrossingBlockDetailSerializer,
@@ -22,7 +23,8 @@ from apps.germplasm.crossing_service import (
 from apps.germplasm.models import CrossingBlock
 
 
-class CrossingBlockViewSet(viewsets.ModelViewSet):
+class CrossingBlockViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    queryset = CrossingBlock.objects.all()
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder"}
     search_fields = ["name"]
@@ -31,11 +33,10 @@ class CrossingBlockViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return (
-            CrossingBlock.objects.select_related(
-                "program", "location", "season"
-            )
+            super()
+            .get_queryset()
+            .select_related("program", "location", "season")
             .annotate(cross_count=Count("crosses"))
-            .all()
         )
 
     def get_serializer_class(self):

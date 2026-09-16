@@ -18,6 +18,13 @@ def record_seed_transaction(
     quantity_grams = float(quantity_grams)
 
     with transaction.atomic():
+        # Re-fetch under a row lock: `seed_lot` may be an instance the
+        # caller already had in memory before this transaction started, so
+        # its .quantity_grams could be stale. Locking here makes concurrent
+        # adjustments to the same lot serialize instead of both reading the
+        # same balance and racing to write it back.
+        seed_lot = SeedLot.objects.select_for_update().get(pk=seed_lot.pk)
+
         new_balance = seed_lot.quantity_grams + quantity_grams
         if new_balance < 0:
             raise ValidationError(

@@ -11,8 +11,11 @@ def test_program_list_requires_auth(api_client):
 
 
 @pytest.mark.django_db
-def test_program_create_and_list(auth_client):
-    response = auth_client.post(
+def test_program_create_and_list(staff_client):
+    # Program is its own tenant boundary (ProgramScopedQuerySetMixin), so
+    # this exercises a platform-level (staff) account, which is the one
+    # role expected to see every program.
+    response = staff_client.post(
         "/api/programs/",
         {
             "name": "Breeding Program A",
@@ -25,11 +28,29 @@ def test_program_create_and_list(auth_client):
     assert response.status_code == 201
     assert Program.objects.filter(name="Breeding Program A").exists()
 
-    list_response = auth_client.get("/api/programs/")
+    list_response = staff_client.get("/api/programs/")
     assert list_response.status_code == 200
-    assert list_response.data["count"] == 2
+    assert list_response.data["count"] == 1
     assert any(
         item["name"] == "Breeding Program A" for item in list_response.data["results"]
+    )
+
+
+@pytest.mark.django_db
+def test_program_create_not_visible_to_other_program_member(auth_client):
+    # A regular (non-staff) user creating a new Program isn't automatically
+    # a member of it, so it must not appear in their own program list.
+    response = auth_client.post(
+        "/api/programs/",
+        {"name": "Breeding Program B", "crop": "wheat"},
+        format="json",
+    )
+    assert response.status_code == 201
+
+    list_response = auth_client.get("/api/programs/")
+    assert list_response.status_code == 200
+    assert all(
+        item["name"] != "Breeding Program B" for item in list_response.data["results"]
     )
 
 

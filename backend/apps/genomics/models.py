@@ -122,7 +122,7 @@ class GenomicPrediction(models.Model):
     )
     genotype_dataset = models.ForeignKey(
         GenotypeDataset,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="predictions",
     )
     training_trial = models.ForeignKey(
@@ -165,6 +165,11 @@ class GenomicPrediction(models.Model):
     )
     variance_genomic = models.FloatField(null=True, blank=True)
     variance_residual = models.FloatField(null=True, blank=True)
+    mu = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Population mean (fixed-effect intercept) from the GBLUP solve",
+    )
     status = models.CharField(
         max_length=32, choices=STATUS_CHOICES, default="completed"
     )
@@ -189,7 +194,7 @@ class GenomicBreedingValue(models.Model):
     """Stores the Genomic Estimated Breeding Value (GEBV) for a single germplasm line."""
 
     prediction = models.ForeignKey(
-        GenomicPrediction, on_delete=models.CASCADE, related_name="gebvs"
+        GenomicPrediction, on_delete=models.PROTECT, related_name="gebvs"
     )
     germplasm = models.ForeignKey(
         Germplasm, on_delete=models.CASCADE, related_name="gebv_records"

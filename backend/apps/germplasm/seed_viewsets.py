@@ -2,14 +2,16 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.core.exceptions import ValidationError
+from django.db import transaction
 
+from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
 from .models import SeedLot, SeedTransaction
 from .seed_serializers import SeedLotSerializer, SeedTransactionSerializer
 from .seed_services import record_seed_transaction, build_barcode_label_data
 
 
-class SeedLotViewSet(viewsets.ModelViewSet):
+class SeedLotViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     queryset = SeedLot.objects.select_related(
         "germplasm", "program", "source_plot"
     ).prefetch_related("transactions").all()
@@ -121,44 +123,52 @@ class SeedLotViewSet(viewsets.ModelViewSet):
         if quantity <= 0:
             return Response({"detail": "Quantity must be greater than 0."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if quantity >= parent_lot.quantity_grams:
-            return Response(
-                {"detail": f"Split quantity ({quantity}g) must be strictly less than current available quantity ({parent_lot.quantity_grams}g)."},
-                status=status.HTTP_400_BAD_REQUEST,
+        # The whole split is one unit of work: a failure partway through
+        # (e.g. the new SeedLot failing to save) must not leave the parent
+        # lot's balance already decremented with no destination for the
+        # missing seed mass. Re-fetch under a row lock so a concurrent
+        # split/adjustment on the same lot can't race on a stale balance.
+        with transaction.atomic():
+            parent_lot = SeedLot.objects.select_for_update().get(pk=parent_lot.pk)
+
+            if quantity >= parent_lot.quantity_grams:
+                return Response(
+                    {"detail": f"Split quantity ({quantity}g) must be strictly less than current available quantity ({parent_lot.quantity_grams}g)."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            parent_lot.quantity_grams -= quantity
+            parent_lot.save(update_fields=["quantity_grams", "updated_at"])
+
+            SeedTransaction.objects.create(
+                seed_lot=parent_lot,
+                transaction_type="adjustment",
+                quantity_grams=-quantity,
+                notes=f"Split {quantity}g to new lot",
+                created_by=request.user,
             )
 
-        parent_lot.quantity_grams -= quantity
-        parent_lot.save(update_fields=["quantity_grams", "updated_at"])
+            new_lot = SeedLot.objects.create(
+                germplasm=parent_lot.germplasm,
+                program=parent_lot.program,
+                quantity_grams=quantity,
+                storage_location=new_storage,
+                harvest_date=parent_lot.harvest_date,
+                germination_rate=parent_lot.germination_rate,
+                germination_date=parent_lot.germination_date,
+                status="available",
+                notes=notes,
+                created_by=request.user,
+                updated_by=request.user,
+            )
 
-        SeedTransaction.objects.create(
-            seed_lot=parent_lot,
-            transaction_type="adjustment",
-            quantity_grams=-quantity,
-            notes=f"Split {quantity}g to new lot",
-            created_by=request.user,
-        )
-
-        new_lot = SeedLot.objects.create(
-            germplasm=parent_lot.germplasm,
-            program=parent_lot.program,
-            quantity_grams=quantity,
-            storage_location=new_storage,
-            harvest_date=parent_lot.harvest_date,
-            germination_rate=parent_lot.germination_rate,
-            germination_date=parent_lot.germination_date,
-            status="available",
-            notes=notes,
-            created_by=request.user,
-            updated_by=request.user,
-        )
-
-        SeedTransaction.objects.create(
-            seed_lot=new_lot,
-            transaction_type="initial_deposit",
-            quantity_grams=quantity,
-            notes=f"Created via split from {parent_lot.lot_code}",
-            created_by=request.user,
-        )
+            SeedTransaction.objects.create(
+                seed_lot=new_lot,
+                transaction_type="initial_deposit",
+                quantity_grams=quantity,
+                notes=f"Created via split from {parent_lot.lot_code}",
+                created_by=request.user,
+            )
 
         return Response(
             {
@@ -171,7 +181,15 @@ class SeedLotViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="low_stock")
     def low_stock(self, request):
-        threshold = float(request.query_params.get("threshold", 50.0))
+        from apps.core.utils import safe_float
+
+        raw_threshold = request.query_params.get("threshold")
+        if raw_threshold in (None, ""):
+            threshold = 50.0
+        else:
+            threshold = safe_float(raw_threshold)
+            if threshold is None:
+                return Response({"detail": "threshold must be a number."}, status=400)
         lots = self.get_queryset().filter(
             quantity_grams__lt=threshold, status="available"
         )
@@ -179,7 +197,9 @@ class SeedLotViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class SeedTransactionViewSet(viewsets.ReadOnlyModelViewSet):
+class SeedTransactionViewSet(ProgramScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
+    program_lookup = "seed_lot__program_id"
+
     queryset = SeedTransaction.objects.select_related(
         "seed_lot__germplasm", "destination_trial", "created_by"
     ).all()

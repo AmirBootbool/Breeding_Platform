@@ -23,8 +23,13 @@ def _next_cross_code(year=None):
     if year is None:
         year = timezone.now().year
     prefix = f"X-{year}-"
+    # select_for_update() locks the matching rows so two concurrent callers
+    # (e.g. two technicians planning crosses at once) serialize instead of
+    # both computing the same next sequence number and racing on the
+    # unique `cross_code` constraint.
     last = (
-        Cross.objects.filter(cross_code__startswith=prefix)
+        Cross.objects.select_for_update()
+        .filter(cross_code__startswith=prefix)
         .order_by("-cross_code")
         .values_list("cross_code", flat=True)
         .first()

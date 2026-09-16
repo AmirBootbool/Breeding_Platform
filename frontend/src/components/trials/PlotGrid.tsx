@@ -33,9 +33,6 @@ export default function PlotGrid({
 }: PlotGridProps) {
   // Local state of plots to allow in-memory edits before saving
   const [plots, setPlots] = useState<Plot[]>(initialPlotList)
-  useEffect(() => {
-    setPlots(initialPlotList)
-  }, [initialPlotList])
 
   // Lock / Unlock State
   const [isLocked, setIsLocked] = useState<boolean>(true)
@@ -81,13 +78,33 @@ export default function PlotGrid({
   const [gridAddCount, setGridAddCount] = useState<number>(1)
   const [isAddingGrid, setIsAddingGrid] = useState<boolean>(false)
 
-  // Available germplasm for edit selector
-  const [availableGermplasm, setAvailableGermplasm] = useState<Germplasm[]>([])
+  // Germplasm search for the edit selector - server-side search-as-you-type
+  // instead of a flat page_size=300 fetch, which silently truncated the
+  // picker for any program with more than 300 accessions.
+  const [germplasmQuery, setGermplasmQuery] = useState('')
+  const [germplasmResults, setGermplasmResults] = useState<Germplasm[]>([])
+  const [showGermplasmDropdown, setShowGermplasmDropdown] = useState(false)
+
+  // Seed the search box with the plot's current germplasm name each time a
+  // (different) plot is opened for editing.
   useEffect(() => {
-    germplasmApi.list('&page_size=300').then(res => {
-      setAvailableGermplasm(res.results || [])
-    }).catch(() => {})
-  }, [])
+    if (editPlot) {
+      setGermplasmQuery(editPlot.germplasm_name || '')
+      setShowGermplasmDropdown(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editPlot?.id])
+
+  useEffect(() => {
+    if (!editPlot) return
+    const handle = setTimeout(() => {
+      germplasmApi.list(`&search=${encodeURIComponent(germplasmQuery)}&page_size=20`).then(res => {
+        setGermplasmResults(res.results || [])
+      }).catch(() => {})
+    }, 300)
+    return () => clearTimeout(handle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [germplasmQuery, editPlot?.id])
 
   const actualTrialId = trialId || plots[0]?.trial
   const actualTrialCode = trialCode || `Trial #${actualTrialId || ''}`
@@ -101,6 +118,28 @@ export default function PlotGrid({
     })
     return map
   }, [germplasmIds])
+
+  // Sync local `plots` state from the latest server data whenever it changes -
+  // unless there are unsaved edits in progress. A background refetch (e.g.
+  // React Query's window-focus refetch) must never silently overwrite
+  // in-progress map edits; ask before discarding them instead.
+  useEffect(() => {
+    if (dirtyPlotIds.size === 0) {
+      setPlots(initialPlotList)
+      return
+    }
+    const shouldDiscard = window.confirm(
+      'The plot map was updated in the background while you have unsaved changes. ' +
+      'Load the latest data and discard your unsaved edits?'
+    )
+    if (shouldDiscard) {
+      setPlots(initialPlotList)
+      setDirtyPlotIds(new Set())
+      setUndoStack([])
+      setRedoStack([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPlotList])
 
   // Toast Helper
   const showToast = (text: string, type: 'error' | 'success' | 'info' = 'info') => {
@@ -978,25 +1017,58 @@ export default function PlotGrid({
       {editPlot && (
         <Modal title={`Edit Plot #${editPlot.plot_number}`} onClose={() => setEditPlot(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <div className="form-group">
+            <div className="form-group" style={{ position: 'relative' }}>
               <label className="form-label">Germplasm Entry</label>
-              <select
+              <input
+                type="text"
                 className="form-input"
-                value={editPlot.germplasm}
+                value={germplasmQuery}
+                autoComplete="off"
+                placeholder="Search by name or ID…"
                 onChange={e => {
-                  const gid = Number(e.target.value)
-                  const germ = availableGermplasm.find(g => g.id === gid)
-                  setEditPlot({
-                    ...editPlot,
-                    germplasm: gid,
-                    germplasm_name: germ ? germ.name : editPlot.germplasm_name
-                  })
+                  setGermplasmQuery(e.target.value)
+                  setShowGermplasmDropdown(true)
                 }}
-              >
-                {availableGermplasm.map(g => (
-                  <option key={g.id} value={g.id}>{g.name} ({g.germplasm_db_id})</option>
-                ))}
-              </select>
+                onFocus={() => setShowGermplasmDropdown(true)}
+                onBlur={() => setTimeout(() => setShowGermplasmDropdown(false), 150)}
+              />
+              {showGermplasmDropdown && germplasmResults.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    zIndex: 20,
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 6,
+                    maxHeight: 220,
+                    overflowY: 'auto',
+                    marginTop: 4,
+                  }}
+                >
+                  {germplasmResults.map(g => (
+                    <div
+                      key={g.id}
+                      onMouseDown={() => {
+                        setEditPlot({ ...editPlot, germplasm: g.id, germplasm_name: g.name })
+                        setGermplasmQuery(g.name)
+                        setShowGermplasmDropdown(false)
+                      }}
+                      style={{
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        background: g.id === editPlot.germplasm ? 'var(--bg-hover)' : undefined,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = g.id === editPlot.germplasm ? 'var(--bg-hover)' : '')}
+                    >
+                      {g.name} ({g.germplasm_db_id})
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid-2 gap-3">

@@ -85,14 +85,17 @@ class SyncManager {
       const res = await observations.bulkCreate({ observations: payload })
       const createdCount = res.created?.length ?? 0
       const errors = res.errors ?? []
+      const failedIndices = new Set(errors.map((e: any) => e.index))
 
-      if (errors.length === 0) {
-        offlineStorage.clearQueuedObservations()
-      } else {
-        const failedIndices = new Set(errors.map((e: any) => e.index))
-        const remaining = queue.filter((_, idx) => failedIndices.has(idx))
-        offlineStorage.clearQueuedObservations()
-        remaining.forEach(item => offlineStorage.queueObservation(item))
+      // Remove only the items that were actually part of this submitted batch
+      // (matched by their stable clientId), and only the ones that succeeded.
+      // Anything queued after `queue` was snapshotted above - e.g. the user
+      // scoring another plot while this request was in flight - was never
+      // submitted and must be left untouched in the queue.
+      for (const [idx, item] of queue.entries()) {
+        if (!failedIndices.has(idx)) {
+          await offlineStorage.removeQueuedObservation(item.clientId)
+        }
       }
 
       this.isSyncing = false

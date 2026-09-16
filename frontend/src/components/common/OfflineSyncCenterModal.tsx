@@ -43,14 +43,14 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
     }
   }
 
-  const handleDeleteQueued = (clientId: string) => {
-    offlineStorage.removeQueuedObservation(clientId)
+  const handleDeleteQueued = async (clientId: string) => {
+    await offlineStorage.removeQueuedObservation(clientId)
     setQueue(offlineStorage.getQueuedObservations())
   }
 
-  const handleClearAllQueued = () => {
+  const handleClearAllQueued = async () => {
     if (confirm('Clear all pending offline observations? Any unsynced data will be permanently discarded.')) {
-      offlineStorage.clearQueuedObservations()
+      await offlineStorage.clearQueuedObservations()
       setQueue([])
     }
   }

@@ -1,7 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useUiStore } from '../store/uiStore'
+import { offlineStorage } from '../services/offlineStorage'
 import './Sidebar.css'
+
+const OFFLINE_TRIAL_META_PREFIX = 'wbp-offline-trial-meta-'
+const OFFLINE_DB_NAME = 'WheatBreedingPlatformDB'
+const PWA_CACHE_NAME = 'wbp-pwa-v1'
 
 const NAV_ITEMS = [
   { to: '/',             label: 'Dashboard',        icon: '🏠',  roles: null },
@@ -23,7 +28,28 @@ export default function Sidebar() {
   const { theme, toggleTheme, mobileSidebarOpen, setMobileSidebarOpen } = useUiStore()
   const navigate = useNavigate()
 
-  function handleLogout() {
+  async function handleLogout() {
+    // Clearing only the auth token leaves cached trial data, the pending
+    // observation queue, and the PWA cache behind for the next person to
+    // log in on this device - clear the offline data too, not just auth.
+    try {
+      await offlineStorage.clearQueuedObservations()
+
+      Object.keys(localStorage)
+        .filter(key => key.startsWith(OFFLINE_TRIAL_META_PREFIX))
+        .forEach(key => localStorage.removeItem(key))
+
+      if (typeof indexedDB !== 'undefined') {
+        indexedDB.deleteDatabase(OFFLINE_DB_NAME)
+      }
+
+      if (typeof caches !== 'undefined') {
+        await caches.delete(PWA_CACHE_NAME)
+      }
+    } catch (e) {
+      console.error('Failed to clear offline data on logout:', e)
+    }
+
     clearAuth()
     navigate('/login')
   }

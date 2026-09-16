@@ -152,27 +152,14 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
       queryClient.invalidateQueries({ queryKey: ['recent-observations'] })
       setTimeout(() => setSuccess(false), 3000)
     },
-    onError: (err) => {
-      if (err instanceof ApiError) {
-        const errDetail = err.detail as { errors?: { index: number; detail: any }[] }
-        if (errDetail?.errors) {
-          const newErrors: Record<string, string> = {}
-          errDetail.errors.forEach(e => {
-            const fieldKeys = Object.keys(e.detail)
-            const detailMsg = fieldKeys.map(k => `${k}: ${JSON.stringify(e.detail[k])}`).join(', ')
-            newErrors[`row-${e.index}`] = detailMsg
-          })
-          setErrors(newErrors)
-        } else {
-          setErrors({ _: JSON.stringify(err.detail) })
-        }
-      } else {
-        setErrors({ _: (err as Error).message })
-      }
-    },
+    // No onError here - the single onError passed to mutation.mutate()
+    // below (the only call site) handles every case. Defining one here
+    // too would make BOTH fire on every error: TanStack Query calls the
+    // useMutation-level and the mutate-level callbacks independently, it
+    // doesn't replace one with the other.
   })
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setErrors({})
     setSuccess(false)
     const dirtyPayload: any[] = []
@@ -211,10 +198,10 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       // Save directly to offline queue
-      dirtyPayload.forEach(item => {
+      for (const item of dirtyPayload) {
         const v = allVariables.find(x => x.id === item.variable)
         const p = plotList.find(x => x.id === item.plot)
-        offlineStorage.queueObservation({
+        await offlineStorage.queueObservation({
           trialId: trial.id,
           trialCode: trial.trial_code,
           plot: item.plot,
@@ -227,7 +214,7 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
           observation_time: new Date().toISOString(),
           notes: item.notes || '',
         })
-      })
+      }
       setInitialValues({ ...currentValues })
       setSuccess(true)
       setTimeout(() => setSuccess(false), 4000)
@@ -235,7 +222,7 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
     }
 
     mutation.mutate(dirtyPayload, {
-      onError: (err) => {
+      onError: async (err) => {
         if (err instanceof ApiError) {
           const errDetail = err.detail as { errors?: { index: number; detail: any }[] }
           if (errDetail?.errors) {
@@ -247,14 +234,23 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
               cellErrors[cellKey] = detailMsg
             })
             setErrors(cellErrors)
-            return
+          } else {
+            // The server responded but not with the expected per-row error
+            // shape (e.g. a 403 or an unrelated 500) - report it as a
+            // failure, same as before, instead of falling through to the
+            // offline-queue branch below.
+            setErrors({ _: JSON.stringify(err.detail) })
           }
+          return
         }
-        // Network or server down: fallback to offline storage
-        dirtyPayload.forEach(item => {
+        // Not an ApiError: the request never reached the server (offline,
+        // DNS failure, connection refused) rather than being rejected by
+        // it - fall back to the offline queue instead of reporting the
+        // save as failed.
+        for (const item of dirtyPayload) {
           const v = allVariables.find(x => x.id === item.variable)
           const p = plotList.find(x => x.id === item.plot)
-          offlineStorage.queueObservation({
+          await offlineStorage.queueObservation({
             trialId: trial.id,
             trialCode: trial.trial_code,
             plot: item.plot,
@@ -267,7 +263,7 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
             observation_time: new Date().toISOString(),
             notes: item.notes || '',
           })
-        })
+        }
         setInitialValues({ ...currentValues })
         setSuccess(true)
         setTimeout(() => setSuccess(false), 4000)

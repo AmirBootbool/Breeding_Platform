@@ -29,20 +29,19 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
 
       // Check offline mode
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        variables
-          .filter(v => values[v.id] !== undefined && values[v.id] !== '')
-          .forEach(v => {
-            offlineStorage.queueObservation({
-              plot: plot.id,
-              variable: v.id,
-              variable_name: v.name,
-              value_numeric: v.data_type === 'numeric' ? parseFloat(values[v.id]) : null,
-              value_text: v.data_type === 'text' ? values[v.id] : '',
-              value_date: v.data_type === 'date' ? values[v.id] : null,
-              observation_time: new Date().toISOString(),
-              notes: '',
-            })
+        const filledVars = variables.filter(v => values[v.id] !== undefined && values[v.id] !== '')
+        for (const v of filledVars) {
+          await offlineStorage.queueObservation({
+            plot: plot.id,
+            variable: v.id,
+            variable_name: v.name,
+            value_numeric: v.data_type === 'numeric' ? parseFloat(values[v.id]) : null,
+            value_text: v.data_type === 'text' ? values[v.id] : '',
+            value_date: v.data_type === 'date' ? values[v.id] : null,
+            observation_time: new Date().toISOString(),
+            notes: '',
           })
+        }
         setIsOfflineSaved(true)
         return
       }
@@ -67,23 +66,22 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
       queryClient.invalidateQueries({ queryKey: ['recent-observations'] })
       setTimeout(() => setSuccess(false), 3000)
     },
-    onError: (err) => {
+    onError: async (err) => {
       // If network failure, save to offline storage fallback
       if (err instanceof TypeError && err.message.includes('fetch')) {
-        variables
-          .filter(v => values[v.id] !== undefined && values[v.id] !== '')
-          .forEach(v => {
-            offlineStorage.queueObservation({
-              plot: plot.id,
-              variable: v.id,
-              variable_name: v.name,
-              value_numeric: v.data_type === 'numeric' ? parseFloat(values[v.id]) : null,
-              value_text: v.data_type === 'text' ? values[v.id] : '',
-              value_date: v.data_type === 'date' ? values[v.id] : null,
-              observation_time: new Date().toISOString(),
-              notes: '',
-            })
+        const filledVars = variables.filter(v => values[v.id] !== undefined && values[v.id] !== '')
+        for (const v of filledVars) {
+          await offlineStorage.queueObservation({
+            plot: plot.id,
+            variable: v.id,
+            variable_name: v.name,
+            value_numeric: v.data_type === 'numeric' ? parseFloat(values[v.id]) : null,
+            value_text: v.data_type === 'text' ? values[v.id] : '',
+            value_date: v.data_type === 'date' ? values[v.id] : null,
+            observation_time: new Date().toISOString(),
+            notes: '',
           })
+        }
         setIsOfflineSaved(true)
         setSuccess(true)
         setValues({})

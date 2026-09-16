@@ -33,7 +33,7 @@ export const offlineStorage = {
     return this.getQueuedObservations().length
   },
 
-  queueObservation(obs: Omit<QueuedObservation, 'clientId' | 'recordedAt'>): QueuedObservation {
+  async queueObservation(obs: Omit<QueuedObservation, 'clientId' | 'recordedAt'>): Promise<QueuedObservation> {
     const queue = this.getQueuedObservations()
     const existingIdx = queue.findIndex(q => q.plot === obs.plot && q.variable === obs.variable)
 
@@ -55,41 +55,56 @@ export const offlineStorage = {
       console.error('Failed to persist observation in localStorage:', e)
     }
 
-    // Also sync to IndexedDB asynchronously
-    offlineDb.queueObservation({
-      trialId: obs.trialId || 0,
-      trialCode: obs.trialCode,
-      plot: obs.plot,
-      plotNumber: obs.plotNumber,
-      variable: obs.variable,
-      variableName: obs.variable_name,
-      valueNumeric: obs.value_numeric,
-      valueText: obs.value_text,
-      valueDate: obs.value_date,
-      observationTime: obs.observation_time,
-      notes: obs.notes,
-    }).catch(console.error)
+    // Await the IndexedDB mirror so writes to the two stores stay ordered
+    // relative to each other (a fire-and-forget write here could otherwise
+    // commit after a later clear/remove and leave IndexedDB out of sync
+    // with localStorage, which is what the UI actually reads from).
+    try {
+      await offlineDb.queueObservation({
+        trialId: obs.trialId || 0,
+        trialCode: obs.trialCode,
+        plot: obs.plot,
+        plotNumber: obs.plotNumber,
+        variable: obs.variable,
+        variableName: obs.variable_name,
+        valueNumeric: obs.value_numeric,
+        valueText: obs.value_text,
+        valueDate: obs.value_date,
+        observationTime: obs.observation_time,
+        notes: obs.notes,
+      })
+    } catch (e) {
+      console.error(e)
+    }
 
     return item
   },
 
-  removeQueuedObservation(clientId: string): void {
+  async removeQueuedObservation(clientId: string): Promise<void> {
     const queue = this.getQueuedObservations().filter(q => q.clientId !== clientId)
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(queue))
     } catch (e) {
       console.error('Failed to remove queued observation:', e)
     }
-    offlineDb.removeQueuedItem(clientId).catch(console.error)
+    try {
+      await offlineDb.removeQueuedItem(clientId)
+    } catch (e) {
+      console.error(e)
+    }
   },
 
-  clearQueuedObservations(): void {
+  async clearQueuedObservations(): Promise<void> {
     try {
       localStorage.removeItem(STORAGE_KEY)
     } catch (e) {
       console.error('Failed to clear queue:', e)
     }
-    offlineDb.clearQueue().catch(console.error)
+    try {
+      await offlineDb.clearQueue()
+    } catch (e) {
+      console.error(e)
+    }
   },
 
   // ---- Trial Data Package Caching ----

@@ -23,6 +23,7 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
   const [showImportFieldBook, setShowImportFieldBook] = useState(false)
   const [pedigreeEntry, setPedigreeEntry] = useState<{ id: number; name: string } | null>(null)
   const [isOfflineCached, setIsOfflineCached] = useState(false)
+  const [cachedIsStale, setCachedIsStale] = useState(false)
   const [downloadingOffline, setDownloadingOffline] = useState(false)
   const [offlineMessage, setOfflineMessage] = useState<string | null>(null)
   const qc = useQueryClient()
@@ -30,8 +31,12 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
   useEffect(() => {
     offlineStorage.getTrialPackage(trial.id).then(pkg => {
       setIsOfflineCached(!!pkg)
+      setCachedIsStale(!!pkg && new Date(trial.updated_at).getTime() > pkg.downloadedAt)
     })
-  }, [trial.id])
+    // Re-checks whenever the trial's own data changes (not just once on
+    // mount), so "Offline Ready" doesn't keep claiming a cached package is
+    // current after the trial has since been edited elsewhere.
+  }, [trial.id, trial.updated_at])
 
   const handleDownloadOffline = async () => {
     setDownloadingOffline(true)
@@ -57,6 +62,7 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
       })
 
       setIsOfflineCached(true)
+      setCachedIsStale(false)
       setOfflineMessage('✓ Trial is ready for offline field scoring!')
       setTimeout(() => setOfflineMessage(null), 3500)
     } catch (e: any) {
@@ -166,14 +172,22 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
                 id="download-offline-btn"
                 className={`btn ${isOfflineCached ? 'btn-secondary' : 'btn-secondary'}`}
                 style={{
-                  border: isOfflineCached ? '1px solid var(--brand-400)' : undefined,
-                  background: isOfflineCached ? 'rgba(74, 222, 128, 0.1)' : undefined,
+                  border: isOfflineCached ? `1px solid ${cachedIsStale ? 'var(--warning-400, #f59e0b)' : 'var(--brand-400)'}` : undefined,
+                  background: isOfflineCached ? (cachedIsStale ? 'rgba(245, 158, 11, 0.1)' : 'rgba(74, 222, 128, 0.1)') : undefined,
                 }}
                 disabled={downloadingOffline}
                 onClick={handleDownloadOffline}
-                title="Download all plots and traits into local IndexedDB for field scoring without internet"
+                title={
+                  cachedIsStale
+                    ? 'The offline copy was downloaded before this trial\'s latest changes - refresh it'
+                    : 'Download all plots and traits into local IndexedDB for field scoring without internet'
+                }
               >
-                {downloadingOffline ? '📦 Downloading…' : isOfflineCached ? '✓ Offline Ready (Refresh)' : '📦 Make Available Offline'}
+                {downloadingOffline
+                  ? '📦 Downloading…'
+                  : isOfflineCached
+                    ? (cachedIsStale ? '⚠️ Offline Copy Outdated (Refresh)' : '✓ Offline Ready (Refresh)')
+                    : '📦 Make Available Offline'}
               </button>
             </>
           )}

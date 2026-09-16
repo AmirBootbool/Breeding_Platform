@@ -155,6 +155,7 @@ export interface Trial {
   status: 'active' | 'completed' | 'archived'
   generation: number | null
   created_at: string
+  updated_at: string
   created_by_username?: string | null
   updated_by_username?: string | null
 }

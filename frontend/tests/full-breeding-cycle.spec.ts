@@ -318,6 +318,21 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
         page.locator('button:has-text("Planned Crosses (16)")'),
       ).toBeVisible({ timeout: 20_000 })
 
+      // Verify Diallel / Cross Matrix visualizer tab
+      const matrixTabBtn = page.locator('button:has-text("Diallel / Cross Matrix")')
+      await expect(matrixTabBtn).toBeVisible({ timeout: 5_000 })
+      await matrixTabBtn.click()
+      await expect(
+        page.locator('text=/Diallel Cross Matrix/i'),
+      ).toBeVisible({ timeout: 5_000 })
+      await expect(
+        page.locator('.card table.data-table').first(),
+      ).toBeVisible({ timeout: 5_000 })
+
+      // Switch back to planned crosses table tab to execute
+      await page.click('button:has-text("Planned Crosses")')
+      await page.waitForTimeout(500)
+
       // Execute all crosses
       await page.click('#execute-crosses-btn')
 
@@ -493,6 +508,22 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       // SummaryChart renders an <svg> or shows "No data yet"
       const summaryChild = page.locator('svg, canvas, .empty-state, text:has-text("No data")').first()
       await expect(summaryChild).toBeVisible({ timeout: 10_000 })
+
+      // Navigate to Pedigree tab — verify unique lines and open PedigreeTreeModal
+      await page.click('.tab-btn:has-text("Pedigree")')
+      await page.waitForTimeout(1000)
+      await expect(page.locator('text=/Pedigree.*unique lines/i')).toBeVisible({ timeout: 8_000 })
+
+      // Click the first tree visualizer button (🌳)
+      const treeBtn = page.locator('.card button:has-text("🌳")').first()
+      if (await treeBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await treeBtn.click()
+        await expect(page.locator('.modal, [role="dialog"]')).toBeVisible({ timeout: 8_000 })
+        const closeBtn = page.locator('.modal-header button:has-text("✕"), button:has-text("Close")').first()
+        if (await closeBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+          await closeBtn.click()
+        }
+      }
     })
 
     // ── Phase 9: F7 Yield Trial ───────────────────────────────────────────

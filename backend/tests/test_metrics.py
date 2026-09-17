@@ -5,8 +5,13 @@ from apps.germplasm.models import Germplasm
 
 
 @pytest.mark.django_db
-def test_metrics_endpoint_public(api_client):
-    response = api_client.get("/api/metrics/")
+def test_metrics_endpoint_access_control(api_client, staff_client):
+    # Unauthenticated should be rejected
+    unauth_response = api_client.get("/api/metrics/")
+    assert unauth_response.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+
+    # Staff user should be allowed
+    response = staff_client.get("/api/metrics/")
     assert response.status_code == status.HTTP_200_OK
     assert "text/plain" in response["Content-Type"]
     content = response.content.decode("utf-8")
@@ -16,9 +21,9 @@ def test_metrics_endpoint_public(api_client):
 
 
 @pytest.mark.django_db
-def test_metrics_gauges_dynamic_update(api_client, program):
+def test_metrics_gauges_dynamic_update(staff_client, program):
     # Initial count
-    response = api_client.get("/api/metrics/")
+    response = staff_client.get("/api/metrics/")
     assert response.status_code == status.HTTP_200_OK
     content = response.content.decode("utf-8")
 
@@ -35,7 +40,7 @@ def test_metrics_gauges_dynamic_update(api_client, program):
     )
 
     # Re-evaluate
-    response = api_client.get("/api/metrics/")
+    response = staff_client.get("/api/metrics/")
     content = response.content.decode("utf-8")
     new_value = 0
     for line in content.splitlines():
@@ -44,3 +49,4 @@ def test_metrics_gauges_dynamic_update(api_client, program):
             break
 
     assert new_value == initial_value + 1.0
+

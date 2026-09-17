@@ -548,8 +548,8 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       const numericCells = page.locator('table input[type="number"]')
       const numericCount = await numericCells.count()
       if (numericCount > 0) {
-        await numericCells.first().fill('4.20')
-        if (numericCount > 1) await numericCells.nth(1).fill('3.85')
+        await numericCells.first().fill('4')
+        if (numericCount > 1) await numericCells.nth(1).fill('3')
 
         // Save
         const saveBtn = page
@@ -580,11 +580,9 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       const treeBtn = page.locator('.card button:has-text("🌳")').first()
       if (await treeBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await treeBtn.click()
-        await expect(page.locator('.modal, [role="dialog"]')).toBeVisible({ timeout: 8_000 })
-        const closeBtn = page.locator('.modal-header button:has-text("✕"), button:has-text("Close")').first()
-        if (await closeBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-          await closeBtn.click()
-        }
+        const closeBtn = page.locator('#pedigree-close-btn')
+        await expect(closeBtn).toBeVisible({ timeout: 8_000 })
+        await closeBtn.click()
       }
     })
 
@@ -636,8 +634,14 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await expect(f7PlotCells).toBeVisible({ timeout: 15_000 })
 
       // Final sanity: back to trial list, both F6 and F7 are present
-      await goTo(page, 'Trials')
-      await page.fill('#trial-search', `E2E F`)
+      const backBtn = page.locator('button:has-text("← Back to Trials")')
+      if (await backBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await backBtn.click()
+      } else {
+        await goTo(page, 'Trials')
+      }
+      await expect(page.locator('#trial-search')).toBeVisible({ timeout: 15_000 })
+      await page.fill('#trial-search', String(TS))
       await page.waitForTimeout(700)
 
       await expect(

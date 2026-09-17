@@ -379,6 +379,8 @@ export default function PedigreeTreeModal({
             <div style={{ width: 1, height: 24, backgroundColor: 'var(--border-color)', margin: '0 4px' }} />
 
             <button 
+              id="pedigree-close-btn"
+              aria-label="Close"
               className="btn btn-ghost btn-sm" 
               onClick={onClose}
               style={{ borderRadius: '50%', width: 32, height: 32, padding: 0, fontSize: '1.1rem' }}

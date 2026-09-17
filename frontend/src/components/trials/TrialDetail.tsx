@@ -316,13 +316,11 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
         </Modal>
       )}
       {pedigreeEntry && (
-        <Modal title={`Pedigree — ${pedigreeEntry.name}`} onClose={() => setPedigreeEntry(null)} wide>
-          <PedigreeTreeModal
-            germplasmId={pedigreeEntry.id}
-            germplasmName={pedigreeEntry.name}
-            onClose={() => setPedigreeEntry(null)}
-          />
-        </Modal>
+        <PedigreeTreeModal
+          germplasmId={pedigreeEntry.id}
+          germplasmName={pedigreeEntry.name}
+          onClose={() => setPedigreeEntry(null)}
+        />
       )}
     </div>
   )

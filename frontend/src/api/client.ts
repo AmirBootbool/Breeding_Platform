@@ -397,8 +397,10 @@ export interface GermplasmBulkImportResult {
 export const germplasm = {
   list: (params = '') =>
     apiFetch<PaginatedResponse<Germplasm>>(`/germplasm/?page_size=50${params}`),
-  listAll: () =>
-    apiFetch<PaginatedResponse<Germplasm>>('/germplasm/?page_size=2000'),
+  listAll: (params = '') => {
+    const p = params ? (params.startsWith('&') || params.startsWith('?') ? params.replace(/^\?/, '&') : `&${params}`) : ''
+    return apiFetch<PaginatedResponse<Germplasm>>(`/germplasm/?page_size=2000${p}`)
+  },
   detail: (id: number) => apiFetch<Germplasm>(`/germplasm/${id}/`),
   create: (data: Partial<Germplasm>) =>
     apiFetch<Germplasm>('/germplasm/', { method: 'POST', body: JSON.stringify(data) }),

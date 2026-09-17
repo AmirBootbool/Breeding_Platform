@@ -370,6 +370,7 @@ export default function AdvancePlotsTab({ trial, plotList }: AdvancePlotsTabProp
       {showSendToTrialModal && (
         <SendToTrialModal
           germplasmIds={advancedIds}
+          programId={trial.program}
           onClose={() => setShowSendToTrialModal(false)}
           onSuccess={() => { setShowSendToTrialModal(false); navigate('/trials') }}
         />

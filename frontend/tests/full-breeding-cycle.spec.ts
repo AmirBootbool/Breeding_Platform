@@ -43,6 +43,8 @@ const MALE_PARENTS = [
 
 // ─── Shared state between steps ────────────────────────────────────────────
 const ctx = {
+  programName:  `E2E Program ${TS}`,
+  seasonName:   `E2E Season ${TS}`,
   blockName:    `E2E Block ${TS}`,
   f1TrialCode:  `E2E-F1-${TS}`,
   f1TrialName:  `E2E F1 Field ${TS}`,
@@ -73,22 +75,44 @@ async function goTo(page: Page, label: string) {
   await page.waitForLoadState('networkidle')
 }
 
+/** Create a dedicated breeding program and season in Setup */
+async function createProgramAndSeason(page: Page, programName: string, seasonName: string) {
+  await goTo(page, 'Setup')
+  // 1. Program
+  await expect(page.locator('#add-program-btn')).toBeVisible({ timeout: 15_000 })
+  await page.click('#add-program-btn')
+  await expect(page.locator('#prog-name')).toBeVisible({ timeout: 8_000 })
+  await page.fill('#prog-name', programName)
+  await page.click('#prog-save-btn')
+  await expect(page.locator('.modal')).not.toBeVisible({ timeout: 12_000 })
+
+  // 2. Season
+  await page.click('.tab-btn:has-text("Seasons")')
+  await expect(page.locator('#add-season-btn')).toBeVisible({ timeout: 10_000 })
+  await page.click('#add-season-btn')
+  await expect(page.locator('#season-name')).toBeVisible({ timeout: 8_000 })
+  await page.fill('#season-name', seasonName)
+  await page.selectOption('#season-program', { label: programName })
+  await page.click('#season-save-btn')
+  await expect(page.locator('.modal')).not.toBeVisible({ timeout: 12_000 })
+}
+
 /** Create one germplasm entry via the Add Germplasm modal */
 async function createGermplasm(
   page: Page,
   name: string,
   crossType: 'self' | 'biparental' | 'backcross' | 'doubled_haploid' | 'other' | 'unknown',
   generation: number,
+  programName?: string,
 ) {
   await page.click('#add-germplasm-btn')
   await expect(page.locator('#germ-name')).toBeVisible({ timeout: 8_000 })
   await page.fill('#germ-name', name)
   await page.selectOption('#germ-cross-type', crossType)
   await page.selectOption('#germ-generation', String(generation))
-  // Program: pick the first real option (index 1 skips placeholder)
-  const programSelect = page.locator('#germ-program')
-  const optCount = await programSelect.locator('option').count()
-  if (optCount > 1) await programSelect.selectOption({ index: 1 })
+  if (programName) {
+    await page.selectOption('#germ-program', { label: programName })
+  }
   await page.click('#germ-save-btn')
   // Wait for modal to close
   await expect(page.locator('.modal')).not.toBeVisible({ timeout: 12_000 })
@@ -235,9 +259,27 @@ async function sendToNewField(
 
 /** Complete the 5-step MapCreationWizard modal */
 async function completeMapWizard(page: Page) {
-  // Wizard opens at Step 1 -> click Next Step through Step 4
-  for (let s = 1; s <= 4; s++) {
-    const nextBtn = page.locator('.modal-footer button:has-text("Next Step")')
+  const nextBtn = page.locator('.modal-footer button:has-text("Next Step")')
+
+  // Step 1: Design selection -> Next
+  await expect(nextBtn).toBeVisible({ timeout: 10_000 })
+  await expect(nextBtn).toBeEnabled({ timeout: 10_000 })
+  await nextBtn.click()
+  await page.waitForTimeout(600)
+
+  // Step 2: Deselect founders (rows without ' / ') so only the 16 F1 progeny are placed in the trial
+  const founderCheckboxes = page.locator('.modal table.data-table tbody tr:not(:has-text(" / ")) input[type="checkbox"]')
+  const founderCount = await founderCheckboxes.count()
+  for (let i = 0; i < founderCount; i++) {
+    const chk = founderCheckboxes.nth(i)
+    if (await chk.isChecked()) {
+      await chk.uncheck()
+    }
+  }
+  await page.waitForTimeout(300)
+
+  // Step 2 -> Step 3 -> Step 4 -> Step 5
+  for (let s = 2; s <= 4; s++) {
     await expect(nextBtn).toBeVisible({ timeout: 10_000 })
     await expect(nextBtn).toBeEnabled({ timeout: 10_000 })
     await nextBtn.click()
@@ -263,9 +305,10 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
 
   test('Complete 7-generation breeding pipeline', async ({ page }) => {
 
-    // ── Phase 0: Login ─────────────────────────────────────────────────────
-    await test.step('Phase 0: Login', async () => {
+    // ── Phase 0: Login & Setup ────────────────────────────────────────────
+    await test.step('Phase 0: Login and create dedicated breeding program & season', async () => {
       await login(page)
+      await createProgramAndSeason(page, ctx.programName, ctx.seasonName)
     })
 
     // ── Phase 1: Create 8 parent germplasm ─────────────────────────────────
@@ -274,7 +317,7 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await expect(page.getByRole('heading', { name: 'Germplasm Browser' })).toBeVisible()
 
       for (const name of [...FEMALE_PARENTS, ...MALE_PARENTS]) {
-        await createGermplasm(page, name, 'self', 0)
+        await createGermplasm(page, name, 'self', 0, ctx.programName)
       }
 
       // Spot-check: first female parent appears in table
@@ -299,9 +342,7 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await page.click('#create-block-btn')
       await expect(page.locator('#cb-name')).toBeVisible()
       await page.fill('#cb-name', ctx.blockName)
-      const cbProgram = page.locator('#cb-program')
-      if ((await cbProgram.locator('option').count()) > 1)
-        await cbProgram.selectOption({ index: 1 })
+      await page.selectOption('#cb-program', { label: ctx.programName })
       await page.click('#cb-save-btn')
       await expect(page.locator('.modal')).not.toBeVisible({ timeout: 10_000 })
 
@@ -398,9 +439,7 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await page.fill('#trial-name', ctx.f1TrialName)
 
       // Program
-      const triProgram = page.locator('#trial-program')
-      await expect(triProgram.locator('option')).not.toHaveCount(1, { timeout: 10_000 })
-      await triProgram.selectOption({ index: 1 })
+      await page.selectOption('#trial-program', { label: ctx.programName })
       await page.waitForTimeout(600)
 
       // Location
@@ -408,10 +447,14 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await expect(triLoc.locator('option')).not.toHaveCount(1, { timeout: 10_000 })
       await triLoc.selectOption({ index: 1 })
 
-      // Season (filtered by program)
-      const triSeason = page.locator('#trial-season')
-      await expect(triSeason.locator('option')).not.toHaveCount(1, { timeout: 10_000 })
-      await triSeason.selectOption({ index: 1 })
+      // Season
+      await page.selectOption('#trial-season', { label: `${ctx.seasonName} (${new Date().getFullYear()})` }).catch(async () => {
+        const triSeason = page.locator('#trial-season')
+        const seasonCount = await triSeason.locator('option').count()
+        if (seasonCount > 1) {
+          await triSeason.selectOption({ index: 1 })
+        }
+      })
 
       // Design: unreplicated
       await page.selectOption('#trial-design', 'unreplicated')

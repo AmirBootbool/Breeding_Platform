@@ -232,8 +232,8 @@ export default function CrossingBlock() {
   const { data: locationsData } = useQuery({ queryKey: ['locations'], queryFn: () => locations.list() })
   const { data: seasonsData } = useQuery({ queryKey: ['seasons'], queryFn: () => seasons.list() })
   const { data: allGermplasmData, isLoading: germplasmLoading } = useQuery({
-    queryKey: ['germplasm-all', activeBlock?.id],
-    queryFn: () => germplasm.listAll(),
+    queryKey: ['germplasm-all', activeBlock?.id, activeBlock?.program],
+    queryFn: () => germplasm.listAll(activeBlock?.program ? `program=${activeBlock.program}` : ''),
     enabled: !!activeBlock,
   })
 

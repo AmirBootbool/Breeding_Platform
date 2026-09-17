@@ -5,6 +5,7 @@ import Modal from './Modal'
 
 interface SendToTrialModalProps {
   germplasmIds: number[]
+  programId?: number
   onClose: () => void
   onSuccess: (trialId: number) => void
 }
@@ -20,13 +21,13 @@ const DESIGN_OPTIONS = [
   { value: 'other', label: 'Custom / Other', requiresReps: true },
 ]
 
-export default function SendToTrialModal({ germplasmIds, onClose, onSuccess }: SendToTrialModalProps) {
+export default function SendToTrialModal({ germplasmIds, programId, onClose, onSuccess }: SendToTrialModalProps) {
   const qc = useQueryClient()
   
   const [form, setForm] = useState({
     name: '',
     trial_code: '',
-    program: '',
+    program: programId ? programId.toString() : '',
     location: '',
     season: '',
     design_type: 'RCBD',
@@ -46,15 +47,20 @@ export default function SendToTrialModal({ germplasmIds, onClose, onSuccess }: S
   const locationList = locationsData?.results ?? []
   const seasonList = seasonsData?.results ?? []
 
-  // Auto-select program if only one or none selected
+  // Auto-select program if provided or only one or none selected
   useEffect(() => {
-    if (!form.program && programList.length > 0) {
+    if (programId) {
+      setForm(prev => ({
+        ...prev,
+        program: programId.toString(),
+      }))
+    } else if (!form.program && programList.length > 0) {
       setForm(prev => ({
         ...prev,
         program: programList[0].id.toString(),
       }))
     }
-  }, [programList, form.program])
+  }, [programList, form.program, programId])
 
   // Filter seasons by program if program is selected
   const filteredSeasons = useMemo(() => {

@@ -13,6 +13,7 @@ from django.http import StreamingHttpResponse
 from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
 from apps.core.spreadsheet import build_xlsx_response
+from apps.core.utils import safe_int
 from apps.germplasm.models import Germplasm
 
 from .models import AnalysisSet, Observation, ObservationVariable, Plot, TraitPanel, Trial
@@ -253,7 +254,12 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        selections_per_plot = int(request.data.get("selections_per_plot", 1))
+        selections_per_plot = safe_int(request.data.get("selections_per_plot", 1))
+        if selections_per_plot is None or selections_per_plot < 1:
+            return Response(
+                {"detail": "selections_per_plot must be a positive integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         selection_method = request.data.get("selection_method", "SSD")
 
         try:
@@ -638,13 +644,34 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
                 if "is_border" in p_data:
                     plot.is_border = bool(p_data["is_border"])
                 if "status" in p_data:
-                    plot.status = p_data["status"]
+                    allowed_statuses = {"planned", "planted", "harvested", "failed"}
+                    new_status = p_data["status"]
+                    if new_status not in allowed_statuses:
+                        return Response(
+                            {
+                                "detail": (
+                                    f"Invalid plot status '{new_status}'. "
+                                    f"Allowed values: {sorted(allowed_statuses)}."
+                                )
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    plot.status = new_status
                 if "row" in p_data and p_data["row"] is not None:
-                    plot.row = int(p_data["row"])
+                    row_val = safe_int(p_data["row"])
+                    if row_val is None:
+                        return Response({"detail": "row must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+                    plot.row = row_val
                 if "column" in p_data and p_data["column"] is not None:
-                    plot.column = int(p_data["column"])
+                    col_val = safe_int(p_data["column"])
+                    if col_val is None:
+                        return Response({"detail": "column must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+                    plot.column = col_val
                 if "rep" in p_data and p_data["rep"] is not None:
-                    plot.rep = int(p_data["rep"])
+                    rep_val = safe_int(p_data["rep"])
+                    if rep_val is None:
+                        return Response({"detail": "rep must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+                    plot.rep = rep_val
 
                 plot.save()
                 updated_plots.append(plot)

@@ -41,6 +41,9 @@ def _int_or_400(raw, param_name):
 
 class BrapiModelViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = BrapiPagination
+    # Explicit permission requirement: every BrAPI endpoint requires authentication
+    # and role-based authorization, not just the global DRF default.
+    permission_classes = [RoleBasedPermission]
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -60,6 +63,7 @@ class BrapiModelViewSet(viewsets.ReadOnlyModelViewSet):
 class BrapiStudyViewSet(ProgramScopedQuerySetMixin, BrapiModelViewSet):
     queryset = Trial.objects.all()
     serializer_class = BrapiStudySerializer
+    permission_classes = [RoleBasedPermission]
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related("program", "location", "season")
@@ -309,6 +313,7 @@ class BrapiServerInfoViewSet(viewsets.ViewSet):
 
 class BrapiLocationViewSet(BrapiModelViewSet):
     serializer_class = BrapiLocationSerializer
+    permission_classes = [RoleBasedPermission]
 
     def get_queryset(self):
         queryset = Location.objects.all()
@@ -334,6 +339,7 @@ class BrapiProgramViewSet(ProgramScopedQuerySetMixin, BrapiModelViewSet):
 
     queryset = Program.objects.all()
     serializer_class = BrapiProgramSerializer
+    permission_classes = [RoleBasedPermission]
 
     def get_queryset(self):
         queryset = super().get_queryset()

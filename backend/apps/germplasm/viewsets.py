@@ -90,8 +90,16 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             return Response({"detail": "ssd_count must be a positive integer."}, status=400)
 
         from apps.germplasm.services import advance_generation
-        germplasm_list = Germplasm.objects.filter(id__in=germplasm_ids)
-        
+        # Scope IDs to the requesting user's program to prevent cross-tenant manipulation.
+        user = request.user
+        if user.is_staff or user.is_superuser:
+            germplasm_list = Germplasm.objects.filter(id__in=germplasm_ids)
+        else:
+            user_program_id = getattr(getattr(user, "profile", None), "program_id", None)
+            if not user_program_id:
+                return Response({"detail": "User is not associated with a program."}, status=403)
+            germplasm_list = Germplasm.objects.filter(id__in=germplasm_ids, program_id=user_program_id)
+
         created = advance_generation(germplasm_list, method, ssd_count, request.user)
         return Response({
             "created_count": len(created),
@@ -103,7 +111,16 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         ids = request.data.get("ids", [])
         if not isinstance(ids, list) or not ids:
             return Response({"detail": "ids must be a non-empty list of integers."}, status=400)
-        updated = Germplasm.objects.filter(id__in=ids).update(is_archived=True)
+        # Scope to the requesting user's program — no cross-tenant mutations.
+        user = request.user
+        qs = Germplasm.objects.filter(id__in=ids)
+        if not (user.is_staff or user.is_superuser):
+            user_program_id = getattr(getattr(user, "profile", None), "program_id", None)
+            if user_program_id:
+                qs = qs.filter(program_id=user_program_id)
+            else:
+                return Response({"detail": "User is not associated with a program."}, status=403)
+        updated = qs.update(is_archived=True)
         return Response({"archived_count": updated})
 
     @action(detail=False, methods=["post"], url_path="bulk_delete")
@@ -114,12 +131,22 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         if not isinstance(ids, list) or not ids:
             return Response({"detail": "ids must be a non-empty list of integers."}, status=400)
 
+        # Scope to the requesting user's program — no cross-tenant deletion.
+        user = request.user
+        qs = Germplasm.objects.filter(id__in=ids)
+        if not (user.is_staff or user.is_superuser):
+            user_program_id = getattr(getattr(user, "profile", None), "program_id", None)
+            if user_program_id:
+                qs = qs.filter(program_id=user_program_id)
+            else:
+                return Response({"detail": "User is not associated with a program."}, status=403)
+
         # Delete one at a time: a bulk .delete() aborts entirely on the
         # first row protected by a Cross/SeedLot reference, so unprotected
         # rows in the same batch would otherwise never get removed either.
         deleted_ids = []
         skipped = []
-        for germplasm in Germplasm.objects.filter(id__in=ids):
+        for germplasm in qs:
             germplasm_id = germplasm.id  # .delete() clears the instance's pk
             try:
                 germplasm.delete()

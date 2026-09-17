@@ -1,3 +1,5 @@
+import logging
+
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.views import (
@@ -24,13 +26,16 @@ from django.urls import include, path
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def health_check(request):
+    _logger = logging.getLogger("config.urls")
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         return Response({"status": "healthy", "database": "up"}, status=200)
     except Exception as e:
+        # Log full error server-side; never expose infrastructure details publicly.
+        _logger.error("Health check database failure: %s", e)
         return Response(
-            {"status": "unhealthy", "database": "down", "error": str(e)},
+            {"status": "unhealthy", "database": "down"},
             status=503,
         )
 

@@ -394,8 +394,26 @@ class GenomicPredictionViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet
         genotype_dataset_id = request.data.get("genotype_dataset")
         trial_id = request.data.get("training_trial")
         analysis_set_id = request.data.get("training_analysis_set")
-        heritability_prior = float(request.data.get("heritability_prior", 0.50))
-        k_folds = int(request.data.get("k_folds", 5))
+
+        # Safe numeric parsing — bare int()/float() raises ValueError on bad input → 500.
+        try:
+            heritability_prior = float(request.data.get("heritability_prior", 0.50))
+            if not (0.0 < heritability_prior <= 1.0):
+                raise ValueError("Out of range")
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "heritability_prior must be a float between 0 and 1."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            k_folds = int(request.data.get("k_folds", 5))
+            if k_folds < 2:
+                raise ValueError("Too small")
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "k_folds must be an integer >= 2."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not name or not program_id or not trait_id or not genotype_dataset_id:
             return Response(

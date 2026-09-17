@@ -273,7 +273,7 @@ if SENTRY_DSN:
             profiles_sample_rate=config(
                 "SENTRY_PROFILES_SAMPLE_RATE", default=0.1, cast=float
             ),
-            send_default_pii=True,
+            send_default_pii=False,  # Never send PII (cookies, auth tokens, request bodies) to Sentry
         )
     except ImportError:
         pass

@@ -135,9 +135,12 @@ export default function AdvancePlotsTab({ trial, plotList }: AdvancePlotsTabProp
     },
   })
 
-  const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) setSelectedIds(plotList.map(p => p.id))
-    else setSelectedIds([])
+  const toggleSelectAll = () => {
+    if (selectedIds.length === plotList.length && plotList.length > 0) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(plotList.map(p => p.id))
+    }
   }
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -162,6 +165,13 @@ export default function AdvancePlotsTab({ trial, plotList }: AdvancePlotsTabProp
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         <div className="card-title" style={{ margin: 0 }}>Selection & Advancement</div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-2)' }}>
+          <button
+            id="select-all-plots-btn"
+            className="btn btn-sm btn-secondary"
+            onClick={toggleSelectAll}
+          >
+            {selectedIds.length === plotList.length && plotList.length > 0 ? 'Deselect All' : `Select All (${plotList.length})`}
+          </button>
           <button
             className={`btn btn-sm ${showCriteriaPanel ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setShowCriteriaPanel(p => !p)}

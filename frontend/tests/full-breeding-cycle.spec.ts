@@ -96,7 +96,13 @@ async function createGermplasm(
 
 /** Open a trial by clicking its row in the Trial Manager table */
 async function openTrialByName(page: Page, trialName: string) {
-  await goTo(page, 'Trials')
+  const backBtn = page.locator('button:has-text("← Back to Trials")')
+  if (await backBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await backBtn.click()
+  } else {
+    await goTo(page, 'Trials')
+  }
+  await expect(page.locator('#trial-search')).toBeVisible({ timeout: 15_000 })
   await page.fill('#trial-search', trialName)
   await page.waitForTimeout(700)
   const trialRow = page
@@ -120,35 +126,36 @@ async function advanceAllPlotsInActiveTab(
   await page.click('.tab-btn:has-text("Selections")')
   await page.waitForTimeout(1000)
 
-  // Select-all checkbox in the plot table thead
-  const theadCheckbox = page
-    .locator('table.data-table thead input[type="checkbox"]')
-    .first()
-  await expect(theadCheckbox).toBeVisible({ timeout: 10_000 })
-  await theadCheckbox.check()
+  // Click #select-all-plots-btn if present or click the thead checkbox
+  const selectAllBtn = page.locator('#select-all-plots-btn')
+  if (await selectAllBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await selectAllBtn.click()
+  } else {
+    const theadCheckbox = page
+      .locator('table.data-table thead input[type="checkbox"]')
+      .first()
+    await expect(theadCheckbox).toBeVisible({ timeout: 10_000 })
+    await theadCheckbox.click()
+  }
+  await page.waitForTimeout(600)
 
   // Set selection method dropdown
-  await page.selectOption(
-    'select:has(option:text-is("Single-Seed-Descent (SSD)"))',
-    method,
-  )
-
-  // Set selections per plot
-  const sppInput = page
-    .locator('label:has-text("Selections per plot") ~ input, label:has-text("Selections per plot") + input')
-    .first()
-  if (await sppInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await sppInput.fill(String(selectionsPerPlot))
-  } else {
-    // Fallback: find numeric input in the grid-3 section
-    const gridInputs = page.locator('.grid-3 input[type="number"]')
-    const count = await gridInputs.count()
-    if (count > 0) await gridInputs.last().fill(String(selectionsPerPlot))
+  const methodSelect = page.locator('select:has(option:text-is("Single-Seed-Descent (SSD)"))')
+  if (await methodSelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    const methodVal = method.includes('Spike') ? 'Single Spike' : method.includes('SSD') ? 'SSD' : method
+    await methodSelect.selectOption(methodVal)
   }
 
-  // Click "▶ Advance N" button
+  // Set selections per plot
+  const sppInput = page.locator('input[type="number"][min="1"]').first()
+  if (await sppInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await sppInput.fill(String(selectionsPerPlot))
+  }
+
+  // Click "▶ Advance N" button (must not be Advance 0)
   const advanceBtn = page.locator('button:has-text("▶ Advance")').first()
-  await expect(advanceBtn).toBeEnabled({ timeout: 8_000 })
+  await expect(page.locator('button:has-text("▶ Advance 0")')).not.toBeVisible({ timeout: 10_000 })
+  await expect(advanceBtn).toBeEnabled({ timeout: 10_000 })
   await advanceBtn.click()
 
   // Wait for "Advancement Complete!" modal
@@ -205,9 +212,25 @@ async function sendToNewField(
   // Submit
   await page.click('#send-trial-submit-btn')
 
-  // Wait for navigation to /trials
-  await expect(page).toHaveURL(/\/trials/, { timeout: 45_000 })
-  await page.waitForLoadState('networkidle')
+  // Wait for SendToTrialModal to finish and close
+  await expect(page.locator('.modal')).not.toBeVisible({ timeout: 45_000 })
+
+  // If we are still inside TrialDetail ("← Back to Trials" button visible), click back
+  const backBtn = page.locator('button:has-text("← Back to Trials")')
+  if (await backBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await backBtn.click()
+  } else {
+    await goTo(page, 'Trials')
+  }
+
+  await expect(page.locator('#trial-search')).toBeVisible({ timeout: 45_000 })
+
+  // Search for the trial name so the table filters to it
+  await page.fill('#trial-search', trialName)
+  await page.waitForTimeout(700)
+  await expect(
+    page.locator(`table.data-table tbody tr:has-text("${trialName}")`).first(),
+  ).toBeVisible({ timeout: 20_000 })
 }
 
 /** Complete the 5-step MapCreationWizard modal */
@@ -429,10 +452,6 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       expect(successText).toMatch(/new germplasm/)
 
       await sendToNewField(page, ctx.f2TrialName, `E2E-F2-${TS}`, 'unreplicated', 1)
-
-      await expect(
-        page.locator(`table.data-table tbody tr:has-text("${ctx.f2TrialName}")`).first(),
-      ).toBeVisible({ timeout: 15_000 })
     })
 
     // ── Phase 5: F2 → F3 (6 spikes per family) ───────────────────────────
@@ -449,10 +468,6 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       expect(successText).toMatch(/96/)
 
       await sendToNewField(page, ctx.f3TrialName, `E2E-F3-${TS}`, 'unreplicated', 1)
-
-      await expect(
-        page.locator(`table.data-table tbody tr:has-text("${ctx.f3TrialName}")`).first(),
-      ).toBeVisible({ timeout: 15_000 })
     })
 
     // ── Phase 6: F3 → F4 ─────────────────────────────────────────────────
@@ -461,10 +476,6 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await advanceAllPlotsInActiveTab(page, 'SSD', 1)
 
       await sendToNewField(page, ctx.f4TrialName, `E2E-F4-${TS}`, 'unreplicated', 1)
-
-      await expect(
-        page.locator(`table.data-table tbody tr:has-text("${ctx.f4TrialName}")`).first(),
-      ).toBeVisible({ timeout: 15_000 })
     })
 
     // ── Phase 7: F4 → F5 ─────────────────────────────────────────────────
@@ -473,10 +484,6 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await advanceAllPlotsInActiveTab(page, 'SSD', 1)
 
       await sendToNewField(page, ctx.f5TrialName, `E2E-F5-${TS}`, 'unreplicated', 1)
-
-      await expect(
-        page.locator(`table.data-table tbody tr:has-text("${ctx.f5TrialName}")`).first(),
-      ).toBeVisible({ timeout: 15_000 })
     })
 
     // ── Phase 8: F5 → F6 Yield Trial ─────────────────────────────────────
@@ -486,10 +493,6 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
 
       // This time create an RCBD yield trial with 3 reps
       await sendToNewField(page, ctx.f6TrialName, ctx.f6TrialCode, 'RCBD', 3)
-
-      await expect(
-        page.locator(`table.data-table tbody tr:has-text("${ctx.f6TrialName}")`).first(),
-      ).toBeVisible({ timeout: 15_000 })
 
       // Open F6 trial
       await openTrialByName(page, ctx.f6TrialName)

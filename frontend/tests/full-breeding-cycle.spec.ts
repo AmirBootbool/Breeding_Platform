@@ -210,6 +210,27 @@ async function sendToNewField(
   await page.waitForLoadState('networkidle')
 }
 
+/** Complete the 5-step MapCreationWizard modal */
+async function completeMapWizard(page: Page) {
+  // Wizard opens at Step 1 -> click Next Step through Step 4
+  for (let s = 1; s <= 4; s++) {
+    const nextBtn = page.locator('.modal-footer button:has-text("Next Step")')
+    await expect(nextBtn).toBeVisible({ timeout: 10_000 })
+    await expect(nextBtn).toBeEnabled({ timeout: 10_000 })
+    await nextBtn.click()
+    await page.waitForTimeout(500)
+  }
+
+  // Step 5: Click "Generate Field Map"
+  const generateBtn = page.locator('.modal-footer button:has-text("Generate Field Map")')
+  await expect(generateBtn).toBeVisible({ timeout: 10_000 })
+  await expect(generateBtn).toBeEnabled({ timeout: 10_000 })
+  await generateBtn.click()
+
+  // Wait for wizard modal to close
+  await expect(page.locator('.modal')).not.toBeVisible({ timeout: 35_000 })
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  THE TEST
 // ═══════════════════════════════════════════════════════════════════════════
@@ -355,48 +376,44 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
 
       // Program
       const triProgram = page.locator('#trial-program')
-      if ((await triProgram.locator('option').count()) > 1)
-        await triProgram.selectOption({ index: 1 })
+      await expect(triProgram.locator('option')).not.toHaveCount(1, { timeout: 10_000 })
+      await triProgram.selectOption({ index: 1 })
+      await page.waitForTimeout(600)
 
       // Location
       const triLoc = page.locator('#trial-location')
-      if ((await triLoc.locator('option').count()) > 1)
-        await triLoc.selectOption({ index: 1 })
+      await expect(triLoc.locator('option')).not.toHaveCount(1, { timeout: 10_000 })
+      await triLoc.selectOption({ index: 1 })
 
-      // Season (filtered by program — wait a tick for it to repopulate)
-      await page.waitForTimeout(600)
+      // Season (filtered by program)
       const triSeason = page.locator('#trial-season')
-      if ((await triSeason.locator('option').count()) > 1)
-        await triSeason.selectOption({ index: 1 })
+      await expect(triSeason.locator('option')).not.toHaveCount(1, { timeout: 10_000 })
+      await triSeason.selectOption({ index: 1 })
 
       // Design: unreplicated
       await page.selectOption('#trial-design', 'unreplicated')
 
       // Save
-      const saveBtn = page.locator('button[type="submit"]:has-text("Create"), button:has-text("Create Trial")').first()
-      await saveBtn.click()
+      await page.click('#trial-save-btn')
       await expect(page.locator('.modal')).not.toBeVisible({ timeout: 15_000 })
 
       // Navigate into the newly created F1 trial
       await openTrialByName(page, ctx.f1TrialName)
 
-      // Generate layout (MapCreationWizard opens — all program germplasm pre-selected)
+      // Generate layout (MapCreationWizard opens)
       await expect(page.locator('#create-plots-btn')).toBeVisible({ timeout: 10_000 })
       await page.click('#create-plots-btn')
 
-      // Click "Generate Layout" in the wizard footer
-      const generateBtn = page.locator('button:has-text("Generate Layout")').last()
-      await expect(generateBtn).toBeEnabled({ timeout: 10_000 })
-      await generateBtn.click()
+      // Complete the 5-step wizard
+      await completeMapWizard(page)
 
       // Generate Layout button disappears; plots appear
       await expect(page.locator('#create-plots-btn')).not.toBeVisible({ timeout: 25_000 })
 
-      // Verify Trial Map tab shows plot cells
+      // Verify Trial Map tab shows plot cards / grid
       await page.click('.tab-btn:has-text("Trial Map")')
       await page.waitForTimeout(1000)
-      // Plot grid or table cells render
-      const plotCell = page.locator('.plot-cell, [class*="plot-cell"], table.data-table tbody td').first()
+      const plotCell = page.locator('.plot-card, .plot-grid-container, [class*="plot-"]').first()
       await expect(plotCell).toBeVisible({ timeout: 15_000 })
     })
 
@@ -566,10 +583,10 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       // "Generate Layout" button should NOT be present (plots already created)
       await expect(page.locator('#create-plots-btn')).not.toBeVisible({ timeout: 8_000 })
 
-      // Trial Map tab should show plot cells
+      // Trial Map tab should show plot cards / grid
       await page.click('.tab-btn:has-text("Trial Map")')
       await page.waitForTimeout(1200)
-      const f7PlotCells = page.locator('.plot-cell, [class*="plot-cell"], table.data-table tbody td').first()
+      const f7PlotCells = page.locator('.plot-card, .plot-grid-container, [class*="plot-"]').first()
       await expect(f7PlotCells).toBeVisible({ timeout: 15_000 })
 
       // Final sanity: back to trial list, both F6 and F7 are present

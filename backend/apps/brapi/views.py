@@ -101,7 +101,11 @@ class BrapiGermplasmViewSet(ProgramScopedQuerySetMixin, mixins.CreateModelMixin,
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
+        # L-2: Set audit trail fields — BrAPI creates bypassed perform_create().
+        instance = serializer.save(
+            created_by=request.user,
+            updated_by=request.user,
+        )
         read_serializer = BrapiGermplasmSerializer(
             instance, context=self.get_serializer_context()
         )

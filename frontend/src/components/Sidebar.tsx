@@ -35,9 +35,13 @@ export default function Sidebar() {
     try {
       await offlineStorage.clearQueuedObservations()
 
+      // Clear offline trial metadata from localStorage.
       Object.keys(localStorage)
         .filter(key => key.startsWith(OFFLINE_TRIAL_META_PREFIX))
         .forEach(key => localStorage.removeItem(key))
+
+      // Clear auth token from sessionStorage (H-1: token is stored in sessionStorage).
+      sessionStorage.removeItem('wbp-auth')
 
       if (typeof indexedDB !== 'undefined') {
         indexedDB.deleteDatabase(OFFLINE_DB_NAME)

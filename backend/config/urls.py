@@ -9,9 +9,10 @@ from drf_spectacular.views import (
 )
 from rest_framework.authtoken.views import obtain_auth_token
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 
+from django.conf import settings
 from django.contrib import admin
 from django.db import connection
 from django.urls import include, path
@@ -43,9 +44,13 @@ def health_check(request):
 from apps.core.views import metrics_view
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    # L-5: Admin path is configurable via ADMIN_URL env var (default: admin/).
+    # Set ADMIN_URL to an obscure path in production to reduce automated attack surface.
+    path(settings.ADMIN_URL, admin.site.urls),
     path("api/auth/token/", obtain_auth_token, name="api-token-auth"),
     path("api/health/", health_check, name="api-health"),
+    # M-1: Prometheus metrics restricted to Django staff/superusers.
+    # Internal counters, DB stats, and entity counts aid reconnaissance if public.
     path("api/metrics/", metrics_view, name="api-metrics"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

@@ -644,7 +644,8 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
                 if "is_border" in p_data:
                     plot.is_border = bool(p_data["is_border"])
                 if "status" in p_data:
-                    allowed_statuses = {"planned", "planted", "harvested", "failed"}
+                    # Keep in sync with Plot.STATUS_CHOICES in models.py
+                    allowed_statuses = {"planned", "planted", "harvested", "discarded"}
                     new_status = p_data["status"]
                     if new_status not in allowed_statuses:
                         return Response(

@@ -253,7 +253,9 @@ export interface TrialSummaryRow {
 
 function getToken(): string | null {
   try {
-    const raw = localStorage.getItem('wbp-auth')
+    // Reads from sessionStorage — auth tokens are stored there (not localStorage)
+    // to reduce XSS exposure. See authStore.ts for rationale.
+    const raw = sessionStorage.getItem('wbp-auth')
     if (!raw) return null
     const parsed = JSON.parse(raw)
     return parsed?.state?.token ?? null

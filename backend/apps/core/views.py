@@ -2,7 +2,7 @@ from django_prometheus.exports import ExportToDjangoView
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -41,8 +41,15 @@ class AuditLogEntrySerializer(serializers.Serializer):
 
 @extend_schema(exclude=True)
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def metrics_view(request):
+    """Prometheus metrics endpoint — restricted to authenticated staff/superusers."""
+    if not (request.user.is_staff or request.user.is_superuser):
+        from rest_framework.response import Response as DRFResponse
+        return DRFResponse(
+            {"detail": "You do not have permission to perform this action."},
+            status=403,
+        )
     refresh_domain_gauges()
     return ExportToDjangoView(request)
 

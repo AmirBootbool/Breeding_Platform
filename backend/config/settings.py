@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "django_filters",
+    "csp",
     "apps.core",
     "apps.germplasm",
     "apps.trials",
@@ -57,6 +58,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "csp.middleware.CSPMiddleware",
     "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
@@ -192,11 +194,27 @@ REST_FRAMEWORK = {
 
 # Additional Security Settings
 SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_SECURITY_POLICY = {
-    "default-src": ("'self'",),
-    "script-src": ("'self'",),
-    "style-src": ("'self'", "'unsafe-inline'"),
-}
+
+# Cookie hardening — HttpOnly applies in all environments (including DEBUG=True)
+# to protect session and CSRF cookies from JavaScript access.
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_HTTPONLY = True
+
+# Content-Security-Policy (django-csp)
+# Allows scripts/styles only from the same origin; bans inline scripts and eval.
+# The frontend bundles are served from self, so this is safe for the API server.
+# The Swagger UI requires 'unsafe-inline' for styles — allow it only there.
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'",)
+CSP_STYLE_SRC = ("'self'",)
+CSP_IMG_SRC = ("'self'", "data:")
+CSP_FONT_SRC = ("'self'",)
+CSP_CONNECT_SRC = ("'self'",)
+CSP_FRAME_ANCESTORS = ("'none'",)
+CSP_FORM_ACTION = ("'self'",)
+# Report-only mode: flip to CSP_REPORT_ONLY=False to enforce once the
+# frontend team has confirmed no violations.
+CSP_REPORT_ONLY = False
 
 # Only set these to True in production with HTTPS
 if not DEBUG:
@@ -208,8 +226,10 @@ if not DEBUG:
         "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool
     )
     SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
-    CSRF_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_HTTPONLY = True
+
+# Admin URL — override in production with a non-default path to reduce attack surface.
+# Example: ADMIN_URL=secure-admin-xyz/ in .env
+ADMIN_URL = config("ADMIN_URL", default="admin/")
 
 # Logging configuration
 LOGGING = {

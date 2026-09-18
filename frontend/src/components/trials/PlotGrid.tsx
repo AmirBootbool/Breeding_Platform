@@ -4,6 +4,7 @@ import { colorForIndex, StatusBadge } from './types'
 import SpatialHeatmapModal from './SpatialHeatmapModal'
 import Modal from '../Modal'
 import { ContextMenu } from '../common/ContextMenu'
+import { useToast } from '../common/ToastProvider'
 
 interface PlotGridProps {
   plotList: Plot[]
@@ -39,8 +40,8 @@ export default function PlotGrid({
   const [mapExportFormat, setMapExportFormat] = useState<'csv' | 'xlsx'>('csv')
   const [isPaintBorderMode, setIsPaintBorderMode] = useState<boolean>(false)
   const [dirtyPlotIds, setDirtyPlotIds] = useState<Set<number>>(new Set())
+  const { showToast } = useToast()
   const [isSaving, setIsSaving] = useState<boolean>(false)
-  const [toastMessage, setToastMessage] = useState<{ type: 'error' | 'success' | 'info'; text: string } | null>(null)
 
   // Undo / Redo History
   const [undoStack, setUndoStack] = useState<UndoAction[]>([])
@@ -141,12 +142,6 @@ export default function PlotGrid({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPlotList])
-
-  // Toast Helper
-  const showToast = (text: string, type: 'error' | 'success' | 'info' = 'info') => {
-    setToastMessage({ text, type })
-    setTimeout(() => setToastMessage(null), 5000)
-  }
 
   // Push to Undo Stack
   const pushUndo = useCallback((action: UndoAction) => {
@@ -510,16 +505,6 @@ export default function PlotGrid({
 
   return (
     <div className={`plot-grid-container ${isPrintMode ? 'print-preview-mode' : ''}`} style={{ width: '100%' }}>
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div
-          className={`alert alert-${toastMessage.type === 'error' ? 'error' : toastMessage.type === 'success' ? 'success' : 'info'} mb-3`}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-        >
-          <span>{toastMessage.text}</span>
-          <button className="modal-close" onClick={() => setToastMessage(null)}>×</button>
-        </div>
-      )}
 
       {/* Main Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>

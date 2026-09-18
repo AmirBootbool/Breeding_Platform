@@ -4,6 +4,7 @@ import { useUiStore } from '../store/uiStore'
 import { programs } from '../api/client'
 import OfflineSyncBadge from './common/OfflineSyncBadge'
 import Breadcrumbs, { type BreadcrumbItem } from './common/Breadcrumbs'
+import NotificationCenter from './common/NotificationCenter'
 import './TopBar.css'
 
 interface TopBarProps {
@@ -90,6 +91,7 @@ export default function TopBar({ title, subtitle, actions, breadcrumbs }: TopBar
         )}
 
         <OfflineSyncBadge />
+        <NotificationCenter />
 
         <button
           className="btn btn-ghost btn-sm topbar-theme-btn flex items-center gap-1.5"

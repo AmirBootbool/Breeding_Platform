@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { trials, Trial, FieldBookImportResult, ApiError } from '../../api/client'
+import { useToast } from '../common/ToastProvider'
+import { useNotificationStore } from '../../store/notificationStore'
 
 interface ImportFieldBookModalProps {
   trial: Trial
@@ -20,6 +22,8 @@ export default function ImportFieldBookModal({
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const { showToast } = useToast()
+  const pushNotification = useNotificationStore((s) => s.push)
   const qc = useQueryClient()
 
   const mutation = useMutation({
@@ -30,14 +34,29 @@ export default function ImportFieldBookModal({
     onSuccess: (data) => {
       setResult(data)
       setError('')
-      if (!data.dry_run && (!data.errors || data.errors.length === 0)) {
-        qc.invalidateQueries({ queryKey: ['observations-for-trial', trial.id] })
-        qc.invalidateQueries({ queryKey: ['trial-summary', trial.id] })
-        qc.invalidateQueries({ queryKey: ['observations'] })
-        if (onSuccess) onSuccess()
+      const hasErrors = data.errors && data.errors.length > 0
+      if (!data.dry_run) {
+        showToast(
+          `Field Book import completed: ${data.imported_count} imported, ${data.updated_count} updated${hasErrors ? `, ${data.errors.length} errors` : ''}.`,
+          hasErrors ? 'error' : 'success'
+        )
+        pushNotification({
+          title: `Field Book Import (${trial.name})`,
+          text: `Imported ${data.imported_count} and updated ${data.updated_count} observations.`,
+          kind: 'import',
+        })
+        if (!hasErrors) {
+          qc.invalidateQueries({ queryKey: ['observations-for-trial', trial.id] })
+          qc.invalidateQueries({ queryKey: ['trial-summary', trial.id] })
+          qc.invalidateQueries({ queryKey: ['observations'] })
+          if (onSuccess) onSuccess()
+        }
+      } else {
+        showToast(`Dry run finished: ${data.imported_count} rows ready.`, 'info')
       }
     },
     onError: (err) => {
+      showToast(`Field book import failed: ${(err as Error).message}`, 'error')
       if (err instanceof ApiError) {
         const detail = err.detail
         if (typeof detail === 'object' && detail !== null && 'errors' in detail) {

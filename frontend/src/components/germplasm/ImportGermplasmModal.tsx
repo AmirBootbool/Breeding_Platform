@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { germplasm, Program, GermplasmBulkImportResult, ApiError } from '../../api/client'
+import { useToast } from '../common/ToastProvider'
+import { useNotificationStore } from '../../store/notificationStore'
 
 interface ImportGermplasmModalProps {
   programList: Program[]
@@ -21,6 +23,8 @@ export default function ImportGermplasmModal({
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const { showToast } = useToast()
+  const pushNotification = useNotificationStore((s) => s.push)
   const qc = useQueryClient()
 
   const mutation = useMutation({
@@ -32,13 +36,28 @@ export default function ImportGermplasmModal({
     onSuccess: (data) => {
       setResult(data)
       setError('')
-      if (!dryRun && (!data.errors || data.errors.length === 0)) {
-        qc.invalidateQueries({ queryKey: ['germplasm'] })
-        qc.invalidateQueries({ queryKey: ['germplasm-all'] })
-        if (onSuccess) onSuccess()
+      const hasErrors = data.errors && data.errors.length > 0
+      if (!dryRun) {
+        showToast(
+          `Germplasm import completed: ${data.created} created, ${data.skipped} skipped${hasErrors ? `, ${data.errors.length} errors` : ''}.`,
+          hasErrors ? 'error' : 'success'
+        )
+        pushNotification({
+          title: `Germplasm Import (${file?.name || 'file'})`,
+          text: `Import completed with ${data.created} created, ${data.skipped} skipped, ${data.errors?.length || 0} errors.`,
+          kind: 'import',
+        })
+        if (!hasErrors) {
+          qc.invalidateQueries({ queryKey: ['germplasm'] })
+          qc.invalidateQueries({ queryKey: ['germplasm-all'] })
+          if (onSuccess) onSuccess()
+        }
+      } else {
+        showToast(`Dry run completed: ${data.created} valid rows.`, 'info')
       }
     },
     onError: (err) => {
+      showToast(`Import failed: ${(err as Error).message}`, 'error')
       if (err instanceof ApiError) {
         const detail = err.detail
         if (typeof detail === 'object' && detail !== null && 'errors' in detail) {

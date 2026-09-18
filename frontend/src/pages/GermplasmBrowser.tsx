@@ -10,6 +10,7 @@ import SendToTrialModal from '../components/SendToTrialModal'
 import PedigreeTreeModal from '../components/pedigree/PedigreeTreeModal'
 import ImportGermplasmModal from '../components/germplasm/ImportGermplasmModal'
 import { DataTable, Column } from '../components/common/DataTable'
+import { useToast } from '../components/common/ToastProvider'
 
 // ---- Cross type badge -------------------------------------------------------
 function CrossTypeBadge({ type }: { type: string }) {
@@ -361,6 +362,7 @@ export default function GermplasmBrowser() {
   const role = useAuthStore(s => s.role)
   const canWrite = role === 'admin' || role === 'breeder'
   const activeProgramId = useUiStore((s) => s.activeProgramId)
+  const { showToast } = useToast()
 
   const [search, setSearch] = useState('')
   const [crossType, setCrossType] = useState('')
@@ -435,7 +437,10 @@ export default function GermplasmBrowser() {
       qc.invalidateQueries({ queryKey: ['germplasm'] })
       setSelectedIds([])
       setShowArchiveConfirm(false)
-      alert(`Archived ${res.archived_count} accessions.`)
+      showToast(`Archived ${res.archived_count} accessions.`, 'success')
+    },
+    onError: (err) => {
+      showToast(`Failed to archive: ${(err as Error).message}`, 'error')
     },
   })
 
@@ -445,7 +450,10 @@ export default function GermplasmBrowser() {
       qc.invalidateQueries({ queryKey: ['germplasm'] })
       setSelectedIds([])
       setShowDeleteConfirm(false)
-      alert(`Deleted ${res.deleted_count} accessions.`)
+      showToast(`Deleted ${res.deleted_count} accessions.`, 'success')
+    },
+    onError: (err) => {
+      showToast(`Failed to delete: ${(err as Error).message}`, 'error')
     },
   })
 

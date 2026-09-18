@@ -1,5 +1,6 @@
 import { observations } from '../api/client'
 import { offlineStorage, QueuedObservation } from './offlineStorage'
+import { useNotificationStore } from '../store/notificationStore'
 
 export type SyncStatus = 'online' | 'offline' | 'syncing'
 
@@ -25,6 +26,11 @@ class SyncManager {
       window.addEventListener('offline', () => {
         this.status = 'offline'
         this.notify()
+        useNotificationStore.getState().push({
+          title: 'Offline Mode Active',
+          text: 'Internet connection lost. Field observations will be saved locally in IndexedDB.',
+          kind: 'sync',
+        })
       })
     }
   }
@@ -87,11 +93,6 @@ class SyncManager {
       const errors = res.errors ?? []
       const failedIndices = new Set(errors.map((e: any) => e.index))
 
-      // Remove only the items that were actually part of this submitted batch
-      // (matched by their stable clientId), and only the ones that succeeded.
-      // Anything queued after `queue` was snapshotted above - e.g. the user
-      // scoring another plot while this request was in flight - was never
-      // submitted and must be left untouched in the queue.
       for (const [idx, item] of queue.entries()) {
         if (!failedIndices.has(idx)) {
           await offlineStorage.removeQueuedObservation(item.clientId)
@@ -101,6 +102,22 @@ class SyncManager {
       this.isSyncing = false
       this.status = typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'online'
       this.notify()
+
+      if (createdCount > 0) {
+        useNotificationStore.getState().push({
+          title: 'Offline Sync Completed',
+          text: `Successfully synced ${createdCount} queued field observation${createdCount === 1 ? '' : 's'}.`,
+          kind: 'sync',
+        })
+      }
+
+      if (errors.length > 0) {
+        useNotificationStore.getState().push({
+          title: 'Offline Sync Warning',
+          text: `${errors.length} observation${errors.length === 1 ? '' : 's'} failed during sync.`,
+          kind: 'sync',
+        })
+      }
 
       return {
         syncedCount: createdCount,
@@ -112,6 +129,13 @@ class SyncManager {
       this.isSyncing = false
       this.status = typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'online'
       this.notify()
+
+      useNotificationStore.getState().push({
+        title: 'Offline Sync Failed',
+        text: `Failed to sync ${queue.length} observation(s): ${(err as Error).message || 'Server error'}`,
+        kind: 'sync',
+      })
+
       return {
         syncedCount: 0,
         failedCount: queue.length,

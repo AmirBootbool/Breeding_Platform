@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { programs, locations, seasons, trials, Program, Location, Season, ApiError } from '../api/client'
 import Modal from './Modal'
+import { useToast } from './common/ToastProvider'
 
 interface SendToTrialModalProps {
   germplasmIds: number[]
@@ -23,6 +24,7 @@ const DESIGN_OPTIONS = [
 
 export default function SendToTrialModal({ germplasmIds, programId, onClose, onSuccess }: SendToTrialModalProps) {
   const qc = useQueryClient()
+  const { showToast } = useToast()
   
   const [form, setForm] = useState({
     name: '',
@@ -141,6 +143,7 @@ export default function SendToTrialModal({ germplasmIds, programId, onClose, onS
 
       qc.invalidateQueries({ queryKey: ['trials'] })
       qc.invalidateQueries({ queryKey: ['trials-all'] })
+      showToast(`Field "${newTrial.name}" successfully created with ${germplasmIds.length} lines.`, 'success')
       onSuccess(newTrial.id)
     } catch (err) {
       if (err instanceof ApiError) {

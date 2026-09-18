@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { programs, germplasm, trials, observations, seedLots, crossingBlocks } from '../api/client'
+import { programs, germplasm, trials, observations, crossingBlocks } from '../api/client'
 import TopBar from '../components/TopBar'
 import { useNavigate } from 'react-router-dom'
 import { useUiStore } from '../store/uiStore'
+import { useLowStockAlerts } from '../components/common/useLowStockAlerts'
 
 const GEN_LABELS: Record<number, string> = {
   0: 'F0 (P)', 1: 'F1', 2: 'F2', 3: 'F3', 4: 'F4',
@@ -63,10 +64,7 @@ export default function Dashboard() {
     queryFn: () => observations.list('&ordering=-created_at&page_size=10'),
   })
 
-  const { data: lowStockLots } = useQuery({
-    queryKey: ['low-stock-dashboard'],
-    queryFn: () => seedLots.getLowStock(50.0),
-  })
+  const { data: lowStockLots } = useLowStockAlerts()
 
   const { data: crossingBlocksData } = useQuery({
     queryKey: ['crossing-blocks-dashboard'],

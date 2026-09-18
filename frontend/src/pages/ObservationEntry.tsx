@@ -5,10 +5,12 @@ import TopBar from '../components/TopBar'
 import ObservationGrid from '../components/ObservationGrid'
 import OfflineSyncBadge from '../components/common/OfflineSyncBadge'
 import { offlineStorage } from '../services/offlineStorage'
+import { useToast } from '../components/common/ToastProvider'
 
 // ---- Observation form for a single plot -------------------------------------
 function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariable[] }) {
   const queryClient = useQueryClient()
+  const { showToast } = useToast()
   const [values, setValues] = useState<Record<number, string>>({})
   const [success, setSuccess] = useState(false)
   const [isOfflineSaved, setIsOfflineSaved] = useState(false)
@@ -63,6 +65,7 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
       setSuccess(true)
       setValues({})
       setErrors({})
+      showToast(`Observations saved for Plot ${plot.plot_number}.`, 'success')
       queryClient.invalidateQueries({ queryKey: ['recent-observations'] })
       setTimeout(() => setSuccess(false), 3000)
     },
@@ -86,9 +89,12 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
         setSuccess(true)
         setValues({})
         setErrors({})
+        showToast(`Plot ${plot.plot_number} queued for offline sync.`, 'info')
         setTimeout(() => setSuccess(false), 3000)
         return
       }
+
+      showToast(`Save error: ${(err as Error).message}`, 'error')
 
       if (err instanceof ApiError) {
         setErrors({ _: JSON.stringify(err.detail) } as Record<number, string>)

@@ -4,6 +4,7 @@ import { useAuthStore } from './store/authStore'
 import { useUiStore } from './store/uiStore'
 import Sidebar from './components/Sidebar'
 import CommandPalette from './components/common/CommandPalette'
+import { ToastProvider } from './components/common/ToastProvider'
 import LoginPage from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import GermplasmBrowser from './pages/GermplasmBrowser'
@@ -65,10 +66,12 @@ function ProtectedLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/*" element={<ProtectedLayout />} />
-      </Routes>
+      <ToastProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/*" element={<ProtectedLayout />} />
+        </Routes>
+      </ToastProvider>
     </BrowserRouter>
   )
 }

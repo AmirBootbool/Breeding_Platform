@@ -25,7 +25,7 @@ import {
   Tooltip,
   Cell,
 } from 'recharts'
-import './Genomics.css'
+import { useSearchParams } from 'react-router-dom'
 
 function ApiErrorMsg({ err }: { err: unknown }) {
   if (!err) return null
@@ -48,8 +48,19 @@ export default function Genomics() {
   const role = useAuthStore(s => s.role)
   const canWrite = role === 'admin' || role === 'breeder'
 
-  // Sub-tabs: 'prediction' | 'datasets' | 'mas'
-  const [activeTab, setActiveTab] = useState<'prediction' | 'datasets' | 'mas'>('prediction')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const validTabs = ['prediction', 'datasets', 'mas'] as const
+  const activeTab: 'prediction' | 'datasets' | 'mas' =
+    tabParam && validTabs.includes(tabParam as any)
+      ? (tabParam as any)
+      : 'prediction'
+
+  const setActiveTab = (newTab: 'prediction' | 'datasets' | 'mas') => {
+    const next = new URLSearchParams(searchParams)
+    next.set('tab', newTab)
+    setSearchParams(next, { replace: true })
+  }
 
   // Global filters
   const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null)

@@ -370,7 +370,7 @@ export default function GermplasmBrowser() {
   const [selectedGen, setSelectedGen] = useState('')
   const [onlyChecks, setOnlyChecks] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const [viewMode, setViewMode] = useState<'table' | 'grid' | 'pedigree'>('table')
 
   const [selected, setSelected] = useState<Germplasm | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -568,6 +568,7 @@ export default function GermplasmBrowser() {
         {/* View toggle */}
         <div style={{ display: 'flex', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-default)' }}>
           <button
+            id="view-mode-table"
             className={`btn btn-sm ${viewMode === 'table' ? 'btn-primary' : 'btn-ghost'}`}
             style={{ borderRadius: 0, padding: '4px 10px' }}
             onClick={() => setViewMode('table')}
@@ -575,11 +576,25 @@ export default function GermplasmBrowser() {
             📋 Table
           </button>
           <button
+            id="view-mode-grid"
             className={`btn btn-sm ${viewMode === 'grid' ? 'btn-primary' : 'btn-ghost'}`}
             style={{ borderRadius: 0, padding: '4px 10px' }}
             onClick={() => setViewMode('grid')}
           >
             🔲 Cards
+          </button>
+          <button
+            id="view-mode-pedigree"
+            className={`btn btn-sm ${viewMode === 'pedigree' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ borderRadius: 0, padding: '4px 10px' }}
+            onClick={() => {
+              setViewMode('pedigree')
+              if (!selected && filteredResults.length > 0) {
+                setSelected(filteredResults[0])
+              }
+            }}
+          >
+            🌳 Pedigree
           </button>
         </div>
 
@@ -744,7 +759,7 @@ export default function GermplasmBrowser() {
                 exportFileName="germplasm_export.csv"
               />
             </div>
-          ) : (
+          ) : viewMode === 'grid' ? (
             /* Card Grid View */
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 'var(--space-3)' }}>
               {filteredResults.map(entry => (
@@ -782,6 +797,46 @@ export default function GermplasmBrowser() {
                   )}
                 </div>
               ))}
+            </div>
+          ) : (
+            /* Inline Pedigree Explorer View */
+            <div className="card" id="germplasm-pedigree-view">
+              <div className="card-header flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold">🌳 Inline Pedigree Explorer</h3>
+                {selected && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setTreeTarget(selected)}
+                  >
+                    Expand Interactive Canvas
+                  </button>
+                )}
+              </div>
+              {selected ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                  <div className="alert alert-info">
+                    <strong>Root Line:</strong> {selected.name} ({selected.germplasm_db_id}) · Gen: {GEN_LABELS[selected.generation] ?? `F${selected.generation}`} · Type: {selected.cross_type}
+                  </div>
+                  <div className="grid-2" style={{ gap: 'var(--space-4)' }}>
+                    <div className="card p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="text-xs text-muted uppercase font-semibold mb-1">Female Parent (♀)</div>
+                      <div className="font-semibold">{selected.parent_female_name || 'Unknown Female Parent'}</div>
+                    </div>
+                    <div className="card p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="text-xs text-muted uppercase font-semibold mb-1">Male Parent (♂)</div>
+                      <div className="font-semibold">{selected.parent_male_name || 'Unknown Male Parent'}</div>
+                    </div>
+                  </div>
+                  {selected.pedigree_string && (
+                    <div className="card p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="text-xs text-muted uppercase font-semibold mb-1">Purdy Pedigree String</div>
+                      <code className="text-xs font-mono text-brand-400">{selected.pedigree_string}</code>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted text-sm">Select an accession from the list to view its pedigree lineage.</p>
+              )}
             </div>
           )}
         </div>

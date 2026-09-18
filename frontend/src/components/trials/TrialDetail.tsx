@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { trials, plots, observations, observationVariables, traitPanels, Trial } from '../../api/client'
+import {
+  trials,
+  plots,
+  observations,
+  observationVariables,
+  traitPanels,
+  Trial,
+} from '../../api/client'
 import { offlineStorage } from '../../services/offlineStorage'
 import Modal from '../Modal'
 import ObservationGrid from '../ObservationGrid'
@@ -12,13 +19,13 @@ import AdvancePlotsTab from './AdvancePlotsTab'
 import MapCreationWizard from './MapCreationWizard'
 import ImportFieldBookModal from './ImportFieldBookModal'
 import PedigreeTreeModal from '../pedigree/PedigreeTreeModal'
+import Tabs from '../common/Tabs'
 
 interface TrialDetailProps {
   trial: Trial
 }
 
 export default function TrialDetail({ trial }: TrialDetailProps) {
-  const [tab, setTab] = useState<'germplasm' | 'map' | 'data' | 'selections' | 'summary' | 'pedigree'>('germplasm')
   const [showGenerateLayout, setShowGenerateLayout] = useState(false)
   const [showImportFieldBook, setShowImportFieldBook] = useState(false)
   const [pedigreeEntry, setPedigreeEntry] = useState<{ id: number; name: string } | null>(null)
@@ -34,9 +41,6 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
       setIsOfflineCached(!!pkg)
       setCachedIsStale(!!pkg && new Date(trial.updated_at).getTime() > pkg.downloadedAt)
     })
-    // Re-checks whenever the trial's own data changes (not just once on
-    // mount), so "Offline Ready" doesn't keep claiming a cached package is
-    // current after the trial has since been edited elsewhere.
   }, [trial.id, trial.updated_at])
 
   const handleDownloadOffline = async () => {
@@ -84,6 +88,10 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
   })
 
   const plotList = plotData?.results ?? []
+
+  const uniqueGermplasm = Array.from(
+    new Map(plotList.map(p => [p.germplasm, { id: p.germplasm, name: p.germplasm_name }])).values()
+  )
 
   return (
     <div className="fade-in">
@@ -182,7 +190,7 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
               </button>
               <button
                 id="download-offline-btn"
-                className={`btn ${isOfflineCached ? 'btn-secondary' : 'btn-secondary'}`}
+                className="btn btn-secondary"
                 style={{
                   border: isOfflineCached ? `1px solid ${cachedIsStale ? 'var(--warning-400, #f59e0b)' : 'var(--brand-400)'}` : undefined,
                   background: isOfflineCached ? (cachedIsStale ? 'rgba(245, 158, 11, 0.1)' : 'rgba(74, 222, 128, 0.1)') : undefined,
@@ -211,79 +219,86 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
         )}
       </div>
 
-      <div className="tab-bar">
-        {(['germplasm', 'map', 'data', 'selections', 'summary', 'pedigree'] as const).map(t => (
-          <button
-            key={t}
-            className={`tab-btn ${tab === t ? 'active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t === 'germplasm'  ? '🌿 Germplasm'
-              : t === 'map'    ? '🗺️ Trial Map'
-              : t === 'data'   ? '📋 Data'
-              : t === 'selections' ? '✂️ Selections'
-              : t === 'summary'   ? '📊 Summary'
-              :                    '🧬 Pedigree'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'germplasm' && (
-        <div className="card">
-          <GermplasmListTab plotList={plotList} expectedReps={trial.num_reps} />
-        </div>
-      )}
-      {tab === 'map' && (
-        plotLoading ? (
-          <div className="loading-spinner"><div className="spinner" /> Loading plots...</div>
-        ) : plotList.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">🌱</div><p>No plots yet.</p></div>
-        ) : (
-          <div className="card">
-            <PlotGrid
-              plotList={plotList}
-              trialId={trial.id}
-              trialCode={trial.trial_code}
-              onRefresh={() => {
-                qc.invalidateQueries({ queryKey: ['plots', trial.id] })
-                qc.invalidateQueries({ queryKey: ['trials'] })
-              }}
-            />
-          </div>
-        )
-      )}
-      {tab === 'data' && (
-        <ObservationGrid trial={trial} />
-      )}
-      {tab === 'summary' && (
-        <div className="card">
-          <SummaryChart rows={summaryData?.summary ?? []} />
-        </div>
-      )}
-      {tab === 'selections' && (
-        <div className="card">
-          <AdvancePlotsTab trial={trial} plotList={plotList} />
-        </div>
-      )}
-      {tab === 'pedigree' && (() => {
-        const uniqueGermplasm = Array.from(
-          new Map(plotList.map(p => [p.germplasm, { id: p.germplasm, name: p.germplasm_name }])).values()
-        )
-        return (
-          <div className="card">
-            <div className="card-title mb-4">🧬 Pedigree — {uniqueGermplasm.length} unique lines</div>
-            <div className="grid-3" style={{ gap: 'var(--space-3)' }}>
-              {uniqueGermplasm.map(g => (
-                <div key={g.id} style={{ padding: 'var(--space-3)', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.87rem', fontWeight: 600 }}>{g.name}</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setPedigreeEntry(g)}>🌳</button>
+      <Tabs
+        syncWithUrl={true}
+        tabs={[
+          {
+            id: 'germplasm',
+            label: '🌿 Germplasm',
+            content: (
+              <div className="card">
+                <GermplasmListTab plotList={plotList} expectedReps={trial.num_reps} />
+              </div>
+            ),
+          },
+          {
+            id: 'field-map',
+            label: '🗺️ Trial Map',
+            content: plotLoading ? (
+              <div className="loading-spinner"><div className="spinner" /> Loading plots...</div>
+            ) : plotList.length === 0 ? (
+              <div className="empty-state"><div className="empty-icon">🌱</div><p>No plots yet.</p></div>
+            ) : (
+              <div className="card">
+                <PlotGrid
+                  plotList={plotList}
+                  trialId={trial.id}
+                  trialCode={trial.trial_code}
+                  onRefresh={() => {
+                    qc.invalidateQueries({ queryKey: ['plots', trial.id] })
+                    qc.invalidateQueries({ queryKey: ['trials'] })
+                  }}
+                />
+              </div>
+            ),
+          },
+          {
+            id: 'observations',
+            label: '📋 Observations',
+            content: (
+              <div className="card">
+                <ObservationGrid trial={trial} />
+              </div>
+            ),
+          },
+          {
+            id: 'selections',
+            label: '✂️ Selections',
+            content: (
+              <div className="card">
+                <AdvancePlotsTab trial={trial} plotList={plotList} />
+              </div>
+            ),
+          },
+          {
+            id: 'summary',
+            label: '📊 Summary',
+            content: (
+              <div className="card">
+                <SummaryChart rows={summaryData?.summary ?? []} />
+              </div>
+            ),
+          },
+          {
+            id: 'pedigree',
+            label: '🧬 Pedigree',
+            content: (
+              <div className="card">
+                <div className="card-title mb-4">🧬 Pedigree — {uniqueGermplasm.length} unique lines</div>
+                <div className="grid-3" style={{ gap: 'var(--space-3)' }}>
+                  {uniqueGermplasm.map(g => (
+                    <div key={g.id} style={{ padding: 'var(--space-3)', borderRadius: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.87rem', fontWeight: 600 }}>{g.name}</span>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setPedigreeEntry(g)}>🌳</button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            {uniqueGermplasm.length === 0 && <div className="empty-state"><p>No germplasm in this trial yet.</p></div>}
-          </div>
-        )
-      })()}
+                {uniqueGermplasm.length === 0 && <div className="empty-state"><p>No germplasm in this trial yet.</p></div>}
+              </div>
+            ),
+          },
+        ]}
+      />
 
       {showGenerateLayout && (
         <Modal title={`Field Map Creation Wizard — ${trial.trial_code}`} onClose={() => setShowGenerateLayout(false)} wide>

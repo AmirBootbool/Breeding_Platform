@@ -17,6 +17,7 @@ operational references from historical summaries.
 | [docs/deployment.md](docs/deployment.md) | Production environment, Docker, static files, logging, monitoring, and backups |
 | [SECURITY_FIXES.md](SECURITY_FIXES.md) | Current security controls and verification |
 | [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) | Completed phase plan and success criteria |
+| [FRONTEND_UX_ROADMAP.md](FRONTEND_UX_ROADMAP.md) | Phases 23–31: frontend UI/UX overhaul build spec, for a builder model |
 | [ISSUES_QUICK_REFERENCE.md](ISSUES_QUICK_REFERENCE.md) | Issue-by-issue resolution record for the original review |
 | [docs/adr/README.md](docs/adr/README.md) | Accepted architecture decision index |
 

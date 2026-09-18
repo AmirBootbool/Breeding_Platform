@@ -734,8 +734,10 @@ export interface CrossingMapEntry {
 }
 
 export const crossingBlocks = {
-  list: () =>
-    apiFetch<PaginatedResponse<CrossingBlock>>('/crossing-blocks/?page_size=100'),
+  list: (params = '') => {
+    const cleanParams = params.startsWith('?') || params.startsWith('&') ? params.slice(1) : params
+    return apiFetch<PaginatedResponse<CrossingBlock>>(`/crossing-blocks/?page_size=100${cleanParams ? `&${cleanParams}` : ''}`)
+  },
   detail: (id: number) =>
     apiFetch<CrossingBlock>(`/crossing-blocks/${id}/`),
   create: (data: Partial<CrossingBlock>) =>

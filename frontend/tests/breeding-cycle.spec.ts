@@ -15,37 +15,46 @@ test.describe('Breeding Cycle 7-Generation Simulation', () => {
     test.setTimeout(120000); // 2 minutes timeout for this large test
 
     // 1. Create Base Lines (F0)
-    await page.click('a:has-text("Germplasm Browser")');
+    await page.click('a:has-text("Germplasm")');
     await expect(page.getByRole('heading', { name: 'Germplasm Browser' })).toBeVisible();
 
-    const baseLines = ['Base Line A', 'Base Line B', 'Base Line C', 'Base Line D'];
+    const ts = Date.now();
+    const baseLines = [`Base Line A ${ts}`, `Base Line B ${ts}`, `Base Line C ${ts}`, `Base Line D ${ts}`];
     
     for (const line of baseLines) {
       await page.click('#add-germplasm-btn');
+      await expect(page.locator('#germ-name')).toBeVisible();
       await page.fill('#germ-name', line);
-      await page.selectOption('#germ-program', { label: 'Test Program for Accounts' }); // Assuming this exists
-      await page.selectOption('#germ-cross-type', 'inbred');
+      await page.selectOption('#germ-program', { index: 0 });
+      await page.selectOption('#germ-cross-type', 'self');
       await page.click('#germ-save-btn');
-      // Wait for it to appear
+      await expect(page.locator('#germ-name')).not.toBeVisible();
+      // Search for it to appear in table
+      await page.fill('#germplasm-search', line);
       await expect(page.locator(`text=${line}`).first()).toBeVisible();
+      await page.fill('#germplasm-search', '');
     }
 
     // 2. F1 Crosses
     const crosses = [
-      { female: 'Base Line A', male: 'Base Line B', name: 'A/B F1' },
-      { female: 'Base Line C', male: 'Base Line D', name: 'C/D F1' }
+      { female: baseLines[0], male: baseLines[1], name: `A/B F1 ${ts}` },
+      { female: baseLines[2], male: baseLines[3], name: `C/D F1 ${ts}` }
     ];
 
     for (const cross of crosses) {
       await page.click('#add-germplasm-btn');
+      await expect(page.locator('#germ-name')).toBeVisible();
       await page.fill('#germ-name', cross.name);
-      await page.selectOption('#germ-program', { label: 'Test Program for Accounts' });
+      await page.selectOption('#germ-program', { index: 0 });
       await page.selectOption('#germ-cross-type', 'biparental');
       // Set parents
       await page.selectOption('#germ-female', { label: cross.female });
       await page.selectOption('#germ-male', { label: cross.male });
       await page.click('#germ-save-btn');
+      await expect(page.locator('#germ-name')).not.toBeVisible();
+      await page.fill('#germplasm-search', cross.name);
       await expect(page.locator(`text=${cross.name}`).first()).toBeVisible();
+      await page.fill('#germplasm-search', '');
     }
 
     // 3. Create F1 Trial
@@ -55,7 +64,7 @@ test.describe('Breeding Cycle 7-Generation Simulation', () => {
     await page.click('text=+ New Trial');
     await page.fill('#trial-name', 'F1 Trial');
     await page.fill('#trial-code', 'F1-TEST');
-    await page.selectOption('#trial-program', { label: 'Test Program for Accounts' });
+    await page.selectOption('#trial-program', { index: 0 });
     // Assuming we have a location and season by default in test DB
     // Just clicking save
     await page.click('#trial-save-btn');

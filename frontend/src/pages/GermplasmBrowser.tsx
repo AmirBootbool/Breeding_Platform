@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { germplasm, programs, Germplasm, Program, ApiError } from '../api/client'
 import { useAuthStore } from '../store/authStore'
+import { useUiStore } from '../store/uiStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -113,14 +114,19 @@ const CROSS_TYPES = ['biparental', 'self', 'backcross', 'doubled_haploid', 'othe
 interface GermplasmFormProps {
   initial?: Partial<Germplasm>
   programList: Program[]
-  germplasmList: Germplasm[]
   onClose: () => void
   onSaved: () => void
   isEdit?: boolean
   editId?: number
 }
 
-function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, isEdit, editId }: GermplasmFormProps) {
+function GermplasmForm({ initial, programList, onClose, onSaved, isEdit, editId }: GermplasmFormProps) {
+  const { data: allGermplasmData } = useQuery({
+    queryKey: ['germplasm-all'],
+    queryFn: () => germplasm.listAll(),
+  })
+  const germplasmList = (allGermplasmData?.results ?? []).filter(g => !editId || g.id !== editId)
+
   const [form, setForm] = useState({
     name: initial?.name ?? '',
     species: initial?.species ?? 'Triticum aestivum',
@@ -136,14 +142,21 @@ function GermplasmForm({ initial, programList, germplasmList, onClose, onSaved, 
     notes: initial?.notes ?? '',
   })
   const [error, setError] = useState('')
-
   const qc = useQueryClient()
+
+  useEffect(() => {
+    if (!form.program && programList.length > 0) {
+      setForm(f => ({ ...f, program: programList[0].id }))
+    }
+  }, [programList, form.program])
+
   const mutation = useMutation({
     mutationFn: () => {
+      const progId = form.program || (programList[0]?.id ?? '')
       const payload: Record<string, unknown> = {
         name: form.name,
         species: form.species,
-        program: Number(form.program),
+        program: Number(progId),
         cross_type: form.cross_type,
         generation: Number(form.generation),
         pedigree_string: form.pedigree_string,
@@ -347,6 +360,7 @@ function ComparisonModal({ entries, onClose }: { entries: Germplasm[]; onClose: 
 export default function GermplasmBrowser() {
   const role = useAuthStore(s => s.role)
   const canWrite = role === 'admin' || role === 'breeder'
+  const activeProgramId = useUiStore((s) => s.activeProgramId)
 
   const [search, setSearch] = useState('')
   const [crossType, setCrossType] = useState('')
@@ -371,10 +385,12 @@ export default function GermplasmBrowser() {
   const [deleteEntry, setDeleteEntry] = useState<Germplasm | null>(null)
   const [treeTarget, setTreeTarget] = useState<Germplasm | null>(null)
 
+  const effectiveProgram = activeProgramId ? String(activeProgramId) : selectedProgram
+
   const params = [
     search ? `&search=${encodeURIComponent(search)}` : '',
     crossType ? `&cross_type=${encodeURIComponent(crossType)}` : '',
-    selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : '',
+    effectiveProgram ? `&program=${encodeURIComponent(effectiveProgram)}` : '',
     selectedGen !== '' ? `&generation=${encodeURIComponent(selectedGen)}` : '',
     showArchived ? '&archived=true' : '',
   ].join('')
@@ -382,20 +398,14 @@ export default function GermplasmBrowser() {
   const qc = useQueryClient()
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['germplasm', search, crossType, selectedProgram, selectedGen, showArchived],
+    queryKey: ['germplasm', search, crossType, effectiveProgram, selectedGen, showArchived],
     queryFn: () => germplasm.list(params),
-    placeholderData: prev => prev,
+    placeholderData: (prev) => prev,
   })
 
   const { data: programsData } = useQuery({
     queryKey: ['programs'],
     queryFn: () => programs.list(),
-  })
-
-  const { data: allGermplasmData } = useQuery({
-    queryKey: ['germplasm-all'],
-    queryFn: () => germplasm.listAll(),
-    enabled: showCreate || !!editEntry,
   })
 
   const deleteMutation = useMutation({
@@ -440,7 +450,6 @@ export default function GermplasmBrowser() {
   })
 
   const programList = programsData?.results ?? []
-  const germplasmList = allGermplasmData?.results ?? []
 
   const filteredResults = useMemo(() => {
     let list = data?.results ?? []
@@ -787,7 +796,6 @@ export default function GermplasmBrowser() {
         <Modal title="Add Germplasm" onClose={() => setShowCreate(false)}>
           <GermplasmForm
             programList={programList}
-            germplasmList={germplasmList}
             onClose={() => setShowCreate(false)}
             onSaved={() => setShowCreate(false)}
           />
@@ -808,7 +816,6 @@ export default function GermplasmBrowser() {
           <GermplasmForm
             initial={editEntry}
             programList={programList}
-            germplasmList={germplasmList.filter(g => g.id !== editEntry.id)}
             onClose={() => setEditEntry(null)}
             onSaved={() => setEditEntry(null)}
             isEdit

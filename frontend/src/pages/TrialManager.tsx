@@ -5,6 +5,7 @@ import {
   Trial, ApiError
 } from '../api/client'
 import { useAuthStore } from '../store/authStore'
+import { useUiStore } from '../store/uiStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -82,6 +83,7 @@ function TrialCard({ trial, canWrite, onClick, onEdit, onDelete, onClone }: {
 
 export default function TrialManager() {
   const role = useAuthStore(s => s.role)
+  const activeProgramId = useUiStore(s => s.activeProgramId)
   const canWrite = role === 'admin' || role === 'breeder'
 
   const [search, setSearch]                 = useState('')
@@ -101,14 +103,16 @@ export default function TrialManager() {
 
   const qc = useQueryClient()
 
+  const effectiveProgram = activeProgramId ? String(activeProgramId) : filterProgram
+
   const params = [
-    search         ? `&search=${encodeURIComponent(search)}` : '',
-    filterProgram  ? `&program=${filterProgram}` : '',
-    filterLocation ? `&location=${filterLocation}` : '',
-    filterSeason   ? `&season=${filterSeason}` : '',
-    filterDesign   ? `&design_type=${filterDesign}` : '',
-    filterStatus   ? `&status=${filterStatus}` : '',
-    filterGen      ? `&generation=${filterGen}` : '',
+    search            ? `&search=${encodeURIComponent(search)}` : '',
+    effectiveProgram  ? `&program=${effectiveProgram}` : '',
+    filterLocation    ? `&location=${filterLocation}` : '',
+    filterSeason      ? `&season=${filterSeason}` : '',
+    filterDesign      ? `&design_type=${filterDesign}` : '',
+    filterStatus      ? `&status=${filterStatus}` : '',
+    filterGen         ? `&generation=${filterGen}` : '',
   ].join('')
 
   const { data, isLoading } = useQuery({

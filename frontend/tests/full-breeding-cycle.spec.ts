@@ -71,7 +71,8 @@ async function login(page: Page) {
 
 /** Navigate via sidebar NavLink */
 async function goTo(page: Page, label: string) {
-  await page.click(`a.sidebar-link:has-text("${label}")`)
+  const target = label === 'Trials' ? 'Trial' : label
+  await page.click(`a.sidebar-link:has-text("${target}")`)
   await page.waitForLoadState('networkidle')
 }
 
@@ -567,8 +568,8 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       await page.click('.tab-btn:has-text("Summary")')
       await page.waitForTimeout(2000)
       await expect(page.locator('.tab-btn.active:has-text("Summary")')).toBeVisible()
-      // SummaryChart renders an <svg> or shows "No data yet"
-      const summaryChild = page.locator('svg, canvas, .empty-state, text:has-text("No data")').first()
+      // SummaryChart renders recharts or shows empty state
+      const summaryChild = page.locator('.recharts-responsive-container, .recharts-surface, .empty-state, text:has-text("No numeric observations")').first()
       await expect(summaryChild).toBeVisible({ timeout: 10_000 })
 
       // Navigate to Pedigree tab — verify unique lines and open PedigreeTreeModal

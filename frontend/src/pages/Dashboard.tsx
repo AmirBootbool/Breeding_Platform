@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { programs, germplasm, trials, observations, seedLots, crossingBlocks } from '../api/client'
 import TopBar from '../components/TopBar'
 import { useNavigate } from 'react-router-dom'
+import { useUiStore } from '../store/uiStore'
 
 const GEN_LABELS: Record<number, string> = {
   0: 'F0 (P)', 1: 'F1', 2: 'F2', 3: 'F3', 4: 'F4',
@@ -24,23 +25,14 @@ function StatCard({ label, value, sub, icon, accent }: {
 
 function ProgramCard({ program }: { program: { id: number; name: string; crop: string; description: string } }) {
   return (
-    <div className="card fade-in" style={{ cursor: 'default' }}>
-      <div className="flex items-center gap-3 mb-4">
-        <div style={{
-          width: 40, height: 40, borderRadius: 'var(--r-md)',
-          background: 'linear-gradient(135deg, var(--brand-700), var(--brand-500))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.2rem', flexShrink: 0
-        }}>🌾</div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{program.name}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{program.crop}</div>
-        </div>
+    <div className="card fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <span style={{ fontSize: '1.2rem' }}>🌾</span>
+        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{program.name}</div>
+        <span className="badge badge-green" style={{ marginLeft: 'auto' }}>{program.crop}</span>
       </div>
       {program.description && (
-        <p style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          {program.description}
-        </p>
+        <p className="text-secondary text-sm" style={{ margin: 0 }}>{program.description}</p>
       )}
     </div>
   )
@@ -48,7 +40,8 @@ function ProgramCard({ program }: { program: { id: number; name: string; crop: s
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [selectedProgramId, setSelectedProgramId] = useState<number | ''>('')
+  const activeProgramId = useUiStore((s) => s.activeProgramId)
+  const selectedProgramId = activeProgramId
 
   const { data: programsData, isLoading: pLoading } = useQuery({
     queryKey: ['programs'],
@@ -139,19 +132,6 @@ export default function Dashboard() {
       <TopBar
         title="Dashboard"
         subtitle="Overview of your wheat breeding programs and active operations"
-        actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <select
-              className="form-input"
-              style={{ width: 180, fontSize: '0.85rem' }}
-              value={selectedProgramId}
-              onChange={e => setSelectedProgramId(e.target.value ? Number(e.target.value) : '')}
-            >
-              <option value="">All programs</option>
-              {programList.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-        }
       />
 
       {/* Actionable Pending Tasks Banner */}

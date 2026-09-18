@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   crossingBlocks, germplasm, programs, locations, seasons,
@@ -6,6 +6,7 @@ import {
   Germplasm, Program, Location, Season, ApiError,
 } from '../api/client'
 import { useAuthStore } from '../store/authStore'
+import { useUiStore } from '../store/uiStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -66,7 +67,7 @@ function GermplasmPanel({
                 key={entry.id}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  padding: '6px var(--space-3)', borderRadius: 'var(--radius-sm)',
+                  padding: '6px var(--space-3)', borderRadius: 'var(--r-sm)',
                   cursor: 'pointer', transition: 'background 0.15s',
                   background: selected.has(entry.id) ? 'rgba(74, 222, 128, 0.08)' : 'transparent',
                 }}
@@ -112,11 +113,18 @@ function BlockFormModal({
   const [error, setError] = useState('')
   const qc = useQueryClient()
 
+  useEffect(() => {
+    if (!form.program && programList.length > 0) {
+      setForm(f => ({ ...f, program: programList[0].id.toString() }))
+    }
+  }, [programList, form.program])
+
   const mutation = useMutation({
     mutationFn: () => {
+      const progId = form.program || (programList[0]?.id?.toString() ?? '')
       const payload: Record<string, unknown> = {
         name: form.name,
-        program: Number(form.program),
+        program: Number(progId),
         map_pattern: form.map_pattern,
         include_reciprocals: form.include_reciprocals,
         notes: form.notes,
@@ -200,6 +208,7 @@ function BlockFormModal({
 
 export default function CrossingBlock() {
   const role = useAuthStore(s => s.role)
+  const activeProgramId = useUiStore(s => s.activeProgramId)
   const canWrite = role === 'admin' || role === 'breeder'
 
   const [activeBlock, setActiveBlock] = useState<CB | null>(null)
@@ -225,8 +234,8 @@ export default function CrossingBlock() {
   const qc = useQueryClient()
 
   const { data: blocksData, isLoading: blocksLoading } = useQuery({
-    queryKey: ['crossing-blocks'],
-    queryFn: () => crossingBlocks.list(),
+    queryKey: ['crossing-blocks', activeProgramId],
+    queryFn: () => crossingBlocks.list(activeProgramId ? `?program=${activeProgramId}` : ''),
   })
   const { data: programsData } = useQuery({ queryKey: ['programs'], queryFn: () => programs.list() })
   const { data: locationsData } = useQuery({ queryKey: ['locations'], queryFn: () => locations.list() })

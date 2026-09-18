@@ -1,0 +1,219 @@
+/* Command Palette overlay */
+.cmd-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 2000;
+  animation: cmdFadeIn 0.15s ease-out;
+}
+
+@keyframes cmdFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cmd-palette-modal {
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg), 0 0 24px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: cmdScaleIn 0.15s ease-out;
+}
+
+@keyframes cmdScaleIn {
+  from {
+    transform: scale(0.97);
+    opacity: 0.5;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Search bar */
+.cmd-palette-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+
+.cmd-search-icon {
+  color: var(--brand-400);
+  flex-shrink: 0;
+}
+
+.cmd-palette-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.cmd-palette-input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.cmd-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--r-sm);
+}
+
+.cmd-clear-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* Results list */
+.cmd-palette-results {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cmd-searching-indicator {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.75rem;
+  color: var(--brand-300);
+  font-style: italic;
+}
+
+.cmd-empty-state {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cmd-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.cmd-item:hover,
+.cmd-item.selected {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.cmd-item.selected {
+  background: hsla(var(--hue-brand), 52%, 40%, 0.18);
+  color: var(--brand-300);
+  border: 1px solid hsla(var(--hue-brand), 52%, 40%, 0.25);
+}
+
+.cmd-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-400);
+  flex-shrink: 0;
+}
+
+.cmd-item-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.cmd-item-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmd-item-sublabel {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.cmd-item-group-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  background: var(--bg-base);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Footer */
+.cmd-palette-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.cmd-shortcut-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cmd-shortcut-hint kbd {
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  font-family: inherit;
+  color: var(--text-secondary);
+}
+
+/* Sunlight mode tweaks */
+[data-theme="sunlight"] .cmd-palette-modal {
+  border: 2px solid #000;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}

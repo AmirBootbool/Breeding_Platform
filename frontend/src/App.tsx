@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import { useUiStore } from './store/uiStore'
 import Sidebar from './components/Sidebar'
+import CommandPalette from './components/common/CommandPalette'
 import LoginPage from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import GermplasmBrowser from './pages/GermplasmBrowser'
@@ -16,28 +19,45 @@ import AuditTrail from './pages/AuditTrail'
 import Genomics from './pages/Genomics'
 
 function ProtectedLayout() {
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const toggleCommandPalette = useUiStore((s) => s.toggleCommandPalette)
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K or Cmd+K
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        toggleCommandPalette()
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [toggleCommandPalette])
+
   if (!isAuthenticated) return <Navigate to="/login" replace />
+
   return (
     <div className="app-layout">
       <Sidebar />
       <div className="page-content">
         <Routes>
-          <Route path="/"             element={<Dashboard />} />
-          <Route path="/germplasm"    element={<GermplasmBrowser />} />
-          <Route path="/crosses"      element={<CrossingBlock />} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/germplasm" element={<GermplasmBrowser />} />
+          <Route path="/crosses" element={<CrossingBlock />} />
           <Route path="/seed-inventory" element={<SeedInventory />} />
-          <Route path="/trials"       element={<TrialManager />} />
+          <Route path="/trials" element={<TrialManager />} />
           <Route path="/observations" element={<ObservationEntry />} />
-          <Route path="/export"       element={<DataExport />} />
-          <Route path="/setup"        element={<Setup />} />
-          <Route path="/analysis"     element={<MultiEnvironmentAnalysis />} />
-          <Route path="/traits"       element={<Traits />} />
-          <Route path="/genomics"     element={<Genomics />} />
-          <Route path="/audit"        element={<AuditTrail />} />
-          <Route path="*"             element={<Navigate to="/" replace />} />
+          <Route path="/export" element={<DataExport />} />
+          <Route path="/setup" element={<Setup />} />
+          <Route path="/analysis" element={<MultiEnvironmentAnalysis />} />
+          <Route path="/traits" element={<Traits />} />
+          <Route path="/genomics" element={<Genomics />} />
+          <Route path="/audit" element={<AuditTrail />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
+      <CommandPalette />
     </div>
   )
 }
@@ -47,7 +67,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/*"    element={<ProtectedLayout />} />
+        <Route path="/*" element={<ProtectedLayout />} />
       </Routes>
     </BrowserRouter>
   )

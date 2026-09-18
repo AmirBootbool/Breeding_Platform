@@ -5,6 +5,7 @@ import {
   SeedLot, Program, Germplasm, ApiError, BarcodeLabelData
 } from '../api/client'
 import { useAuthStore } from '../store/authStore'
+import { useUiStore } from '../store/uiStore'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -12,6 +13,7 @@ import { DataTable, Column } from '../components/common/DataTable'
 
 export default function SeedInventory() {
   const role = useAuthStore(s => s.role)
+  const activeProgramId = useUiStore(s => s.activeProgramId)
   const canWrite = role === 'admin' || role === 'breeder' || role === 'technician'
 
   const [search, setSearch] = useState('')
@@ -29,16 +31,18 @@ export default function SeedInventory() {
   const [historyLot, setHistoryLot] = useState<SeedLot | null>(null)
   const [deleteLot, setDeleteLot] = useState<SeedLot | null>(null)
 
+  const effectiveProgram = activeProgramId ? String(activeProgramId) : selectedProgram
+
   const params = [
     search ? `&search=${encodeURIComponent(search)}` : '',
-    selectedProgram ? `&program=${encodeURIComponent(selectedProgram)}` : '',
+    effectiveProgram ? `&program=${encodeURIComponent(effectiveProgram)}` : '',
     selectedStatus ? `&status=${encodeURIComponent(selectedStatus)}` : '',
   ].join('')
 
   const qc = useQueryClient()
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['seed-lots', search, selectedProgram, selectedStatus],
+    queryKey: ['seed-lots', search, effectiveProgram, selectedStatus],
     queryFn: () => seedLots.list(params),
     placeholderData: prev => prev,
   })

@@ -541,8 +541,8 @@ test.describe('Full Wheat Breeding Cycle — Crossing → F7 Yield Trial', () =>
       // Open F6 trial
       await openTrialByName(page, ctx.f6TrialName)
 
-      // Navigate to Data tab (ObservationGrid)
-      await page.click('.tab-btn:has-text("Data")')
+      // Navigate to Observations tab (ObservationGrid)
+      await page.getByRole('button', { name: /Observations/i }).click()
       await page.waitForTimeout(2000)
 
       // Enter yield observations for the first two numeric input cells (if variables exist)

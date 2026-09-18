@@ -10,10 +10,22 @@ export interface SyncResult {
   errors: any[]
 }
 
+export interface SyncConflict {
+  id: string
+  clientId: string
+  plotNumber: number | string
+  traitName: string
+  localValue: string | number
+  serverValue: string | number
+  localTimestamp: string
+  serverTimestamp: string
+}
+
 class SyncManager {
   private status: SyncStatus = typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'online'
-  private listeners: ((status: SyncStatus, queueCount: number) => void)[] = []
+  private listeners: ((status: SyncStatus, queueCount: number, conflictsCount: number) => void)[] = []
   private isSyncing = false
+  private conflicts: SyncConflict[] = []
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -43,9 +55,42 @@ class SyncManager {
     return offlineStorage.getQueueCount()
   }
 
-  public subscribe(callback: (status: SyncStatus, queueCount: number) => void): () => void {
+  public getConflicts(): SyncConflict[] {
+    return [...this.conflicts]
+  }
+
+  public addConflict(conflict: SyncConflict): void {
+    this.conflicts = [...this.conflicts.filter(c => c.id !== conflict.id), conflict]
+    this.notify()
+  }
+
+  public async resolveConflict(conflictId: string, resolution: 'local' | 'server'): Promise<void> {
+    const conflict = this.conflicts.find(c => c.id === conflictId)
+    if (!conflict) return
+
+    if (resolution === 'server') {
+      // Discard local queued record
+      await offlineStorage.removeQueuedObservation(conflict.clientId)
+    }
+    // If 'local', leave in queue so next sync pushes it as override
+
+    this.conflicts = this.conflicts.filter(c => c.id !== conflictId)
+    this.notify()
+  }
+
+  public async resolveAllConflicts(resolution: 'local' | 'server'): Promise<void> {
+    if (resolution === 'server') {
+      for (const conflict of this.conflicts) {
+        await offlineStorage.removeQueuedObservation(conflict.clientId)
+      }
+    }
+    this.conflicts = []
+    this.notify()
+  }
+
+  public subscribe(callback: (status: SyncStatus, queueCount: number, conflictsCount: number) => void): () => void {
     this.listeners.push(callback)
-    callback(this.status, this.getQueueCount())
+    callback(this.status, this.getQueueCount(), this.conflicts.length)
     return () => {
       this.listeners = this.listeners.filter(cb => cb !== callback)
     }
@@ -53,7 +98,8 @@ class SyncManager {
 
   private notify(): void {
     const count = this.getQueueCount()
-    this.listeners.forEach(cb => cb(this.status, count))
+    const conflictsCount = this.conflicts.length
+    this.listeners.forEach(cb => cb(this.status, count, conflictsCount))
   }
 
   public async autoSync(): Promise<SyncResult | null> {
@@ -172,3 +218,7 @@ class SyncManager {
 }
 
 export const syncManager = new SyncManager()
+
+if (typeof window !== 'undefined') {
+  ;(window as any).syncManager = syncManager
+}

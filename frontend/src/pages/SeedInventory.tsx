@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Camera } from 'lucide-react'
 import {
   seedLots, programs, germplasm,
   SeedLot, Program, Germplasm, ApiError, BarcodeLabelData
@@ -10,6 +11,7 @@ import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { DataTable, Column } from '../components/common/DataTable'
+import BarcodeScannerModal from '../components/common/BarcodeScannerModal'
 
 export default function SeedInventory() {
   const role = useAuthStore(s => s.role)
@@ -30,6 +32,7 @@ export default function SeedInventory() {
   const [showBulkLabels, setShowBulkLabels] = useState(false)
   const [historyLot, setHistoryLot] = useState<SeedLot | null>(null)
   const [deleteLot, setDeleteLot] = useState<SeedLot | null>(null)
+  const [showScanner, setShowScanner] = useState(false)
 
   const effectiveProgram = activeProgramId ? String(activeProgramId) : selectedProgram
 
@@ -155,6 +158,16 @@ export default function SeedInventory() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+
+        <button
+          id="scan-seed-barcode-btn"
+          type="button"
+          className="btn btn-secondary btn-sm flex items-center gap-1.5"
+          onClick={() => setShowScanner(true)}
+          title="Scan seed lot barcode or QR code"
+        >
+          <Camera size={14} /> Scan Barcode
+        </button>
 
         <select
           id="seed-program-filter"
@@ -432,6 +445,15 @@ export default function SeedInventory() {
           loading={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate()}
           onCancel={() => setDeleteLot(null)}
+        />
+      )}
+
+      {showScanner && (
+        <BarcodeScannerModal
+          isOpen={showScanner}
+          onClose={() => setShowScanner(false)}
+          onScan={(code) => setSearch(code)}
+          title="Scan Seed Lot Barcode or QR Code"
         />
       )}
     </div>

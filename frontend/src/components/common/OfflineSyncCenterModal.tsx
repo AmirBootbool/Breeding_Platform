@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
-import { syncManager, SyncStatus } from '../../services/syncManager'
+import { syncManager, SyncStatus, SyncConflict } from '../../services/syncManager'
 import { offlineStorage, QueuedObservation } from '../../services/offlineStorage'
 import { OfflineTrialPackage } from '../../services/offlineDb'
 import Modal from '../Modal'
+import { AlertTriangle, CheckCircle, Server, Smartphone, Trash2 } from 'lucide-react'
 
 interface OfflineSyncCenterModalProps {
   onClose: () => void
 }
 
 export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterModalProps) {
-  const [activeTab, setActiveTab] = useState<'queue' | 'cached_trials'>('queue')
+  const [activeTab, setActiveTab] = useState<'queue' | 'conflicts' | 'cached_trials'>('queue')
   const [status, setStatus] = useState<SyncStatus>(syncManager.getStatus())
   const [queue, setQueue] = useState<QueuedObservation[]>(offlineStorage.getQueuedObservations())
+  const [conflicts, setConflicts] = useState<SyncConflict[]>(syncManager.getConflicts())
   const [cachedTrials, setCachedTrials] = useState<OfflineTrialPackage[]>([])
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
@@ -20,6 +22,7 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
     const unsub = syncManager.subscribe((newStatus) => {
       setStatus(newStatus)
       setQueue(offlineStorage.getQueuedObservations())
+      setConflicts(syncManager.getConflicts())
     })
 
     offlineStorage.listCachedTrials().then(setCachedTrials)
@@ -33,6 +36,7 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
     const res = await syncManager.syncNow()
     setSyncing(false)
     setQueue(offlineStorage.getQueuedObservations())
+    setConflicts(syncManager.getConflicts())
 
     if (res.syncedCount > 0) {
       setSyncMessage(`✓ Successfully pushed ${res.syncedCount} observations to server!`)
@@ -59,6 +63,18 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
     await offlineStorage.removeCachedTrial(trialId)
     const updated = await offlineStorage.listCachedTrials()
     setCachedTrials(updated)
+  }
+
+  const handleResolveConflict = async (conflictId: string, resolution: 'local' | 'server') => {
+    await syncManager.resolveConflict(conflictId, resolution)
+    setConflicts(syncManager.getConflicts())
+    setQueue(offlineStorage.getQueuedObservations())
+  }
+
+  const handleResolveAll = async (resolution: 'local' | 'server') => {
+    await syncManager.resolveAllConflicts(resolution)
+    setConflicts(syncManager.getConflicts())
+    setQueue(offlineStorage.getQueuedObservations())
   }
 
   return (
@@ -121,12 +137,21 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
         {/* Tab switcher */}
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button
+            id="sync-tab-queue"
             className={`btn btn-sm ${activeTab === 'queue' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('queue')}
           >
             📋 Pending Observations ({queue.length})
           </button>
           <button
+            id="sync-tab-conflicts"
+            className={`btn btn-sm ${activeTab === 'conflicts' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('conflicts')}
+          >
+            ⚡ Conflicts ({conflicts.length})
+          </button>
+          <button
+            id="sync-tab-cached-trials"
             className={`btn btn-sm ${activeTab === 'cached_trials' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('cached_trials')}
           >
@@ -170,7 +195,7 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
                             style={{ color: 'var(--status-danger)' }}
                             onClick={() => handleDeleteQueued(item.clientId)}
                           >
-                            🗑
+                            <Trash2 size={14} />
                           </button>
                         </td>
                       </tr>
@@ -194,7 +219,121 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
           </div>
         )}
 
-        {/* Tab 2: Cached Trials */}
+        {/* Tab 2: Conflict Resolution UI (Phase 31.3) */}
+        {activeTab === 'conflicts' && (
+          <div className="conflicts-container">
+            {conflicts.length === 0 ? (
+              <div className="empty-state" style={{ padding: 'var(--space-6)' }}>
+                <CheckCircle size={36} className="text-muted mb-2 mx-auto" />
+                <p>No sync conflicts detected. All offline and cloud versions are in harmony.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <div className="flex justify-between items-center bg-hover p-2 rounded">
+                  <span className="text-xs font-semibold text-muted">
+                    {conflicts.length} Concurrent Change Conflict{conflicts.length === 1 ? '' : 's'}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      id="resolve-all-local-btn"
+                      className="btn btn-secondary btn-sm text-xs"
+                      onClick={() => handleResolveAll('local')}
+                    >
+                      Keep All Local
+                    </button>
+                    <button
+                      id="resolve-all-server-btn"
+                      className="btn btn-secondary btn-sm text-xs"
+                      onClick={() => handleResolveAll('server')}
+                    >
+                      Keep All Server
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: '340px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  {conflicts.map(conflict => (
+                    <div
+                      key={conflict.id}
+                      className="card conflict-card"
+                      style={{
+                        padding: 'var(--space-3)',
+                        border: '1px solid var(--status-warning)',
+                        background: 'var(--bg-elevated)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle size={15} style={{ color: 'var(--status-warning)' }} />
+                          <span className="font-semibold text-sm">
+                            Plot #{conflict.plotNumber} · {conflict.traitName}
+                          </span>
+                        </div>
+                        <span className="badge badge-amber text-xs">Conflict</span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }} className="mb-3">
+                        {/* Local Version */}
+                        <div
+                          style={{
+                            padding: 'var(--space-2)',
+                            borderRadius: 'var(--r-sm)',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          <div className="flex items-center gap-1 text-xs text-muted mb-1">
+                            <Smartphone size={12} />
+                            <span className="font-semibold">Local (Device Draft)</span>
+                          </div>
+                          <div className="font-mono font-bold text-sm text-brand">{conflict.localValue}</div>
+                          <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
+                            {new Date(conflict.localTimestamp).toLocaleTimeString()}
+                          </div>
+                          <button
+                            id={`keep-local-${conflict.id}`}
+                            className="btn btn-primary btn-sm w-full mt-2 text-xs"
+                            onClick={() => handleResolveConflict(conflict.id, 'local')}
+                          >
+                            Keep Local
+                          </button>
+                        </div>
+
+                        {/* Server Version */}
+                        <div
+                          style={{
+                            padding: 'var(--space-2)',
+                            borderRadius: 'var(--r-sm)',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          <div className="flex items-center gap-1 text-xs text-muted mb-1">
+                            <Server size={12} />
+                            <span className="font-semibold">Server (Cloud Record)</span>
+                          </div>
+                          <div className="font-mono font-bold text-sm">{conflict.serverValue}</div>
+                          <div className="text-xs text-muted" style={{ fontSize: '0.7rem' }}>
+                            {new Date(conflict.serverTimestamp).toLocaleTimeString()}
+                          </div>
+                          <button
+                            id={`keep-server-${conflict.id}`}
+                            className="btn btn-secondary btn-sm w-full mt-2 text-xs"
+                            onClick={() => handleResolveConflict(conflict.id, 'server')}
+                          >
+                            Keep Server
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: Cached Trials */}
         {activeTab === 'cached_trials' && (
           <div>
             {cachedTrials.length === 0 ? (
@@ -206,7 +345,7 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-3)' }}>
                 {cachedTrials.map((t) => (
                   <div key={t.trialId} className="card" style={{ padding: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', justifySelf: 'space-between', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <div style={{ fontWeight: 700 }}>{t.trialCode}</div>
                         <div className="text-xs text-muted">{t.name}</div>
@@ -217,7 +356,7 @@ export default function OfflineSyncCenterModal({ onClose }: OfflineSyncCenterMod
                         style={{ color: 'var(--status-danger)' }}
                         onClick={() => handleDeleteCachedTrial(t.trialId)}
                       >
-                        🗑
+                        <Trash2 size={14} />
                       </button>
                     </div>
                     <div className="flex gap-2 text-xs" style={{ marginTop: 4 }}>

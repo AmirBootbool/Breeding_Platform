@@ -1,14 +1,50 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { trials, plots, observationVariables, observations, Trial, Plot, ObservationVariable, ApiError } from '../api/client'
+import {
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Save,
+  CheckCircle,
+  AlertCircle
+} from 'lucide-react'
+import {
+  trials,
+  plots,
+  observationVariables,
+  observations,
+  Trial,
+  Plot,
+  ObservationVariable,
+  ApiError
+} from '../api/client'
 import TopBar from '../components/TopBar'
 import ObservationGrid from '../components/ObservationGrid'
 import OfflineSyncBadge from '../components/common/OfflineSyncBadge'
+import BarcodeScannerModal from '../components/common/BarcodeScannerModal'
 import { offlineStorage } from '../services/offlineStorage'
 import { useToast } from '../components/common/ToastProvider'
 
 // ---- Observation form for a single plot -------------------------------------
-function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariable[] }) {
+interface ObsFormProps {
+  plot: Plot
+  variables: ObservationVariable[]
+  onNextPlot?: () => void
+  onPrevPlot?: () => void
+  hasNextPlot?: boolean
+  hasPrevPlot?: boolean
+  onOpenScanner?: () => void
+}
+
+function ObsForm({
+  plot,
+  variables,
+  onNextPlot,
+  onPrevPlot,
+  hasNextPlot = false,
+  hasPrevPlot = false,
+  onOpenScanner,
+}: ObsFormProps) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const [values, setValues] = useState<Record<number, string>>({})
@@ -111,25 +147,35 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
   }
 
   return (
-    <div className="card fade-in">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="card fade-in" style={{ paddingBottom: 'var(--space-6)' }}>
+      <div className="flex items-center justify-between gap-4 mb-6">
         <div>
           <div className="card-title">Plot {plot.plot_number}</div>
           <div style={{ fontWeight: 600 }}>{plot.germplasm_name}</div>
           <div className="text-xs text-muted">Rep {plot.rep}</div>
         </div>
+        {onOpenScanner && (
+          <button
+            id="mobile-scan-trigger-btn"
+            type="button"
+            className="btn btn-secondary btn-sm flex items-center gap-1"
+            onClick={onOpenScanner}
+          >
+            <Camera size={14} /> Scan Barcode
+          </button>
+        )}
       </div>
 
       {success && (
-        <div className="alert alert-success mb-4">
-          <span>✓</span>
+        <div className="alert alert-success mb-4 flex items-center gap-2">
+          <CheckCircle size={16} />
           <span>{isOfflineSaved ? 'Observations queued locally (offline mode).' : 'Observations saved successfully.'}</span>
         </div>
       )}
 
       {(errors as Record<string, string>)._ && (
-        <div className="alert alert-error mb-4">
-          <span>⚠</span>
+        <div className="alert alert-error mb-4 flex items-center gap-2">
+          <AlertCircle size={16} />
           <span>{(errors as Record<string, string>)._}</span>
         </div>
       )}
@@ -174,6 +220,41 @@ function ObsForm({ plot, variables }: { plot: Plot; variables: ObservationVariab
         </button>
         <button className="btn btn-secondary" onClick={() => setValues({})}>Clear</button>
       </div>
+
+      {/* Mobile Bottom Action Bar (Phase 31.1) */}
+      <div className="mobile-bottom-action-bar" id="obs-mobile-bottom-action-bar">
+        <button
+          id="mobile-prev-plot-btn"
+          type="button"
+          className="btn btn-secondary btn-sm flex items-center gap-1"
+          disabled={!hasPrevPlot}
+          onClick={onPrevPlot}
+          aria-label="Previous plot"
+        >
+          <ChevronLeft size={16} /> Prev
+        </button>
+
+        <button
+          id="mobile-save-obs-btn"
+          type="button"
+          className="btn btn-primary btn-sm flex items-center gap-1 font-semibold"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
+          <Save size={16} /> Save
+        </button>
+
+        <button
+          id="mobile-next-plot-btn"
+          type="button"
+          className="btn btn-secondary btn-sm flex items-center gap-1"
+          disabled={!hasNextPlot}
+          onClick={onNextPlot}
+          aria-label="Next plot"
+        >
+          Next <ChevronRight size={16} />
+        </button>
+      </div>
     </div>
   )
 }
@@ -183,6 +264,8 @@ export default function ObservationEntry() {
   const [selectedTrial, setSelectedTrial] = useState<Trial | null>(null)
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null)
   const [isGridView, setIsGridView] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
+  const { showToast } = useToast()
 
   const { data: trialsData, isLoading: trialsLoading } = useQuery({
     queryKey: ['trials-all'],
@@ -203,14 +286,68 @@ export default function ObservationEntry() {
   const plotList = plotData?.results ?? []
   const variableList = variablesData?.results ?? []
 
+  const currentPlotIndex = selectedPlot ? plotList.findIndex(p => p.id === selectedPlot.id) : -1
+  const hasPrevPlot = currentPlotIndex > 0
+  const hasNextPlot = currentPlotIndex >= 0 && currentPlotIndex < plotList.length - 1
+
+  const handlePrevPlot = () => {
+    if (hasPrevPlot) {
+      setSelectedPlot(plotList[currentPlotIndex - 1])
+    }
+  }
+
+  const handleNextPlot = () => {
+    if (hasNextPlot) {
+      setSelectedPlot(plotList[currentPlotIndex + 1])
+    }
+  }
+
+  const handleBarcodeScan = (code: string) => {
+    if (!selectedTrial) {
+      // Try finding trial by code
+      const trialMatch = trialsData?.results.find(
+        (t: any) => t.trial_code.toLowerCase() === code.toLowerCase()
+      )
+      if (trialMatch) {
+        setSelectedTrial(trialMatch)
+        showToast(`Selected trial: ${trialMatch.trial_code}`, 'success')
+        return
+      }
+    }
+
+    if (plotList.length > 0) {
+      const match = plotList.find(
+        p => String(p.plot_number) === code ||
+             String(p.id) === code ||
+             (p.germplasm_name && p.germplasm_name.toLowerCase() === code.toLowerCase())
+      )
+      if (match) {
+        setSelectedPlot(match)
+        showToast(`Selected Plot #${match.plot_number} (${match.germplasm_name})`, 'success')
+        return
+      }
+    }
+
+    showToast(`Scanned: "${code}". No matching plot found in current trial.`, 'info')
+  }
+
   return (
-    <div className="page-shell">
+    <div className="page-shell page-shell-obs-mobile">
       <TopBar
         title="Observation Entry"
         subtitle="Record phenotypic data by trial and plot"
         actions={
           <div className="flex items-center gap-3">
             <OfflineSyncBadge />
+            <button
+              id="scan-plot-barcode-btn"
+              type="button"
+              className="btn btn-secondary btn-sm flex items-center gap-1.5"
+              onClick={() => setShowScanner(true)}
+              title="Scan 1D barcode or QR code"
+            >
+              <Camera size={14} /> Scan Barcode / QR
+            </button>
             {selectedTrial && (
               <div className="flex gap-2">
                 <button
@@ -306,7 +443,18 @@ export default function ObservationEntry() {
             </div>
 
             <div className="card-glass">
-              <div className="card-title mb-4">2. Select Plot</div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="card-title">2. Select Plot</div>
+                <button
+                  id="scan-plot-btn"
+                  type="button"
+                  className="btn btn-ghost btn-sm p-1"
+                  title="Scan Plot Barcode"
+                  onClick={() => setShowScanner(true)}
+                >
+                  <Camera size={16} />
+                </button>
+              </div>
               {plotList.length === 0 ? (
                 <p className="text-sm text-muted">No plots. Generate layout first.</p>
               ) : (
@@ -357,12 +505,28 @@ export default function ObservationEntry() {
                 <p>No observation variables defined. Create some via the Setup page.</p>
               </div>
             ) : (
-              <ObsForm plot={selectedPlot} variables={variableList} />
+              <ObsForm
+                plot={selectedPlot}
+                variables={variableList}
+                onNextPlot={handleNextPlot}
+                onPrevPlot={handlePrevPlot}
+                hasNextPlot={hasNextPlot}
+                hasPrevPlot={hasPrevPlot}
+                onOpenScanner={() => setShowScanner(true)}
+              />
             )}
           </div>
         </div>
       )}
+
+      {showScanner && (
+        <BarcodeScannerModal
+          isOpen={showScanner}
+          onClose={() => setShowScanner(false)}
+          onScan={handleBarcodeScan}
+          title="Scan Plot or Trial Barcode / QR"
+        />
+      )}
     </div>
   )
 }
-

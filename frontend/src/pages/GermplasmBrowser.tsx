@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { germplasm, programs, Germplasm, Program, ApiError } from '../api/client'
 import { useAuthStore } from '../store/authStore'
@@ -359,6 +360,7 @@ function ComparisonModal({ entries, onClose }: { entries: Germplasm[]; onClose: 
 
 // ---- Main page --------------------------------------------------------------
 export default function GermplasmBrowser() {
+  const navigate = useNavigate()
   const role = useAuthStore(s => s.role)
   const canWrite = role === 'admin' || role === 'breeder'
   const activeProgramId = useUiStore((s) => s.activeProgramId)
@@ -624,10 +626,17 @@ export default function GermplasmBrowser() {
                 tableId="germplasm-browser"
                 enableColumnControl
                 enableSavedViews
+                detailPanel={(entry: Germplasm) => (
+                  <PedigreePanel entry={entry} onOpenTree={setTreeTarget} />
+                )}
                 bulkActions={() => (
                   <div className="flex gap-2">
                     {selectedIds.length >= 2 && selectedIds.length <= 20 && (
-                      <button className="btn btn-secondary btn-sm" onClick={() => setShowCompareModal(true)}>
+                      <button
+                        id="bulk-compare-btn"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => navigate(`/germplasm/compare?ids=${selectedIds.join(',')}`)}
+                      >
                         ⚖️ Compare ({selectedIds.length})
                       </button>
                     )}
@@ -751,8 +760,6 @@ export default function GermplasmBrowser() {
                 selectable
                 selectedIds={selectedIds}
                 onSelectionChange={(ids) => setSelectedIds(ids as number[])}
-                onRowClick={(entry: Germplasm) => setSelected(prev => prev?.id === entry.id ? null : entry)}
-                rowClassName={(entry: Germplasm) => selected?.id === entry.id ? 'selected-row' : ''}
                 pagination
                 defaultPageSize={25}
                 exportable

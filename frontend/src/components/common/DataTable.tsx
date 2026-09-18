@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { usePreferencesStore, ColumnConfig, SavedView } from '../../store/preferencesStore'
+import DetailDrawer from './DetailDrawer'
 
 export interface Column<T> {
   key: string
@@ -82,6 +83,7 @@ export function DataTable<T extends Record<string, any>>({
   tableId,
   enableColumnControl = false,
   enableSavedViews = false,
+  detailPanel,
 }: DataTableProps<T>) {
   const {
     tableDensity,
@@ -95,6 +97,7 @@ export function DataTable<T extends Record<string, any>>({
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(defaultPageSize)
+  const [activeDrawerItem, setActiveDrawerItem] = useState<T | null>(null)
 
   // Column control popover & Saved views popover state
   const [showColumnMenu, setShowColumnMenu] = useState(false)
@@ -837,21 +840,27 @@ export function DataTable<T extends Record<string, any>>({
                 const customRowClass = rowClassName ? rowClassName(item, idx) : ''
                 const key = keyExtractor ? keyExtractor(item, idx) : (itemId ?? idx)
 
+                const hasRowAction = Boolean(onRowClick || detailPanel)
+                const handleRowAction = () => {
+                  if (onRowClick) onRowClick(item, idx)
+                  else if (detailPanel) setActiveDrawerItem(item)
+                }
+
                 return (
                   <tr
                     key={key}
                     className={`${isSelected ? 'selected-row' : ''} ${customRowClass}`}
-                    onClick={() => onRowClick && onRowClick(item, idx)}
+                    onClick={handleRowAction}
                     onKeyDown={(e) => {
-                      if (onRowClick && (e.key === 'Enter' || e.key === ' ')) {
+                      if (hasRowAction && (e.key === 'Enter' || e.key === ' ')) {
                         e.preventDefault()
-                        onRowClick(item, idx)
+                        handleRowAction()
                       }
                     }}
-                    tabIndex={onRowClick ? 0 : undefined}
-                    role={onRowClick ? 'button' : undefined}
+                    tabIndex={hasRowAction ? 0 : undefined}
+                    role={hasRowAction ? 'button' : undefined}
                     style={{
-                      cursor: onRowClick ? 'pointer' : 'default',
+                      cursor: hasRowAction ? 'pointer' : 'default',
                       transition: 'background var(--transition-fast)'
                     }}
                   >
@@ -955,6 +964,16 @@ export function DataTable<T extends Record<string, any>>({
             </div>
           </div>
         </div>
+      )}
+
+      {detailPanel && (
+        <DetailDrawer
+          isOpen={!!activeDrawerItem}
+          title={activeDrawerItem ? (activeDrawerItem.name || activeDrawerItem.lot_code || activeDrawerItem.trial_code || 'Record Details') : ''}
+          onClose={() => setActiveDrawerItem(null)}
+        >
+          {activeDrawerItem && detailPanel(activeDrawerItem)}
+        </DetailDrawer>
       )}
     </div>
   )

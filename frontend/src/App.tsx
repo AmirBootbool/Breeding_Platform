@@ -22,6 +22,7 @@ import SeedInventory from './pages/SeedInventory'
 import AuditTrail from './pages/AuditTrail'
 import Genomics from './pages/Genomics'
 import Preferences from './pages/Preferences'
+import Compare from './pages/Compare'
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -64,6 +65,7 @@ function ProtectedLayout() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/germplasm" element={<GermplasmBrowser />} />
+          <Route path="/germplasm/compare" element={<Compare />} />
           <Route path="/crosses" element={<CrossingBlock />} />
           <Route path="/seed-inventory" element={<SeedInventory />} />
           <Route path="/trials" element={<TrialManager />} />

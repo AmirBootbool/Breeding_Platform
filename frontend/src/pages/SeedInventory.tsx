@@ -197,6 +197,20 @@ export default function SeedInventory() {
       ) : (
         <div className="card">
           <DataTable<SeedLot>
+            tableId="seed-inventory-table"
+            enableColumnControl
+            enableSavedViews
+            bulkActions={() => (
+              <div className="flex gap-2">
+                <button
+                  id="bulk-print-labels-btn"
+                  className="btn btn-secondary btn-sm flex items-center gap-1"
+                  onClick={() => setShowBulkLabels(true)}
+                >
+                  🏷️ Print Labels ({selectedLotIds.length})
+                </button>
+              </div>
+            )}
             columns={[
               {
                 key: 'lot_code',
@@ -253,7 +267,7 @@ export default function SeedInventory() {
               },
               {
                 key: 'storage_location',
-                header: 'Storage Location',
+                header: 'Location',
                 sortable: true,
                 searchable: true,
                 render: (lot: SeedLot) => (
@@ -291,7 +305,7 @@ export default function SeedInventory() {
                   <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                     <button
                       className="btn btn-ghost btn-sm"
-                      title="View Transaction Log"
+                      title="View Transaction History"
                       onClick={() => setHistoryLot(lot)}
                     >
                       📜

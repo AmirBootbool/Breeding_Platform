@@ -13,7 +13,7 @@ import {
 import TopBar from '../components/TopBar'
 import { usePreferencesStore } from '../store/preferencesStore'
 import { useToast } from '../components/common/ToastProvider'
-import { programs, preferences } from '../api/client'
+import { programs } from '../api/client'
 
 const LANDING_PAGES = [
   { path: '/', label: 'Dashboard' },

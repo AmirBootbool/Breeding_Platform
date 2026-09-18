@@ -593,39 +593,6 @@ export default function GermplasmBrowser() {
         )}
       </div>
 
-      {/* Floating Bulk Actions Bar */}
-      {selectedIds.length > 0 && (
-        <div className="alert alert-info slide-in" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <span style={{ fontWeight: 600 }}>{selectedIds.length} accessions selected</span>
-          <div className="flex gap-2">
-            {selectedIds.length >= 2 && selectedIds.length <= 4 && (
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowCompareModal(true)}>
-                ⚖️ Compare ({selectedIds.length})
-              </button>
-            )}
-            <button className="btn btn-secondary btn-sm" onClick={exportSelectedCsv}>
-              📥 Export CSV
-            </button>
-            {canWrite && (
-              <>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowAdvanceModal(true)}>
-                  Advance Lines
-                </button>
-                <button className="btn btn-secondary btn-sm" onClick={() => setShowArchiveConfirm(true)}>
-                  Archive
-                </button>
-                <button className="btn btn-secondary btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => setShowDeleteConfirm(true)}>
-                  Delete
-                </button>
-              </>
-            )}
-            <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds([])}>
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Main Content Area */}
       <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 340px' : '1fr', gap: 'var(--space-6)' }}>
         <div>
@@ -639,6 +606,34 @@ export default function GermplasmBrowser() {
           ) : viewMode === 'table' ? (
             <div className="card">
               <DataTable<Germplasm>
+                tableId="germplasm-browser"
+                enableColumnControl
+                enableSavedViews
+                bulkActions={() => (
+                  <div className="flex gap-2">
+                    {selectedIds.length >= 2 && selectedIds.length <= 20 && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => setShowCompareModal(true)}>
+                        ⚖️ Compare ({selectedIds.length})
+                      </button>
+                    )}
+                    <button className="btn btn-secondary btn-sm" onClick={exportSelectedCsv}>
+                      📥 Export CSV
+                    </button>
+                    {canWrite && (
+                      <>
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowAdvanceModal(true)}>
+                          Advance Lines
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowArchiveConfirm(true)}>
+                          Archive
+                        </button>
+                        <button className="btn btn-secondary btn-sm" style={{ color: 'var(--status-danger)' }} onClick={() => setShowDeleteConfirm(true)}>
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
                 columns={[
                   {
                     key: 'name',

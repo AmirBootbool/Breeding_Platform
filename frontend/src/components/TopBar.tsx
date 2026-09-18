@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Menu, Sun, Moon, Search } from 'lucide-react'
 import { useUiStore } from '../store/uiStore'
+import { usePreferencesStore } from '../store/preferencesStore'
 import { programs } from '../api/client'
 import OfflineSyncBadge from './common/OfflineSyncBadge'
 import Breadcrumbs, { type BreadcrumbItem } from './common/Breadcrumbs'
@@ -17,12 +18,12 @@ interface TopBarProps {
 export default function TopBar({ title, subtitle, actions, breadcrumbs }: TopBarProps) {
   const {
     toggleMobileSidebar,
-    theme,
-    toggleTheme,
     activeProgramId,
     setActiveProgramId,
     toggleCommandPalette,
   } = useUiStore()
+
+  const { theme, toggleTheme } = usePreferencesStore()
 
   const { data: programData } = useQuery({
     queryKey: ['programs'],

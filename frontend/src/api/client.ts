@@ -1149,4 +1149,21 @@ export const genomics = {
   },
 }
 
+// ---- User Preferences (Phase 25) -------------------------------------------
+
+export interface UserPreferences {
+  data: Record<string, unknown>
+  updated_at: string
+}
+
+export const preferences = {
+  get: (): Promise<UserPreferences> => apiFetch<UserPreferences>('/me/preferences/'),
+  patch: (data: Record<string, unknown>): Promise<UserPreferences> =>
+    apiFetch<UserPreferences>('/me/preferences/', {
+      method: 'PATCH',
+      body: JSON.stringify({ data }),
+    }),
+}
+
+
 

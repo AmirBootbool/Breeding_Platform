@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
 
-from .models import Location, Program, Season, UserProfile
+from .models import Location, Program, Season, UserPreference, UserProfile
 
 
 class AuditSerializerMixin(serializers.Serializer):
@@ -112,3 +112,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class UserPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPreference
+        fields = ["data", "updated_at"]
+        read_only_fields = ["updated_at"]
+

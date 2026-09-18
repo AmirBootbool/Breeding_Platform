@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useUiStore } from '../store/uiStore'
+import { usePreferencesStore } from '../store/preferencesStore'
 import { offlineStorage } from '../services/offlineStorage'
 import './Sidebar.css'
 
@@ -104,13 +105,12 @@ export const NAV_GROUPS: NavGroup[] = [
 export default function Sidebar() {
   const { username, role, clearAuth } = useAuthStore()
   const {
-    theme,
-    toggleTheme,
     mobileSidebarOpen,
     setMobileSidebarOpen,
     collapsedNavGroups,
     toggleNavGroup,
   } = useUiStore()
+  const { theme, toggleTheme } = usePreferencesStore()
   const location = useLocation()
   const navigate = useNavigate()
 

@@ -8,7 +8,8 @@ from rest_framework.views import APIView
 
 from django.utils import timezone
 
-from apps.core.models import Location, Program, Season
+from apps.core.models import Location, Program, Season, UserPreference
+from apps.core.serializers import UserPreferenceSerializer
 from apps.core.utils import safe_int
 from apps.germplasm.models import Germplasm, SeedLot, SeedTransaction
 from apps.trials.models import ObservationVariable, Trial
@@ -237,3 +238,30 @@ class EntityHistoryView(APIView):
             }
         ]
         return Response(history)
+
+
+class MyPreferencesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get user UI preferences",
+        description="Retrieve the current user's preferences blob.",
+        responses={200: UserPreferenceSerializer},
+    )
+    def get(self, request):
+        pref, _ = UserPreference.objects.get_or_create(user=request.user)
+        return Response(UserPreferenceSerializer(pref).data)
+
+    @extend_schema(
+        summary="Update user UI preferences",
+        description="Patch the current user's preferences blob.",
+        request=UserPreferenceSerializer,
+        responses={200: UserPreferenceSerializer},
+    )
+    def patch(self, request):
+        pref, _ = UserPreference.objects.get_or_create(user=request.user)
+        serializer = UserPreferenceSerializer(pref, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+

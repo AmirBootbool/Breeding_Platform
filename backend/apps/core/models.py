@@ -139,3 +139,23 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"
+
+
+class UserPreference(models.Model):
+    """Free-form, versioned bag of per-user UI preferences.
+
+    Deliberately a single JSONField rather than one column per
+    preference: the frontend owns the shape of this blob (theme,
+    table density, saved views, dashboard widget layout, pinned
+    records, column config per table) and adds new keys without a
+    migration. The backend only stores and returns it.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="preferences"
+    )
+    data = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferences({self.user.username})"
+

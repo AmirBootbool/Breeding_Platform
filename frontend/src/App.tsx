@@ -1,7 +1,10 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { preferences } from './api/client'
 import { useAuthStore } from './store/authStore'
 import { useUiStore } from './store/uiStore'
+import { usePreferencesStore } from './store/preferencesStore'
 import Sidebar from './components/Sidebar'
 import CommandPalette from './components/common/CommandPalette'
 import { ToastProvider } from './components/common/ToastProvider'
@@ -22,6 +25,20 @@ import Genomics from './pages/Genomics'
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const toggleCommandPalette = useUiStore((s) => s.toggleCommandPalette)
+  const hydrateFromServer = usePreferencesStore((s) => s.hydrateFromServer)
+
+  const { data: prefData } = useQuery({
+    queryKey: ['preferences'],
+    queryFn: () => preferences.get(),
+    enabled: isAuthenticated,
+    staleTime: 5 * 60_000,
+  })
+
+  useEffect(() => {
+    if (prefData) {
+      hydrateFromServer(prefData)
+    }
+  }, [prefData, hydrateFromServer])
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {

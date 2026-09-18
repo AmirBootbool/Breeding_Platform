@@ -97,20 +97,16 @@ export default function TopBar({ title, subtitle, actions, breadcrumbs }: TopBar
         <button
           className="btn btn-ghost btn-sm topbar-theme-btn flex items-center gap-1.5"
           onClick={toggleTheme}
-          title={
-            theme === 'sunlight'
-              ? 'Switch to Dark Mode'
-              : 'Switch to Outdoor Sunlight Mode'
-          }
-          aria-label={
-            theme === 'sunlight'
-              ? 'Switch to Dark Mode'
-              : 'Switch to Outdoor Sunlight Mode'
-          }
+          title={`Current: ${theme} theme. Click to cycle (Dark -> Light -> Sunlight)`}
+          aria-label={`Current: ${theme} theme. Click to cycle themes`}
         >
           {theme === 'sunlight' ? (
             <>
               <Sun size={15} /> <span className="hide-mobile">Sunlight</span>
+            </>
+          ) : theme === 'light' ? (
+            <>
+              <Sun size={15} /> <span className="hide-mobile">Light</span>
             </>
           ) : (
             <>

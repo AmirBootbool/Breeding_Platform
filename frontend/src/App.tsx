@@ -21,6 +21,7 @@ import Traits from './pages/Traits'
 import SeedInventory from './pages/SeedInventory'
 import AuditTrail from './pages/AuditTrail'
 import Genomics from './pages/Genomics'
+import Preferences from './pages/Preferences'
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -53,12 +54,13 @@ function ProtectedLayout() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [toggleCommandPalette])
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-
   return (
     <div className="app-layout">
+      <a href="#main-content" className="skip-to-content">
+        Skip to content
+      </a>
       <Sidebar />
-      <div className="page-content">
+      <main id="main-content" className="page-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/germplasm" element={<GermplasmBrowser />} />
@@ -72,9 +74,10 @@ function ProtectedLayout() {
           <Route path="/traits" element={<Traits />} />
           <Route path="/genomics" element={<Genomics />} />
           <Route path="/audit" element={<AuditTrail />} />
+          <Route path="/preferences" element={<Preferences />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
+      </main>
       <CommandPalette />
     </div>
   )

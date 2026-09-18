@@ -241,18 +241,23 @@ export default function Sidebar() {
 
         {/* Theme & User Footer */}
         <div className="sidebar-footer">
-          {/* Outdoor Sunlight Mode Switcher */}
+          {/* Outdoor Sunlight / Theme Mode Switcher */}
           <button
             id="theme-toggle-btn"
             className={`btn btn-sm w-full theme-toggle-btn ${
               theme === 'sunlight' ? 'active-sunlight' : ''
             }`}
             onClick={toggleTheme}
-            title="Toggle between Dark Mode and Outdoor High-Contrast Sunlight Mode"
+            title={`Current Theme: ${theme}. Click to cycle (Dark -> Light -> Sunlight)`}
+            aria-label={`Current Theme: ${theme}. Click to cycle themes`}
           >
             {theme === 'sunlight' ? (
               <>
                 <Sun size={15} /> Sunlight Mode
+              </>
+            ) : theme === 'light' ? (
+              <>
+                <Sun size={15} /> Light Mode
               </>
             ) : (
               <>
@@ -260,6 +265,21 @@ export default function Sidebar() {
               </>
             )}
           </button>
+
+          <NavLink
+            to="/preferences"
+            onClick={handleLinkClick}
+            className={({ isActive }) =>
+              `btn btn-ghost btn-sm w-full flex items-center justify-start gap-2 ${
+                isActive ? 'active' : ''
+              }`
+            }
+            title="User Preferences & Settings"
+            aria-label="User Preferences"
+          >
+            <Settings size={15} />
+            <span>Preferences</span>
+          </NavLink>
 
           <div className="sidebar-user">
             <div className="sidebar-avatar">
@@ -273,6 +293,7 @@ export default function Sidebar() {
           <button
             className="sidebar-logout btn btn-ghost btn-sm flex items-center justify-center gap-2"
             onClick={handleLogout}
+            aria-label="Sign out"
           >
             <LogOut size={14} />
             Sign out

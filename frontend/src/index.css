@@ -92,6 +92,34 @@
   --sidebar-w: 240px;
 }
 
+/* ---------- Normal Light Theme (Phase 26) ---------- */
+[data-theme="light"] {
+  --bg-base:      hsl(210, 20%, 97%);
+  --bg-elevated:  hsl(0, 0%, 100%);
+  --bg-card:      hsl(0, 0%, 100%);
+  --bg-glass:     hsla(0, 0%, 100%, 0.85);
+  --bg-hover:     hsl(210, 16%, 95%);
+  --bg-input:     hsl(0, 0%, 100%);
+
+  --text-primary:   hsl(220, 20%, 14%);
+  --text-secondary: hsl(220, 12%, 38%);
+  --text-muted:     hsl(220, 10%, 56%);
+  --text-inverted:  hsl(0, 0%, 100%);
+
+  --border-subtle:  hsla(220, 14%, 82%, 0.6);
+  --border-default: hsla(220, 14%, 70%, 0.7);
+  --border-brand:   hsla(var(--hue-brand), 55%, 40%, 0.7);
+
+  --brand-300: hsl(var(--hue-brand), 55%, 40%);
+  --brand-400: hsl(var(--hue-brand), 55%, 44%);
+  --brand-500: hsl(var(--hue-brand), 55%, 36%);
+
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.10);
+  --shadow-glow: 0 0 16px hsla(var(--hue-brand), 55%, 44%, 0.16);
+}
+
 /* ---------- Outdoor Sunlight Mode (High-Contrast Light Theme) ---------- */
 [data-theme="sunlight"] {
   --bg-base:      hsl(210, 20%, 98%);
@@ -940,4 +968,54 @@ html, body, #root, .app-layout {
     transform: translateY(0) scale(1);
   }
 }
+
+/* ---------- Accessibility & Focus Visible (Phase 26) ---------- */
+.skip-to-content {
+  position: absolute;
+  top: -100px;
+  left: var(--space-4);
+  background: var(--brand-500);
+  color: #fff;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  z-index: 9999;
+  transition: top 150ms ease;
+  text-decoration: none;
+}
+
+.skip-to-content:focus {
+  top: var(--space-4);
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-400) !important;
+  outline-offset: 2px !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--brand-400) !important;
+  outline-offset: 2px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 

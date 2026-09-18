@@ -13,6 +13,7 @@ export interface SavedView {
   filters: Record<string, unknown>
   columnConfig?: ColumnConfig
   sort?: { key: string; direction: 'asc' | 'desc' }
+  isDefault?: boolean
 }
 
 export interface DashboardWidgetConfig {
@@ -36,10 +37,12 @@ export interface PreferencesState {
   dashboardWidgets: DashboardWidgetConfig[]
   pinnedRecords: PinnedRecord[]
   _lastSyncedAt: string | null
+  _lastModifiedLocally: number
 
   setTheme: (theme: 'dark' | 'light' | 'sunlight') => void
   toggleTheme: () => void
   set: <K extends keyof PreferencesState>(key: K, value: PreferencesState[K]) => void
+  syncNow: () => Promise<void>
   hydrateFromServer: (data: UserPreferences) => void
 }
 
@@ -51,7 +54,6 @@ function debouncedSyncToBackend(stateSnapshot: Partial<PreferencesState>) {
   }
 
   syncTimeout = setTimeout(async () => {
-    // Only push if online and user has auth token
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return
     }
@@ -85,10 +87,11 @@ export const usePreferencesStore = create<PreferencesState>()(
       dashboardWidgets: [],
       pinnedRecords: [],
       _lastSyncedAt: null,
+      _lastModifiedLocally: 0,
 
       setTheme: (theme) => {
         document.documentElement.setAttribute('data-theme', theme)
-        set({ theme })
+        set({ theme, _lastModifiedLocally: Date.now() })
         debouncedSyncToBackend(get())
       },
 
@@ -96,21 +99,46 @@ export const usePreferencesStore = create<PreferencesState>()(
         const current = get().theme
         const next = current === 'dark' ? 'light' : current === 'light' ? 'sunlight' : 'dark'
         document.documentElement.setAttribute('data-theme', next)
-        set({ theme: next })
+        set({ theme: next, _lastModifiedLocally: Date.now() })
         debouncedSyncToBackend(get())
       },
 
       set: (key, value) => {
-        set({ [key]: value } as unknown as Partial<PreferencesState>)
+        set({ [key]: value, _lastModifiedLocally: Date.now() } as unknown as Partial<PreferencesState>)
         debouncedSyncToBackend(get())
+      },
+
+      syncNow: async () => {
+        if (syncTimeout) {
+          clearTimeout(syncTimeout)
+          syncTimeout = null
+        }
+        const state = get()
+        const payload: Record<string, unknown> = {
+          theme: state.theme,
+          tableDensity: state.tableDensity,
+          defaultLandingPage: state.defaultLandingPage,
+          columnConfig: state.columnConfig,
+          savedViews: state.savedViews,
+          dashboardWidgets: state.dashboardWidgets,
+          pinnedRecords: state.pinnedRecords,
+        }
+        const res = await preferences.patch(payload)
+        set({ _lastSyncedAt: res.updated_at })
       },
 
       hydrateFromServer: (serverData: UserPreferences) => {
         const localLastSynced = get()._lastSyncedAt
         const serverUpdatedAt = serverData.updated_at
+        const lastMod = get()._lastModifiedLocally
+
+        if (!serverUpdatedAt) return
+
+        // If local modifications were made in the last 2 seconds, do not overwrite with server data
+        if (Date.now() - lastMod < 2000) return
 
         // Merge server state if server timestamp is newer or no local sync timestamp exists
-        if (!localLastSynced || (serverUpdatedAt && new Date(serverUpdatedAt) >= new Date(localLastSynced))) {
+        if (!localLastSynced || new Date(serverUpdatedAt) > new Date(localLastSynced)) {
           const raw = serverData.data || {}
           const newTheme = (raw.theme as PreferencesState['theme']) || get().theme || 'dark'
 

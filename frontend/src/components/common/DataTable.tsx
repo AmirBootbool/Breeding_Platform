@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react'
 
 export interface Column<T> {
   key: string
@@ -250,11 +251,12 @@ export function DataTable<T extends Record<string, any>>({
           {exportable && (
             <button
               onClick={handleExportCSV}
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary btn-sm flex items-center gap-1.5"
               disabled={filteredSortedData.length === 0}
-              style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+              style={{ fontSize: '0.75rem' }}
+              aria-label="Export data as CSV"
             >
-              📥 Export CSV
+              <Download size={13} /> Export CSV
             </button>
           )}
         </div>
@@ -309,7 +311,7 @@ export function DataTable<T extends Record<string, any>>({
                       <span>{col.header}</span>
                       {isSortable && (
                         <span style={{ fontSize: '0.7rem', color: isSorted ? 'var(--brand-300)' : 'var(--text-muted)', opacity: isSorted ? 1 : 0.4 }}>
-                          {isSorted ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                          {isSorted ? (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} />}
                         </span>
                       )}
                     </div>
@@ -391,6 +393,14 @@ export function DataTable<T extends Record<string, any>>({
                     key={key}
                     className={`${isSelected ? 'selected-row' : ''} ${customRowClass}`}
                     onClick={() => onRowClick && onRowClick(item, idx)}
+                    onKeyDown={(e) => {
+                      if (onRowClick && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault()
+                        onRowClick(item, idx)
+                      }
+                    }}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    role={onRowClick ? 'button' : undefined}
                     style={{
                       cursor: onRowClick ? 'pointer' : 'default',
                       transition: 'background var(--transition-fast)'

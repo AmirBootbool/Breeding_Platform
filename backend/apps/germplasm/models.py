@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import Location, Program
+from apps.core.models import Location, Program, Season
 
 
 class Germplasm(models.Model):
@@ -396,3 +396,41 @@ class SeedTransaction(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class SelectionShortlist(models.Model):
+    """A germplasm marked as a candidate parent for an upcoming crossing
+    season, sourced from a performance ranking (e.g. MultiEnvironmentAnalysis)
+    or added manually. Presence of a row means "currently shortlisted" —
+    there is at most one row per (germplasm, program)."""
+
+    SOURCE_CHOICES = [
+        ("mea", "Multi-Environment Ranking"),
+        ("manual", "Manual"),
+    ]
+
+    germplasm = models.ForeignKey(
+        Germplasm, on_delete=models.CASCADE, related_name="shortlist_entries"
+    )
+    program = models.ForeignKey(
+        Program, on_delete=models.CASCADE, related_name="shortlist_entries"
+    )
+    season = models.ForeignKey(
+        Season, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="shortlist_entries",
+    )
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default="manual")
+    note = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("germplasm", "program")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.germplasm.name} shortlisted ({self.source})"
+

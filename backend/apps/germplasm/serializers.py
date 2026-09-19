@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.core.serializers import AuditSerializerMixin
 
-from .models import Cross, Germplasm
+from .models import Cross, Germplasm, SelectionShortlist
 
 
 class GermplasmSerializer(AuditSerializerMixin, serializers.ModelSerializer):
@@ -92,4 +92,18 @@ class CrossSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class SelectionShortlistSerializer(serializers.ModelSerializer):
+    germplasm_name = serializers.CharField(source="germplasm.name", read_only=True)
+    season_name = serializers.CharField(source="season.name", read_only=True, default=None)
+
+    class Meta:
+        model = SelectionShortlist
+        fields = [
+            "id", "germplasm", "germplasm_name", "program", "season", "season_name",
+            "source", "note", "created_by", "created_at",
+        ]
+        read_only_fields = ["id", "program", "created_by", "created_at"]
+
 

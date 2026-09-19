@@ -227,8 +227,8 @@ def test_export_fieldbook_command(
 
     with open(temp_csv_file, "r", encoding="utf-8") as f:
         content = f.read()
-        assert "plot_id,range,plot,entry,Plant height" in content
-        assert "1,1,1,Line A," in content
+        assert "plot_id,range,plot,entry,unique_id,walking_order_h_serpentine,walking_order_v_serpentine,Plant height" in content
+        assert "1,1,1,Line A,1,1,1," in content
 
 
 @pytest.mark.django_db

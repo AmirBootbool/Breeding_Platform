@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
 
-from .models import Cross, Germplasm
-from .serializers import CrossSerializer, GermplasmSerializer
+from .models import Cross, Germplasm, SelectionShortlist
+from .serializers import CrossSerializer, GermplasmSerializer, SelectionShortlistSerializer
 
 
 class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
@@ -198,3 +198,51 @@ class CrossViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     search_fields = ["cross_code", "female_parent__name", "male_parent__name"]
     ordering_fields = ["cross_date", "cross_code"]
     filterset_fields = ["female_parent", "male_parent", "location"]
+
+
+class SelectionShortlistViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    queryset = SelectionShortlist.objects.select_related(
+        "germplasm", "program", "season"
+    ).all()
+    serializer_class = SelectionShortlistSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder"}
+    filterset_fields = ["program", "season", "source"]
+
+    def perform_create(self, serializer):
+        germplasm_obj = serializer.validated_data["germplasm"]
+        serializer.save(program=germplasm_obj.program, created_by=self.request.user)
+
+    @action(detail=False, methods=["post"])
+    def toggle(self, request):
+        """Create the shortlist entry if it doesn't exist, delete it if it
+        does. Body: {"germplasm": <id>, "source": "mea"|"manual"}."""
+        germplasm_id = request.data.get("germplasm")
+        if not germplasm_id:
+            return Response({"detail": "germplasm is required."}, status=400)
+        try:
+            germplasm_obj = Germplasm.objects.get(pk=germplasm_id)
+        except Germplasm.DoesNotExist:
+            return Response({"detail": "Germplasm not found."}, status=404)
+
+        # Fail closed, matching ProgramScopedQuerySetMixin.get_queryset():
+        # a program-scoped user must not toggle a shortlist entry for
+        # germplasm outside their own program, even by guessing an id.
+        if not self._is_platform_admin() and germplasm_obj.program_id != self._user_program_id():
+            return Response({"detail": "Germplasm not found."}, status=404)
+
+        existing = SelectionShortlist.objects.filter(
+            germplasm=germplasm_obj, program=germplasm_obj.program
+        ).first()
+        if existing:
+            existing.delete()
+            return Response({"shortlisted": False})
+
+        SelectionShortlist.objects.create(
+            germplasm=germplasm_obj,
+            program=germplasm_obj.program,
+            source=request.data.get("source", "manual"),
+            created_by=request.user,
+        )
+        return Response({"shortlisted": True}, status=201)
+

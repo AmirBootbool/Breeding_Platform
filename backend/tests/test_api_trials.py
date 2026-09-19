@@ -249,6 +249,9 @@ def test_export_fieldbook_returns_csv_download(
     assert "plot_id" in content
     assert "range" in content
     assert "entry" in content
+    assert "unique_id" in content
+    assert "walking_order_h_serpentine" in content
+    assert "walking_order_v_serpentine" in content
     assert plot.germplasm.name in content
 
 
@@ -262,6 +265,8 @@ def test_export_fieldbook_xlsx_format(auth_client, trial, plot, observation_vari
     wb = openpyxl.load_workbook(io.BytesIO(response.content))
     rows = list(wb.active.iter_rows(values_only=True))
     assert rows[0][:4] == ("plot_id", "range", "plot", "entry")
+    assert "unique_id" in rows[0]
+    assert "walking_order_h_serpentine" in rows[0]
     assert any(row[3] == plot.germplasm.name for row in rows[1:])
 
 

@@ -29,6 +29,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - name: search
         required: false
         in: query
@@ -385,6 +391,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - name: search
         required: false
         in: query
@@ -601,6 +613,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -990,6 +1008,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - in: query
         name: program
         schema:
@@ -1234,6 +1258,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - in: query
         name: program
         schema:
@@ -1317,6 +1347,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -1590,6 +1626,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - in: query
         name: program
         schema:
@@ -1707,6 +1749,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -2003,6 +2051,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -2419,6 +2473,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - in: query
         name: region
         schema:
@@ -2616,6 +2676,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - name: search
@@ -2859,6 +2925,50 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/me/preferences/:
+    get:
+      operationId: api_me_preferences_retrieve
+      description: Retrieve the current user's preferences blob.
+      summary: Get user UI preferences
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreference'
+          description: ''
+    patch:
+      operationId: api_me_preferences_partial_update
+      description: Patch the current user's preferences blob.
+      summary: Update user UI preferences
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserPreference'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserPreference'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserPreference'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreference'
+          description: ''
   /api/observation-variables/:
     get:
       operationId: api_observation_variables_list
@@ -2919,6 +3029,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - name: search
@@ -3092,6 +3208,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -3364,6 +3486,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - in: query
         name: rep
         schema:
@@ -3624,6 +3752,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - name: search
         required: false
         in: query
@@ -3840,6 +3974,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -4070,6 +4210,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -4493,6 +4639,12 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
       - name: search
         required: false
         in: query
@@ -4597,6 +4749,278 @@ paths:
               schema:
                 $ref: '#/components/schemas/SeedTransaction'
           description: ''
+  /api/selection-shortlist/:
+    get:
+      operationId: api_selection_shortlist_list
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: season
+        schema:
+          type: integer
+      - in: query
+        name: source
+        schema:
+          type: string
+          enum:
+          - manual
+          - mea
+        description: |-
+          * `mea` - Multi-Environment Ranking
+          * `manual` - Manual
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSelectionShortlistList'
+          description: ''
+    post:
+      operationId: api_selection_shortlist_create
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectionShortlist'
+          description: ''
+  /api/selection-shortlist/{id}/:
+    get:
+      operationId: api_selection_shortlist_retrieve
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this selection shortlist.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectionShortlist'
+          description: ''
+    put:
+      operationId: api_selection_shortlist_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this selection shortlist.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectionShortlist'
+          description: ''
+    patch:
+      operationId: api_selection_shortlist_partial_update
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this selection shortlist.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSelectionShortlist'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSelectionShortlist'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSelectionShortlist'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectionShortlist'
+          description: ''
+    delete:
+      operationId: api_selection_shortlist_destroy
+      description: |-
+        Restrict a ModelViewSet's queryset (and creates) to the requesting
+        user's program.
+
+        Only Django staff/superusers (platform operators) see everything.
+        ``UserProfile.role == "admin"`` is a *program*-level admin, not a
+        platform admin, and stays scoped to their own program like everyone
+        else. A user with no profile or no assigned program gets an empty
+        queryset and cannot create records - fail closed, not fail open.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this selection shortlist.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/selection-shortlist/toggle/:
+    post:
+      operationId: api_selection_shortlist_toggle_create
+      description: |-
+        Create the shortlist entry if it doesn't exist, delete it if it
+        does. Body: {"germplasm": <id>, "source": "mea"|"manual"}.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SelectionShortlist'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectionShortlist'
+          description: ''
   /api/trait-panels/:
     get:
       operationId: api_trait_panels_list
@@ -4640,6 +5064,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -4892,6 +5322,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -5470,6 +5906,12 @@ paths:
         required: false
         in: query
         description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
         schema:
           type: integer
       - in: query
@@ -8579,6 +9021,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SeedTransaction'
+    PaginatedSelectionShortlistList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SelectionShortlist'
     PaginatedTraitPanelList:
       type: object
       required:
@@ -9444,6 +9909,38 @@ components:
         created_by_username:
           type: string
           readOnly: true
+    PatchedSelectionShortlist:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        program:
+          type: integer
+          readOnly: true
+        season:
+          type: integer
+          nullable: true
+        season_name:
+          type: string
+          readOnly: true
+        source:
+          $ref: '#/components/schemas/SourceEnum'
+        note:
+          type: string
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
     PatchedTraitPanel:
       type: object
       properties:
@@ -9595,6 +10092,14 @@ components:
           readOnly: true
         updated_by_username:
           type: string
+          readOnly: true
+    PatchedUserPreference:
+      type: object
+      properties:
+        data: {}
+        updated_at:
+          type: string
+          format: date-time
           readOnly: true
     PatchedUserProfile:
       type: object
@@ -9935,6 +10440,54 @@ components:
       - seed_lot
       - transaction_date
       - transaction_type
+    SelectionShortlist:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        germplasm:
+          type: integer
+        germplasm_name:
+          type: string
+          readOnly: true
+        program:
+          type: integer
+          readOnly: true
+        season:
+          type: integer
+          nullable: true
+        season_name:
+          type: string
+          readOnly: true
+        source:
+          $ref: '#/components/schemas/SourceEnum'
+        note:
+          type: string
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - created_by
+      - germplasm
+      - germplasm_name
+      - id
+      - program
+      - season_name
+    SourceEnum:
+      enum:
+      - mea
+      - manual
+      type: string
+      description: |-
+        * `mea` - Multi-Environment Ranking
+        * `manual` - Manual
     StartingCornerEnum:
       enum:
       - BL
@@ -10171,6 +10724,16 @@ components:
         * `active` - Active
         * `completed` - Completed
         * `archived` - Archived
+    UserPreference:
+      type: object
+      properties:
+        data: {}
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - updated_at
     UserProfile:
       type: object
       properties:

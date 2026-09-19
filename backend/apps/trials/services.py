@@ -318,6 +318,42 @@ def compute_walking_orders(
     return h_order, v_order
 
 
+def prepare_fieldbook_export(trial):
+    """Build (headers, plots, row_for) for a Field Book compatible export of
+    a trial's plot layout. Shared by the export_fieldbook API action and the
+    export_fieldbook management command so the two never drift. row_for is a
+    per-plot function, not a materialized list, so the CSV path can keep
+    streaming one row at a time instead of buffering the whole trial."""
+    from .models import ObservationVariable, Plot
+
+    plots = (
+        Plot.objects.filter(trial=trial)
+        .select_related("germplasm")
+        .order_by("plot_number")
+    )
+    variables = list(ObservationVariable.objects.all().order_by("name"))
+    var_names = [v.name for v in variables]
+    headers = [
+        "plot_id", "range", "plot", "entry", "unique_id",
+        "walking_order_h_serpentine", "walking_order_v_serpentine",
+    ] + var_names
+
+    field_rows = trial.field_rows or max([p.row or 1 for p in plots] + [1])
+    field_cols = trial.field_cols or max([p.column or 1 for p in plots] + [1])
+    corner = trial.starting_corner or "BL"
+
+    def row_for(plot):
+        r = plot.row or 1
+        c = plot.column or 1
+        h_order, v_order = compute_walking_orders(r, c, field_rows, field_cols, corner)
+        return [
+            plot.plot_number, plot.rep, plot.plot_number, plot.germplasm.name,
+            plot.plot_number, h_order, v_order,
+        ] + [""] * len(variables)
+
+    return headers, plots, row_for
+
+
 def create_plots_for_trial(
     trial: Trial,
     entries: Sequence[Germplasm],
@@ -767,6 +803,7 @@ def compute_cross_environment_ranking(analysis_set, variable):
             raw_means.append(
                 {
                     "germplasm": name,
+                    "germplasm_id": germ.id if germ else None,
                     "adjusted_mean": round(float(sub["value"].mean()), 3),
                     "raw_mean": round(float(sub["value"].mean()), 3),
                     "n_observations": int(len(sub)),
@@ -808,6 +845,7 @@ def compute_cross_environment_ranking(analysis_set, variable):
             raw_means.append(
                 {
                     "germplasm": name,
+                    "germplasm_id": germ.id if germ else None,
                     "adjusted_mean": round(float(sub["value"].mean()), 3),
                     "raw_mean": round(float(sub["value"].mean()), 3),
                     "n_observations": int(len(sub)),
@@ -842,6 +880,7 @@ def compute_cross_environment_ranking(analysis_set, variable):
         ranking.append(
             {
                 "germplasm": name,
+                "germplasm_id": germ.id if germ else None,
                 "adjusted_mean": round(adjusted_val, 3),
                 "raw_mean": round(float(sub["value"].mean()), 3),
                 "n_observations": int(len(sub)),
@@ -855,7 +894,8 @@ def compute_cross_environment_ranking(analysis_set, variable):
 
 
 def import_fieldbook_csv(
-    trial: Trial, file_obj, filename: str = "", dry_run: bool = False, user=None
+    trial: Trial, file_obj, filename: str = "", dry_run: bool = False,
+    allow_partial: bool = False, user=None
 ) -> dict:
     """Import or update observations for a trial from an uploaded Field Book
     CSV or XLSX file.
@@ -893,7 +933,7 @@ def import_fieldbook_csv(
         raise ValidationError("File is empty or missing headers.")
 
     plot_id_col = None
-    for col in ["plot_id", "plot", "plot_number", "plotnumber", "Plot"]:
+    for col in ["plot_id", "plot", "plot_number", "plotnumber", "Plot", "unique_id"]:
         if col in fieldnames:
             plot_id_col = col
             break
@@ -1033,12 +1073,13 @@ def import_fieldbook_csv(
                         }
                     )
 
-        if dry_run or errors:
+        if dry_run or (errors and not allow_partial):
             transaction.set_rollback(True)
 
+    committed = not dry_run and (not errors or allow_partial)
     return {
-        "imported_count": imported_count if not (dry_run or errors) else 0,
-        "updated_count": updated_count if not (dry_run or errors) else 0,
+        "imported_count": imported_count if committed else 0,
+        "updated_count": updated_count if committed else 0,
         "matched_variables": list({v.name for v in matched_cols.values()}),
         "errors": errors,
         "dry_run": dry_run,

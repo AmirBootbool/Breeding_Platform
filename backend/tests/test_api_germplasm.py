@@ -75,3 +75,50 @@ def test_germplasm_db_id_is_server_generated_not_client_settable(auth_client, pr
     assert response.status_code == 201
     assert response.data["germplasm_db_id"] != germplasm.germplasm_db_id
     assert response.data["germplasm_db_id"]
+
+
+@pytest.mark.django_db
+def test_selection_shortlist_toggle(auth_client, program, germplasm):
+    from apps.germplasm.models import SelectionShortlist
+
+    # Toggle ON
+    res_on = auth_client.post(
+        "/api/selection-shortlist/toggle/",
+        {"germplasm": germplasm.id, "source": "mea"},
+        format="json",
+    )
+    assert res_on.status_code == 201
+    assert res_on.data == {"shortlisted": True}
+    assert SelectionShortlist.objects.filter(germplasm=germplasm, program=program).exists()
+
+    # Toggle OFF
+    res_off = auth_client.post(
+        "/api/selection-shortlist/toggle/",
+        {"germplasm": germplasm.id},
+        format="json",
+    )
+    assert res_off.status_code == 200
+    assert res_off.data == {"shortlisted": False}
+    assert not SelectionShortlist.objects.filter(germplasm=germplasm, program=program).exists()
+
+
+@pytest.mark.django_db
+def test_selection_shortlist_toggle_program_isolation(api_client, program, germplasm):
+    from django.contrib.auth import get_user_model
+    from apps.core.models import Program, UserProfile
+
+    # User in Program B
+    program_b = Program.objects.create(name="Program B")
+    User = get_user_model()
+    user_b = User.objects.create_user(username="breeder_b", password="password12345")
+    UserProfile.objects.create(user=user_b, role="breeder", program=program_b)
+    api_client.force_authenticate(user=user_b)
+
+    # Attempt to toggle germplasm from Program A
+    res = api_client.post(
+        "/api/selection-shortlist/toggle/",
+        {"germplasm": germplasm.id},
+        format="json",
+    )
+    assert res.status_code == 404
+

@@ -17,6 +17,7 @@ export default function ImportFieldBookModal({
 }: ImportFieldBookModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [dryRun, setDryRun] = useState(false)
+  const [allowPartial, setAllowPartial] = useState(false)
   const [result, setResult] = useState<FieldBookImportResult | null>(null)
   const [error, setError] = useState<string>('')
   const [isDragging, setIsDragging] = useState(false)
@@ -29,7 +30,7 @@ export default function ImportFieldBookModal({
   const mutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error('Please select a CSV file to import.')
-      return trials.importFieldBook(trial.id, file, dryRun)
+      return trials.importFieldBook(trial.id, file, dryRun, allowPartial)
     },
     onSuccess: (data) => {
       setResult(data)
@@ -179,6 +180,17 @@ export default function ImportFieldBookModal({
           <span><strong>Dry Run (Validate Only)</strong> — check CSV headers, plots, and values without saving</span>
         </label>
       </div>
+      <div className="flex items-center gap-2 mt-1">
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            checked={allowPartial}
+            disabled={dryRun}
+            onChange={(e) => setAllowPartial(e.target.checked)}
+          />
+          <span><strong>Import valid rows even if some rows have errors</strong> — otherwise the whole file is rejected together</span>
+        </label>
+      </div>
 
       {/* Result Display */}
       {result && !hasErrors && (
@@ -216,7 +228,11 @@ export default function ImportFieldBookModal({
         <div className="alert alert-error" style={{ display: 'block' }}>
           <div className="flex items-center gap-2 font-semibold">
             <span>⚠</span>
-            <span>Import failed with {result?.errors.length} error(s). All database changes were rolled back.</span>
+            <span>
+              {(result?.imported_count || result?.updated_count)
+                ? `Imported ${result?.imported_count} and updated ${result?.updated_count} rows; ${result?.errors.length} row(s) had errors and were skipped.`
+                : `Import failed with ${result?.errors.length} error(s). All database changes were rolled back.`}
+            </span>
           </div>
           <div
             className="table-container mt-3"

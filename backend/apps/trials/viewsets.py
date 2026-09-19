@@ -280,24 +280,10 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def export_fieldbook(self, request, pk=None):
         """Download a Field Book compatible CSV (default) or XLSX file for this trial."""
+        from .services import prepare_fieldbook_export
+
         trial = self.get_object()
-        plots = (
-            Plot.objects.filter(trial=trial)
-            .select_related("germplasm")
-            .order_by("plot_number")
-        )
-        variables = list(ObservationVariable.objects.all().order_by("name"))
-        var_names = [v.name for v in variables]
-        headers = ["plot_id", "range", "plot", "entry"] + var_names
-
-        def row_for(plot):
-            return [
-                plot.plot_number,
-                plot.rep,
-                plot.plot_number,
-                plot.germplasm.name,
-            ] + [""] * len(variables)
-
+        headers, plots, row_for = prepare_fieldbook_export(trial)
         filename_base = f"{trial.trial_code}_fieldbook"
 
         if request.query_params.get("output_format") == "xlsx":
@@ -334,6 +320,7 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         trial = self.get_object()
         file_obj = request.FILES.get("file")
         dry_run = request.data.get("dry_run") in ("true", "True", "1", True)
+        allow_partial = request.data.get("allow_partial") in ("true", "True", "1", True)
 
         if not file_obj:
             return Response(
@@ -347,9 +334,10 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
                 file_obj.file,
                 filename=file_obj.name,
                 dry_run=dry_run,
+                allow_partial=allow_partial,
                 user=request.user,
             )
-            if result.get("errors"):
+            if result.get("errors") and not (result.get("imported_count") or result.get("updated_count")):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:

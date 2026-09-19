@@ -36,26 +36,9 @@ class Command(BaseCommand):
         except Trial.DoesNotExist:
             raise CommandError(f"Trial '{trial_code}' does not exist.")
 
-        plots = (
-            Plot.objects.filter(trial=trial)
-            .select_related("germplasm")
-            .order_by("plot_number")
-        )
-        variables = ObservationVariable.objects.all().order_by("name")
+        from apps.trials.services import prepare_fieldbook_export
 
-        headers = ["plot_id", "range", "plot", "entry"] + [
-            var.name for var in variables
-        ]
-
-        def row_for(plot):
-            # Field Book format maps plot_id & plot to plot_number,
-            # range to rep, entry to name; empty columns for variables/traits.
-            return [
-                plot.plot_number,
-                plot.rep,
-                plot.plot_number,
-                plot.germplasm.name,
-            ] + [""] * len(variables)
+        headers, plots, row_for = prepare_fieldbook_export(trial)
 
         if fmt == "xlsx":
             wb = Workbook(write_only=True)

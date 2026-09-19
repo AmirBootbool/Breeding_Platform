@@ -122,4 +122,5 @@ def test_analysis_sets_heritability_and_ranking_api(
     assert res_rank.status_code == 200
     assert len(res_rank.data) == 3
     assert res_rank.data[0]["germplasm"] == "G1"
+    assert res_rank.data[0]["germplasm_id"] == gp1.id
     assert res_rank.data[0]["adjusted_mean"] > res_rank.data[1]["adjusted_mean"]

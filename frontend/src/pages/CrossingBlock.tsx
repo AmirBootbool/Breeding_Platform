@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  crossingBlocks, germplasm, programs, locations, seasons,
+  crossingBlocks, germplasm, programs, locations, seasons, selectionShortlist,
   CrossingBlock as CB, CrossEntry, CrossingMapEntry,
   Germplasm, Program, Location, Season, ApiError,
 } from '../api/client'
@@ -24,20 +24,24 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ---- Germplasm picker panel -------------------------------------------------
 function GermplasmPanel({
-  title, icon, selected, onToggle, searchTerm, onSearchChange, programFilter, entries, loading,
+  title, icon, selected, onToggle, searchTerm, onSearchChange, programFilter, entries, loading, shortlistedIds,
 }: {
   title: string; icon: string; selected: Set<number>; onToggle: (id: number) => void
   searchTerm: string; onSearchChange: (v: string) => void
   programFilter: string
   entries: Germplasm[]; loading: boolean
+  shortlistedIds: Set<number>
 }) {
+  const [shortlistedOnly, setShortlistedOnly] = useState(false)
+
   const filtered = useMemo(() => {
     const s = searchTerm.toLowerCase()
     return entries.filter(e =>
       (!s || e.name.toLowerCase().includes(s) || e.germplasm_db_id.toLowerCase().includes(s)) &&
-      (!programFilter || e.program === Number(programFilter))
+      (!programFilter || e.program === Number(programFilter)) &&
+      (!shortlistedOnly || shortlistedIds.has(e.id))
     )
-  }, [entries, searchTerm, programFilter])
+  }, [entries, searchTerm, programFilter, shortlistedOnly, shortlistedIds])
 
   return (
     <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 360 }}>
@@ -51,6 +55,10 @@ function GermplasmPanel({
           <span className="search-icon">🔍</span>
           <input type="search" placeholder="Search..." value={searchTerm} onChange={e => onSearchChange(e.target.value)} />
         </div>
+        <label className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input type="checkbox" checked={shortlistedOnly} onChange={e => setShortlistedOnly(e.target.checked)} />
+          ★ Shortlisted only
+        </label>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', maxHeight: 320 }}>
@@ -80,6 +88,7 @@ function GermplasmPanel({
                   style={{ accentColor: 'var(--brand-400)' }}
                 />
                 <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{entry.name}</span>
+                {shortlistedIds.has(entry.id) && <span title="Shortlisted">★</span>}
                 <span className="text-xs text-muted font-mono" style={{ marginLeft: 'auto' }}>{entry.germplasm_db_id}</span>
               </label>
             ))}
@@ -245,6 +254,12 @@ export default function CrossingBlock() {
     queryFn: () => germplasm.listAll(activeBlock?.program ? `program=${activeBlock.program}` : ''),
     enabled: !!activeBlock,
   })
+
+  const { data: shortlistRes } = useQuery({
+    queryKey: ['selection-shortlist'],
+    queryFn: () => selectionShortlist.list(),
+  })
+  const shortlistedIds = new Set((shortlistRes?.results ?? []).map(e => e.germplasm))
 
   const programList = programsData?.results ?? []
   const locationList = locationsData?.results ?? []
@@ -503,6 +518,7 @@ export default function CrossingBlock() {
                   searchTerm={femaleSearch} onSearchChange={setFemaleSearch}
                   programFilter={femaleProgramFilter}
                   entries={allGermplasm} loading={germplasmLoading}
+                  shortlistedIds={shortlistedIds}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-2)' }}>
                   <button className="btn btn-secondary btn-sm" onClick={swapSelections} title="Swap ♀ ↔ ♂"
@@ -515,6 +531,7 @@ export default function CrossingBlock() {
                   searchTerm={maleSearch} onSearchChange={setMaleSearch}
                   programFilter={maleProgramFilter}
                   entries={allGermplasm} loading={germplasmLoading}
+                  shortlistedIds={shortlistedIds}
                 />
               </div>
 

@@ -493,7 +493,7 @@ export const trials = {
     downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`, format),
   exportFieldBook: (id: number, format?: ExportFormat) =>
     downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`, format),
-  importFieldBook: async (trialId: number, file: File, dryRun: boolean = false): Promise<FieldBookImportResult> => {
+  importFieldBook: async (trialId: number, file: File, dryRun: boolean = false, allowPartial: boolean = false): Promise<FieldBookImportResult> => {
     const token = getToken()
     const headers: Record<string, string> = {}
     if (token) {
@@ -502,6 +502,7 @@ export const trials = {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('dry_run', dryRun ? 'true' : 'false')
+    formData.append('allow_partial', allowPartial ? 'true' : 'false')
 
     const res = await fetch(`${BASE}/trials/${trialId}/import_fieldbook/`, {
       method: 'POST',
@@ -659,12 +660,36 @@ export interface HeritabilityResponse {
 
 export interface RankingEntry {
   germplasm: string
+  germplasm_id: number | null
   adjusted_mean: number
   raw_mean: number
   n_observations: number
   n_environments: number
   family_group: string | null
   raw_means_by_env: Record<string, number>
+}
+
+export interface ShortlistEntry {
+  id: number
+  germplasm: number
+  germplasm_name: string
+  program: number
+  season: number | null
+  season_name: string | null
+  source: 'mea' | 'manual'
+  note: string
+  created_by: number | null
+  created_at: string
+}
+
+export const selectionShortlist = {
+  list: (params = '') =>
+    apiFetch<PaginatedResponse<ShortlistEntry>>(`/selection-shortlist/?page_size=200${params}`),
+  toggle: (germplasmId: number, source: 'mea' | 'manual' = 'manual') =>
+    apiFetch<{ shortlisted: boolean }>('/selection-shortlist/toggle/', {
+      method: 'POST',
+      body: JSON.stringify({ germplasm: germplasmId, source }),
+    }),
 }
 
 export const analysisSets = {

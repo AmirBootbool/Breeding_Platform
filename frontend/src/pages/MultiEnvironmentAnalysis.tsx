@@ -8,7 +8,8 @@ import {
   Program,
   ObservationVariable,
   AnalysisSet,
-  ApiError
+  ApiError,
+  selectionShortlist
 } from '../api/client'
 import TopBar from '../components/TopBar'
 import Modal from '../components/Modal'
@@ -66,6 +67,17 @@ export default function MultiEnvironmentAnalysis() {
     queryKey: ['ranking', selectedSet?.id, selectedVariable?.id],
     queryFn: () => analysisSets.getRanking(selectedSet!.id, selectedVariable!.id),
     enabled: !!selectedSet && !!selectedVariable,
+  })
+
+  const { data: shortlistRes } = useQuery({
+    queryKey: ['selection-shortlist'],
+    queryFn: () => selectionShortlist.list(),
+  })
+  const shortlistedIds = new Set((shortlistRes?.results ?? []).map(e => e.germplasm))
+
+  const toggleShortlistMutation = useMutation({
+    mutationFn: (germplasmId: number) => selectionShortlist.toggle(germplasmId, 'mea'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['selection-shortlist'] }),
   })
 
   const deleteMut = useMutation({
@@ -361,6 +373,7 @@ export default function MultiEnvironmentAnalysis() {
                           <table className="data-table">
                             <thead>
                               <tr>
+                                <th></th>
                                 <th style={{ width: 60 }}>Rank</th>
                                 <th>Germplasm</th>
                                 <th>Family Group</th>
@@ -385,6 +398,15 @@ export default function MultiEnvironmentAnalysis() {
                                       opacity: lowConfidence ? 0.6 : 1
                                     }}
                                   >
+                                    <td>
+                                      <input
+                                        type="checkbox"
+                                        disabled={row.germplasm_id == null}
+                                        title={row.germplasm_id == null ? 'Not linked to a germplasm record' : undefined}
+                                        checked={row.germplasm_id != null && shortlistedIds.has(row.germplasm_id)}
+                                        onChange={() => row.germplasm_id != null && toggleShortlistMutation.mutate(row.germplasm_id)}
+                                      />
+                                    </td>
                                     <td className="font-bold text-center">{index + 1}</td>
                                     <td>
                                       <strong>{row.germplasm}</strong>
@@ -404,7 +426,7 @@ export default function MultiEnvironmentAnalysis() {
                               })}
                               {processedRanking.length === 0 && (
                                 <tr>
-                                  <td colSpan={7} className="text-center text-muted">No ranking data returned.</td>
+                                  <td colSpan={8} className="text-center text-muted">No ranking data returned.</td>
                                 </tr>
                               )}
                             </tbody>

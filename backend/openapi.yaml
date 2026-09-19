@@ -2429,6 +2429,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/Germplasm'
           description: ''
+  /api/germplasm/check_relatedness/:
+    post:
+      operationId: api_germplasm_check_relatedness_create
+      description: |-
+        Body: {"pairs": [{"female": <id>, "male": <id>}, ...]}.
+        Returns relatedness info for each pair, same order as submitted.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Germplasm'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Germplasm'
+          description: ''
   /api/health/:
     get:
       operationId: api_health_retrieve
@@ -5334,6 +5364,20 @@ paths:
         name: program
         schema:
           type: integer
+      - in: query
+        name: purpose
+        schema:
+          type: string
+          enum:
+          - advancement_nursery
+          - other
+          - screening_nursery
+          - yield_trial
+        description: |-
+          * `yield_trial` - Yield Trial
+          * `screening_nursery` - Screening Nursery
+          * `advancement_nursery` - Advancement Nursery
+          * `other` - Other
       - name: search
         required: false
         in: query
@@ -5880,6 +5924,24 @@ paths:
           type: integer
         description: A unique integer value identifying this trial.
         required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trial'
+          description: ''
+  /api/trials/needs_attention/:
+    get:
+      operationId: api_trials_needs_attention_retrieve
+      description: |-
+        Active trials planted more than 21 days ago with zero recorded
+        observations across any of their plots.
       tags:
       - api
       security:
@@ -10049,6 +10111,8 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/TrialStatusEnum'
+        purpose:
+          $ref: '#/components/schemas/PurposeEnum'
         generation:
           type: integer
           maximum: 9223372036854775807
@@ -10236,6 +10300,18 @@ components:
       - id
       - name
       - updated_by_username
+    PurposeEnum:
+      enum:
+      - yield_trial
+      - screening_nursery
+      - advancement_nursery
+      - other
+      type: string
+      description: |-
+        * `yield_trial` - Yield Trial
+        * `screening_nursery` - Screening Nursery
+        * `advancement_nursery` - Advancement Nursery
+        * `other` - Other
     RoleEnum:
       enum:
       - admin
@@ -10658,6 +10734,8 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/TrialStatusEnum'
+        purpose:
+          $ref: '#/components/schemas/PurposeEnum'
         generation:
           type: integer
           maximum: 9223372036854775807

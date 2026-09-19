@@ -36,6 +36,7 @@ export default function TrialFormModal({
     harvest_date: initial?.harvest_date ?? '',
     notes: initial?.notes ?? '',
     status: initial?.status ?? 'active',
+    purpose: initial?.purpose ?? 'yield_trial',
     generation: initial?.generation?.toString() ?? '',
   })
   const [error, setError] = useState('')
@@ -56,6 +57,7 @@ export default function TrialFormModal({
         prep_fraction: form.design_type === 'prep' ? Number(form.prep_fraction) : null,
         notes: form.notes,
         status: form.status,
+        purpose: form.purpose,
         generation: form.generation !== '' ? Number(form.generation) : null,
       }
       if (form.trial_code.trim()) {
@@ -157,6 +159,15 @@ export default function TrialFormModal({
             <option value="active">Active</option>
             <option value="completed">Completed</option>
             <option value="archived">Archived</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Purpose</label>
+          <select id="trial-purpose" className="form-input" value={form.purpose} onChange={e => set('purpose', e.target.value)}>
+            <option value="yield_trial">Yield Trial</option>
+            <option value="screening_nursery">Screening Nursery</option>
+            <option value="advancement_nursery">Advancement Nursery</option>
+            <option value="other">Other</option>
           </select>
         </div>
         <div className="form-group">

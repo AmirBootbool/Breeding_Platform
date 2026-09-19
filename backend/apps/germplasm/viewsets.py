@@ -183,6 +183,27 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
 
         return Response(tree)
 
+    @action(detail=False, methods=["post"], url_path="check_relatedness")
+    def check_relatedness(self, request):
+        """Body: {"pairs": [{"female": <id>, "male": <id>}, ...]}.
+        Returns relatedness info for each pair, same order as submitted."""
+        from apps.germplasm.services import check_parent_relatedness
+
+        pairs = request.data.get("pairs", [])
+        results = []
+        for pair in pairs:
+            female_id = pair.get("female")
+            male_id = pair.get("male")
+            if not female_id or not male_id:
+                results.append({"female": female_id, "male": male_id, "related": False, "shared_ancestors": []})
+                continue
+            result = check_parent_relatedness(female_id, male_id)
+            result["female"] = female_id
+            result["male"] = male_id
+            results.append(result)
+        return Response(results)
+
+
 class CrossViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     # Cross has no direct `program` field - it's derived from its parents.
     program_lookup = "female_parent__program_id"

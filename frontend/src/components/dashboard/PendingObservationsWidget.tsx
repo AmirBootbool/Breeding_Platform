@@ -3,10 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { crossingBlocks } from '../../api/client'
 import { useLowStockAlerts } from '../common/useLowStockAlerts'
+import { useNeedsAttentionTrials } from '../common/useNeedsAttentionTrials'
 
 export default function PendingObservationsWidget() {
   const navigate = useNavigate()
   const { data: lowStockLots } = useLowStockAlerts()
+  const { data: staleTrials } = useNeedsAttentionTrials()
 
   const { data: crossingBlocksData } = useQuery({
     queryKey: ['crossing-blocks-dashboard'],
@@ -27,6 +29,17 @@ export default function PendingObservationsWidget() {
       })
     }
 
+    if (staleTrials && staleTrials.length > 0) {
+      tasks.push({
+        icon: '📋',
+        title: `${staleTrials.length} Trial(s) With No Observations Yet`,
+        desc: `${staleTrials[0].trial_code} was planted over 21 days ago with no scoring recorded.`,
+        actionText: 'Review Trial',
+        path: '/trials',
+        severity: 'warning',
+      })
+    }
+
     const activeBlocksWithCrosses = (crossingBlocksData?.results ?? []).filter(b => b.cross_count > 0)
     if (activeBlocksWithCrosses.length > 0) {
       tasks.push({
@@ -40,7 +53,7 @@ export default function PendingObservationsWidget() {
     }
 
     return tasks
-  }, [lowStockLots, crossingBlocksData])
+  }, [lowStockLots, crossingBlocksData, staleTrials])
 
   if (pendingTasks.length === 0) {
     return (

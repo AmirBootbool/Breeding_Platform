@@ -256,3 +256,31 @@ def build_pedigree_tree(germplasm_id, depth=3, direction="ancestors"):
         root_data["progeny"] = fetch_progeny(root.id, 1, set())
 
     return root_data
+
+
+def _flatten_ancestor_ids(tree_node):
+    """Flatten a build_pedigree_tree(..., direction='ancestors') result into
+    a flat {id: name} map covering the root and every ancestor node."""
+    if not tree_node:
+        return {}
+    ids = {tree_node["id"]: tree_node["name"]}
+    ids.update(_flatten_ancestor_ids(tree_node.get("parent_female")))
+    ids.update(_flatten_ancestor_ids(tree_node.get("parent_male")))
+    return ids
+
+
+def check_parent_relatedness(female_id, male_id, depth=4):
+    """Check whether two candidate parents share a common ancestor within
+    `depth` generations, reusing the existing pedigree-tree traversal.
+    Returns {"related": bool, "shared_ancestors": [{"id": int, "name": str}, ...]}.
+    """
+    female_tree = build_pedigree_tree(female_id, depth=depth, direction="ancestors")
+    male_tree = build_pedigree_tree(male_id, depth=depth, direction="ancestors")
+
+    female_ancestors = _flatten_ancestor_ids(female_tree)
+    male_ancestors = _flatten_ancestor_ids(male_tree)
+
+    shared_ids = set(female_ancestors) & set(male_ancestors)
+    shared = [{"id": i, "name": female_ancestors[i]} for i in shared_ids]
+    return {"related": len(shared) > 0, "shared_ancestors": shared}
+

@@ -513,3 +513,58 @@ def test_add_grid_cells_api(client_for_role, trial, plot):
     assert response.status_code == 201
     assert response.data["created_count"] > 0
     assert trial.plots.filter(is_border=True).exists()
+
+
+@pytest.mark.django_db
+def test_trials_needs_attention(
+    auth_client, program, location, season, germplasm, observation_variable
+):
+    from datetime import timedelta
+    from django.utils import timezone
+    from apps.trials.models import Observation, Plot, Trial
+
+    # Trial 1: Planted 30 days ago, has plots, but zero observations -> Needs attention
+    t1 = Trial.objects.create(
+        name="Stale Trial",
+        trial_code="TR-STALE",
+        program=program,
+        location=location,
+        season=season,
+        status="active",
+        planting_date=timezone.now().date() - timedelta(days=30),
+    )
+    Plot.objects.create(trial=t1, germplasm=germplasm, rep=1, plot_number=1)
+
+    # Trial 2: Planted 30 days ago, has plots, and has an observation -> OK
+    t2 = Trial.objects.create(
+        name="Scored Trial",
+        trial_code="TR-SCORED",
+        program=program,
+        location=location,
+        season=season,
+        status="active",
+        planting_date=timezone.now().date() - timedelta(days=30),
+    )
+    p2 = Plot.objects.create(trial=t2, germplasm=germplasm, rep=1, plot_number=1)
+    Observation.objects.create(
+        plot=p2, variable=observation_variable, value_numeric=50.0
+    )
+
+    # Trial 3: Planted 5 days ago (< 21 days), zero observations -> OK (not stale yet)
+    t3 = Trial.objects.create(
+        name="Recent Trial",
+        trial_code="TR-RECENT",
+        program=program,
+        location=location,
+        season=season,
+        status="active",
+        planting_date=timezone.now().date() - timedelta(days=5),
+    )
+    Plot.objects.create(trial=t3, germplasm=germplasm, rep=1, plot_number=1)
+
+    response = auth_client.get("/api/trials/needs_attention/")
+    assert response.status_code == 200
+    returned_codes = [item["trial_code"] for item in response.data]
+    assert "TR-STALE" in returned_codes
+    assert "TR-SCORED" not in returned_codes
+    assert "TR-RECENT" not in returned_codes

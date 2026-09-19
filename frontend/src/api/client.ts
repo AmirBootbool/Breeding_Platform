@@ -153,6 +153,7 @@ export interface Trial {
   harvest_date: string | null
   notes: string
   status: 'active' | 'completed' | 'archived'
+  purpose: 'yield_trial' | 'screening_nursery' | 'advancement_nursery' | 'other'
   generation: number | null
   created_at: string
   updated_at: string
@@ -451,6 +452,18 @@ export const germplasm = {
   },
   getPedigreeTree: (id: number, depth: number = 3, direction: string = 'ancestors') =>
     apiFetch<PedigreeNode>(`/germplasm/${id}/pedigree_tree/?depth=${depth}&direction=${direction}`),
+  checkRelatedness: (pairs: { female: number; male: number }[]) =>
+    apiFetch<RelatednessResult[]>('/germplasm/check_relatedness/', {
+      method: 'POST',
+      body: JSON.stringify({ pairs }),
+    }),
+}
+
+export interface RelatednessResult {
+  female: number
+  male: number
+  related: boolean
+  shared_ancestors: { id: number; name: string }[]
 }
 
 export interface FieldBookImportResult {
@@ -483,6 +496,7 @@ export const trials = {
       `/trials/${id}/advance_plots/`,
       { method: 'POST', body: JSON.stringify(body) }
     ),
+  needsAttention: () => apiFetch<Trial[]>('/trials/needs_attention/'),
   summary: (id: number) =>
     apiFetch<{ trial: string; summary: TrialSummaryRow[] }>(`/trials/${id}/summary/`),
   exportMap: (id: number, format?: ExportFormat) =>

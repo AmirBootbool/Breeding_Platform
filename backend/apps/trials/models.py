@@ -23,6 +23,13 @@ class Trial(models.Model):
         ("archived", "Archived"),
     ]
 
+    PURPOSE_CHOICES = [
+        ("yield_trial", "Yield Trial"),
+        ("screening_nursery", "Screening Nursery"),
+        ("advancement_nursery", "Advancement Nursery"),
+        ("other", "Other"),
+    ]
+
     name = models.CharField(max_length=255, db_index=True)
     trial_code = models.CharField(max_length=255, unique=True)
     brapi_study_db_id = models.CharField(max_length=255, blank=True)
@@ -51,6 +58,9 @@ class Trial(models.Model):
         choices=STATUS_CHOICES,
         default="active",
         db_index=True,
+    )
+    purpose = models.CharField(
+        max_length=32, choices=PURPOSE_CHOICES, default="yield_trial", db_index=True
     )
     generation = models.IntegerField(
         null=True,

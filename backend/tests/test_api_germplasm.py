@@ -122,3 +122,55 @@ def test_selection_shortlist_toggle_program_isolation(api_client, program, germp
     )
     assert res.status_code == 404
 
+
+@pytest.mark.django_db
+def test_germplasm_check_relatedness(auth_client, program):
+    from apps.germplasm.models import Germplasm
+
+    # Grandparent
+    grandparent = Germplasm.objects.create(name="Common Grandparent", program=program)
+    # Parents
+    parent_1 = Germplasm.objects.create(
+        name="Parent 1", parent_female=grandparent, program=program
+    )
+    parent_2 = Germplasm.objects.create(
+        name="Parent 2", parent_male=grandparent, program=program
+    )
+    # Progeny / Candidates (first cousins)
+    candidate_female = Germplasm.objects.create(
+        name="Candidate Female", parent_female=parent_1, program=program
+    )
+    candidate_male = Germplasm.objects.create(
+        name="Candidate Male", parent_female=parent_2, program=program
+    )
+    # Unrelated line
+    unrelated = Germplasm.objects.create(name="Unrelated Line", program=program)
+
+    response = auth_client.post(
+        "/api/germplasm/check_relatedness/",
+        {
+            "pairs": [
+                {"female": candidate_female.id, "male": candidate_male.id},
+                {"female": candidate_female.id, "male": unrelated.id},
+            ]
+        },
+        format="json",
+    )
+    assert response.status_code == 200
+    data = response.data
+    assert len(data) == 2
+
+    # Related pair
+    assert data[0]["female"] == candidate_female.id
+    assert data[0]["male"] == candidate_male.id
+    assert data[0]["related"] is True
+    shared_ancestor_ids = [a["id"] for a in data[0]["shared_ancestors"]]
+    assert grandparent.id in shared_ancestor_ids
+
+    # Unrelated pair
+    assert data[1]["female"] == candidate_female.id
+    assert data[1]["male"] == unrelated.id
+    assert data[1]["related"] is False
+    assert len(data[1]["shared_ancestors"]) == 0
+
+

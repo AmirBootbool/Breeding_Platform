@@ -12,6 +12,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { DesignBadge } from '../components/trials/types'
 import TrialDetail from '../components/trials/TrialDetail'
 import TrialFormModal from '../components/trials/TrialFormModal'
+import CloneTrialModal from '../components/trials/CloneTrialModal'
 import { DataTable, Column } from '../components/common/DataTable'
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
@@ -93,6 +94,7 @@ export default function TrialManager() {
   const [filterDesign, setFilterDesign]     = useState('')
   const [filterStatus, setFilterStatus]     = useState('')
   const [filterGen, setFilterGen]           = useState('')
+  const [filterPurpose, setFilterPurpose]   = useState('')
   const [viewMode, setViewMode]             = useState<'table' | 'card'>('table')
 
   const [selectedTrial, setSelectedTrial] = useState<Trial | null>(null)
@@ -113,6 +115,7 @@ export default function TrialManager() {
     filterDesign      ? `&design_type=${filterDesign}` : '',
     filterStatus      ? `&status=${filterStatus}` : '',
     filterGen         ? `&generation=${filterGen}` : '',
+    filterPurpose     ? `&purpose=${filterPurpose}` : '',
   ].join('')
 
   const { data, isLoading } = useQuery({
@@ -139,24 +142,7 @@ export default function TrialManager() {
     onError: (err) => alert(err instanceof ApiError ? JSON.stringify(err.detail) : (err as Error).message),
   })
 
-  const cloneMutation = useMutation({
-    mutationFn: (t: Trial) => trials.create({
-      name: `${t.name} (Copy)`,
-      trial_code: `${t.trial_code}-COPY`,
-      program: t.program, location: t.location, season: t.season,
-      design_type: t.design_type, num_reps: t.num_reps,
-      block_size: t.block_size, prep_fraction: t.prep_fraction,
-      notes: t.notes, status: 'active',
-      generation: t.generation,
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['trials'] })
-      setCloneTrial(null)
-    },
-    onError: (err) => alert(err instanceof ApiError ? JSON.stringify(err.detail) : (err as Error).message),
-  })
-
-  const activeFilters = [filterProgram, filterLocation, filterSeason, filterDesign, filterStatus, filterGen].filter(Boolean).length
+  const activeFilters = [filterProgram, filterLocation, filterSeason, filterDesign, filterStatus, filterGen, filterPurpose].filter(Boolean).length
 
   if (selectedTrial) {
     return (
@@ -232,10 +218,18 @@ export default function TrialManager() {
           {Object.entries(GEN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
 
+        <select className="select-input" value={filterPurpose} onChange={e => setFilterPurpose(e.target.value)} style={{ flex: '0 0 160px' }}>
+          <option value="">All purposes</option>
+          <option value="yield_trial">Yield Trial</option>
+          <option value="screening_nursery">Screening Nursery</option>
+          <option value="advancement_nursery">Advancement Nursery</option>
+          <option value="other">Other</option>
+        </select>
+
         {activeFilters > 0 && (
           <button className="btn btn-ghost btn-sm" onClick={() => {
             setFilterProgram(''); setFilterLocation(''); setFilterSeason('')
-            setFilterDesign(''); setFilterStatus(''); setFilterGen('')
+            setFilterDesign(''); setFilterStatus(''); setFilterGen(''); setFilterPurpose('')
           }}>
             ✕ Clear {activeFilters} filter{activeFilters > 1 ? 's' : ''}
           </button>
@@ -399,14 +393,16 @@ export default function TrialManager() {
         </Modal>
       )}
 
-      {/* Clone confirm */}
+      {/* Clone into new season */}
       {cloneTrial && (
-        <ConfirmDialog
-          message={`Clone trial "${cloneTrial.trial_code}"? This creates a new trial with the same metadata but no plots or observations.`}
-          loading={cloneMutation.isPending}
-          onConfirm={() => cloneMutation.mutate(cloneTrial)}
-          onCancel={() => setCloneTrial(null)}
-        />
+        <Modal title={`Clone "${cloneTrial.trial_code}"`} onClose={() => setCloneTrial(null)}>
+          <CloneTrialModal
+            trial={cloneTrial}
+            locationList={locationList}
+            seasonList={seasonList}
+            onClose={() => setCloneTrial(null)}
+          />
+        </Modal>
       )}
 
       {/* Delete confirm */}

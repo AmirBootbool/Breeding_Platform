@@ -50,7 +50,7 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     }
     search_fields = ["name", "trial_code", "program__name"]
     ordering_fields = ["trial_code", "name", "created_at"]
-    filterset_fields = ["program", "season", "location", "design_type", "status", "generation"]
+    filterset_fields = ["program", "season", "location", "design_type", "status", "generation", "purpose"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)
@@ -66,6 +66,23 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             .annotate(plot_count=Count("plots"))
             .order_by("trial_code")
         )
+
+    @action(detail=False, methods=["get"], url_path="needs_attention")
+    def needs_attention(self, request):
+        """Active trials planted more than 21 days ago with zero recorded
+        observations across any of their plots."""
+        from datetime import timedelta
+        from django.utils import timezone
+
+        cutoff = timezone.now().date() - timedelta(days=21)
+        qs = (
+            self.get_queryset()
+            .filter(status="active", planting_date__isnull=False, planting_date__lte=cutoff)
+            .exclude(plots__observations__isnull=False)
+            .distinct()
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
     def create_plots(self, request, pk=None):

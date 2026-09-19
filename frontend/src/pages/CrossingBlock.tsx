@@ -310,6 +310,15 @@ export default function CrossingBlock() {
     return pairs
   }, [femaleSelected, maleSelected, allGermplasm, activeBlock])
 
+  const { data: relatednessResults } = useQuery({
+    queryKey: ['relatedness', crossPreview.map(p => `${p.female.id}-${p.male.id}`).join(',')],
+    queryFn: () => germplasm.checkRelatedness(crossPreview.map(p => ({ female: p.female.id, male: p.male.id }))),
+    enabled: crossPreview.length > 0,
+  })
+  const relatedPairKeys = new Set(
+    (relatednessResults ?? []).filter(r => r.related).map(r => `${r.female}-${r.male}`)
+  )
+
   const planMutation = useMutation({
     mutationFn: () => crossingBlocks.planCrosses(activeBlock!.id, {
       female_ids: Array.from(femaleSelected),
@@ -559,7 +568,12 @@ export default function CrossingBlock() {
                             <td><strong>{pair.female.name}</strong></td>
                             <td><strong>{pair.male.name}</strong></td>
                             <td className="font-mono text-sm" style={{ color: 'var(--brand-300)' }}>{crossPreviewName(pair.female.name, pair.male.name)}</td>
-                            <td>{pair.reciprocal && <span className="badge badge-amber">R</span>}</td>
+                            <td>
+                              {pair.reciprocal && <span className="badge badge-amber">R</span>}
+                              {relatedPairKeys.has(`${pair.female.id}-${pair.male.id}`) && (
+                                <span className="badge badge-red" title="These parents share a common ancestor within 4 generations">⚠ Related</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

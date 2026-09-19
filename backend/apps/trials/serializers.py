@@ -45,6 +45,7 @@ class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "harvest_date",
             "notes",
             "status",
+            "purpose",
             "generation",
             "field_rows",
             "field_cols",

@@ -64,6 +64,7 @@ class CrossEntrySerializer(serializers.ModelSerializer):
             "male_parent_name",
             "status",
             "is_reciprocal",
+            "seed_count",
             "map_position",
             "progeny",
             "progeny_name",

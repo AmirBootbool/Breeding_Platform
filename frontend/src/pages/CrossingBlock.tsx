@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  crossingBlocks, germplasm, programs, locations, seasons, selectionShortlist, observationVariables,
+  crossingBlocks, crosses, germplasm, programs, locations, seasons, selectionShortlist, observationVariables,
   CrossingBlock as CB, CrossEntry, CrossingMapEntry,
   Germplasm, Program, Location, Season, ApiError,
 } from '../api/client'
@@ -389,6 +389,19 @@ export default function CrossingBlock() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['crossing-blocks'] }); setDeleteBlock(null) },
   })
 
+  const updateSeedCountMutation = useMutation({
+    mutationFn: ({ crossId, seedCount }: { crossId: number; seedCount: number | null }) =>
+      crosses.update(crossId, { seed_count: seedCount }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crossing-blocks'] })
+      if (activeBlock) {
+        crossingBlocks.detail(activeBlock.id).then(b => {
+          if (b.crosses) setPlannedCrosses(b.crosses)
+        })
+      }
+    },
+  })
+
   function selectBlock(block: CB) {
     setActiveBlock(block)
     setFemaleSelected(new Set())
@@ -716,6 +729,7 @@ export default function CrossingBlock() {
                           <th>♂ Male</th>
                           <th>Progeny Name</th>
                           <th>Status</th>
+                          <th style={{ width: 90 }}>Seeds</th>
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
@@ -740,6 +754,22 @@ export default function CrossingBlock() {
                               {cross.progeny_name ?? crossPreviewName(cross.female_parent_name, cross.male_parent_name)}
                             </td>
                             <td><span className={`badge ${STATUS_COLORS[cross.status] ?? 'badge-gray'}`}>{cross.status}</span></td>
+                            <td>
+                              <input
+                                type="number"
+                                className="form-input"
+                                style={{ width: 70, padding: '2px 6px', fontSize: '0.8rem' }}
+                                defaultValue={cross.seed_count ?? ''}
+                                placeholder="—"
+                                onBlur={e => {
+                                  const raw = e.target.value.trim()
+                                  const val = raw ? Number(raw) : null
+                                  if (val !== cross.seed_count) {
+                                    updateSeedCountMutation.mutate({ crossId: cross.id, seedCount: val })
+                                  }
+                                }}
+                              />
+                            </td>
                             <td>{cross.is_reciprocal && <span className="badge badge-amber">R</span>}</td>
                           </tr>
                         ))}

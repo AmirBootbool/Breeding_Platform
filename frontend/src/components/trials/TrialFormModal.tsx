@@ -167,6 +167,7 @@ export default function TrialFormModal({
             <option value="yield_trial">Yield Trial</option>
             <option value="screening_nursery">Screening Nursery</option>
             <option value="advancement_nursery">Advancement Nursery</option>
+            <option value="phytotron_cycle">Phytotron / Rapid-Cycling</option>
             <option value="other">Other</option>
           </select>
         </div>

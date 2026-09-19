@@ -62,6 +62,7 @@ export interface Germplasm {
   tags: string[]
   is_check: boolean
   release_status: 'breeding_line' | 'release_candidate' | 'released' | 'discontinued'
+  external_accession_id?: string | null
   notes: string
   is_archived?: boolean
   created_at: string
@@ -196,6 +197,8 @@ export interface ObservationVariable {
   crop?: string
   category?: string
   categorical_options?: string[]
+  is_dus_descriptor?: boolean
+  categorical_states?: Record<string, string> | null
   panel_ids?: number[]
   usage_count?: number
   min_value: number | null
@@ -549,6 +552,7 @@ export interface FieldBookImportResult {
   imported_count: number
   updated_count: number
   matched_variables: string[]
+  unmatched_columns?: string[]
   errors: { row: number; detail: string | Record<string, string[]> }[]
   dry_run: boolean
 }
@@ -570,6 +574,11 @@ export const trials = {
       `/trials/${id}/create_plots/`,
       { method: 'POST', body: JSON.stringify(body) }
     ),
+  generateFieldMap: (id: number, body: { plots_per_block?: number; fill_order?: string }) =>
+    apiFetch<{ trial: string; total_plots: number; plots: Plot[] }>(
+      `/trials/${id}/generate_field_map/`,
+      { method: 'POST', body: JSON.stringify(body) }
+    ),
   advancePlots: (id: number, body: { plot_ids: number[], selections_per_plot: number, selection_method: string }) =>
     apiFetch<{ detail: string, created_count: number; created_ids: number[] }>(
       `/trials/${id}/advance_plots/`,
@@ -586,7 +595,13 @@ export const trials = {
     downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`, format),
   exportFieldBook: (id: number, format?: ExportFormat) =>
     downloadFile(`/trials/${id}/export_fieldbook/`, `trial-${id}-fieldbook.csv`, format),
-  importFieldBook: async (trialId: number, file: File, dryRun: boolean = false, allowPartial: boolean = false): Promise<FieldBookImportResult> => {
+  importFieldBook: async (
+    trialId: number,
+    file: File,
+    dryRun: boolean = false,
+    allowPartial: boolean = false,
+    columnMapping?: Record<string, string>
+  ): Promise<FieldBookImportResult> => {
     const token = getToken()
     const headers: Record<string, string> = {}
     if (token) {
@@ -596,6 +611,9 @@ export const trials = {
     formData.append('file', file)
     formData.append('dry_run', dryRun ? 'true' : 'false')
     formData.append('allow_partial', allowPartial ? 'true' : 'false')
+    if (columnMapping && Object.keys(columnMapping).length > 0) {
+      formData.append('column_mapping', JSON.stringify(columnMapping))
+    }
 
     const res = await fetch(`${BASE}/trials/${trialId}/import_fieldbook/`, {
       method: 'POST',
@@ -866,6 +884,7 @@ export interface CrossEntry {
   progeny: number | null
   progeny_name: string | null
   cross_date: string
+  seed_count?: number | null
   notes: string
 }
 
@@ -912,6 +931,11 @@ export const crossingBlocks = {
     ),
 }
 
+export const crosses = {
+  update: (id: number, data: Partial<CrossEntry>) =>
+    apiFetch<CrossEntry>(`/crosses/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+}
+
 export interface BarcodeLabelData {
   lot_code: string
   germplasm_name: string
@@ -956,6 +980,8 @@ export const seedLots = {
     ),
   getLowStock: (threshold: number = 50.0) =>
     apiFetch<SeedLot[]>(`/seed-lots/low_stock/?threshold=${threshold}`),
+  getNeedsRetest: () =>
+    apiFetch<SeedLot[]>('/seed-lots/needs_retest/'),
   checkAvailability: (requirements: { germplasm: number; grams_needed: number }[]) =>
     apiFetch<SeedAvailabilityResult[]>('/seed-lots/check_availability/', {
       method: 'POST',
@@ -1356,6 +1382,33 @@ export const weather = {
   },
 }
 
+// ---- Variety Maintenance Cycles ---------------------------------------------
 
+export interface MaintenanceCycle {
+  id: number
+  variety: number
+  variety_name: string
+  method: 'ear_to_row' | 'nucleus_seed' | 'mass_selection' | 'other'
+  cycle_number: number
+  season?: number | null
+  season_name?: string | null
+  off_types_removed?: number | null
+  notes: string
+  created_at: string
+  created_by?: number | null
+}
 
-
+export const maintenanceCycles = {
+  list: (params = '') => {
+    const cleanParams = params.startsWith('?') || params.startsWith('&') ? params.slice(1) : params
+    return apiFetch<PaginatedResponse<MaintenanceCycle>>(`/maintenance-cycles/?page_size=100${cleanParams ? `&${cleanParams}` : ''}`)
+  },
+  detail: (id: number) =>
+    apiFetch<MaintenanceCycle>(`/maintenance-cycles/${id}/`),
+  create: (data: Partial<MaintenanceCycle>) =>
+    apiFetch<MaintenanceCycle>('/maintenance-cycles/', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<MaintenanceCycle>) =>
+    apiFetch<MaintenanceCycle>(`/maintenance-cycles/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  destroy: (id: number) =>
+    apiFetch<void>(`/maintenance-cycles/${id}/`, { method: 'DELETE' }),
+}

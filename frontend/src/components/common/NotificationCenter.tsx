@@ -3,6 +3,7 @@ import { Bell, Check, Trash2 } from 'lucide-react'
 import { useNotificationStore, NotificationItem } from '../../store/notificationStore'
 import { useLowStockAlerts } from './useLowStockAlerts'
 import { useNeedsAttentionTrials } from './useNeedsAttentionTrials'
+import { useNeedsRetestAlerts } from './useNeedsRetestAlerts'
 import './NotificationCenter.css'
 
 function formatTimeAgo(ts: number): string {
@@ -30,6 +31,7 @@ export default function NotificationCenter() {
   // Activate low stock querying & background notifications
   useLowStockAlerts()
   useNeedsAttentionTrials()
+  useNeedsRetestAlerts()
 
   const { items, markAllRead, markRead, clearAll } = useNotificationStore()
   const unreadCount = items.filter((item) => !item.read).length

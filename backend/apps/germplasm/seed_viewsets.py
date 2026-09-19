@@ -196,6 +196,21 @@ class SeedLotViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(lots, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="needs_retest")
+    def needs_retest(self, request):
+        """Available seed lots that have never been germination-tested, or
+        whose last test was more than 365 days ago."""
+        from datetime import timedelta
+        from django.db.models import Q
+        from django.utils import timezone
+
+        cutoff = timezone.now().date() - timedelta(days=365)
+        lots = self.get_queryset().filter(status="available").filter(
+            Q(germination_date__isnull=True) | Q(germination_date__lte=cutoff)
+        )
+        serializer = self.get_serializer(lots, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=["post"], url_path="check_availability")
     def check_availability(self, request):
         """Body: {"requirements": [{"germplasm": <id>, "grams_needed": <float>}, ...]}.

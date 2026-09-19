@@ -27,6 +27,7 @@ class Trial(models.Model):
         ("yield_trial", "Yield Trial"),
         ("screening_nursery", "Screening Nursery"),
         ("advancement_nursery", "Advancement Nursery"),
+        ("phytotron_cycle", "Phytotron / Rapid-Cycling"),
         ("other", "Other"),
     ]
 
@@ -249,10 +250,20 @@ class ObservationVariable(models.Model):
         db_index=True,
         help_text="Trait category for library organisation.",
     )
+    is_dus_descriptor = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Whether this is a standard UPOV-style DUS characterization trait, for filtering/export toward regulatory submission.",
+    )
     categorical_options = models.JSONField(
         default=list,
         blank=True,
         help_text="Valid option strings for categorical traits, e.g. ['1','2','3','4','5']",
+    )
+    categorical_states = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="For categorical variables: state code to label, e.g. {\"1\": \"White\", \"2\": \"Red\"}.",
     )
     is_required = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

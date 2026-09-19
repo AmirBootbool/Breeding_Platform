@@ -894,13 +894,18 @@ def compute_cross_environment_ranking(analysis_set, variable):
 
 
 def import_fieldbook_csv(
-    trial: Trial, file_obj, filename: str = "", dry_run: bool = False,
-    allow_partial: bool = False, user=None
+    trial: Trial,
+    file_obj,
+    filename: str = "",
+    dry_run: bool = False,
+    allow_partial: bool = False,
+    user=None,
+    column_mapping: dict | None = None,
 ) -> dict:
     """Import or update observations for a trial from an uploaded Field Book
     CSV or XLSX file.
 
-    Returns dict with imported_count, updated_count, matched_variables, and errors.
+    Returns dict with imported_count, updated_count, matched_variables, unmatched_columns, and errors.
     """
     from django.core.exceptions import ValidationError
     from django.db import transaction
@@ -943,10 +948,12 @@ def import_fieldbook_csv(
             f"File is missing plot identifier column (plot_id/plot/plot_number). Found headers: {fieldnames}"
         )
 
-    # Load all variables and build mapping by name, variable_code, and lowercased keys
+    # Load all variables and build mapping by id, name, variable_code, and lowercased keys
     variables = list(ObservationVariable.objects.all())
     var_map = {}
     for var in variables:
+        var_map[str(var.id)] = var
+        var_map[var.id] = var
         var_map[var.name] = var
         var_map[var.name.lower()] = var
         if var.variable_code:
@@ -954,14 +961,38 @@ def import_fieldbook_csv(
             var_map[var.variable_code.lower()] = var
 
     matched_cols = {}
+    unmatched_cols = []
+    mapping = column_mapping or {}
+
     for col in fieldnames:
         if col == plot_id_col:
             continue
         cleaned_col = col.strip()
+        # Check explicit column mapping first
+        if col in mapping and mapping[col]:
+            target = mapping[col]
+            if target in var_map:
+                matched_cols[col] = var_map[target]
+                continue
+            elif str(target).lower() in var_map:
+                matched_cols[col] = var_map[str(target).lower()]
+                continue
+        elif cleaned_col in mapping and mapping[cleaned_col]:
+            target = mapping[cleaned_col]
+            if target in var_map:
+                matched_cols[col] = var_map[target]
+                continue
+            elif str(target).lower() in var_map:
+                matched_cols[col] = var_map[str(target).lower()]
+                continue
+
+        # Automatic match
         if cleaned_col in var_map:
             matched_cols[col] = var_map[cleaned_col]
         elif cleaned_col.lower() in var_map:
             matched_cols[col] = var_map[cleaned_col.lower()]
+        else:
+            unmatched_cols.append(col)
 
     if not matched_cols:
         raise ValidationError(
@@ -1081,6 +1112,7 @@ def import_fieldbook_csv(
         "imported_count": imported_count if committed else 0,
         "updated_count": updated_count if committed else 0,
         "matched_variables": list({v.name for v in matched_cols.values()}),
+        "unmatched_columns": unmatched_cols,
         "errors": errors,
         "dry_run": dry_run,
     }

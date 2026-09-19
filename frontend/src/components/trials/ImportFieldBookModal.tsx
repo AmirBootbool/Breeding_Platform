@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { trials, Trial, FieldBookImportResult, ApiError } from '../../api/client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { trials, observationVariables, Trial, FieldBookImportResult, ApiError } from '../../api/client'
 import { useToast } from '../common/ToastProvider'
 import { useNotificationStore } from '../../store/notificationStore'
 
@@ -18,6 +18,7 @@ export default function ImportFieldBookModal({
   const [file, setFile] = useState<File | null>(null)
   const [dryRun, setDryRun] = useState(false)
   const [allowPartial, setAllowPartial] = useState(false)
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   const [result, setResult] = useState<FieldBookImportResult | null>(null)
   const [error, setError] = useState<string>('')
   const [isDragging, setIsDragging] = useState(false)
@@ -27,10 +28,16 @@ export default function ImportFieldBookModal({
   const pushNotification = useNotificationStore((s) => s.push)
   const qc = useQueryClient()
 
+  const { data: variablesData } = useQuery({
+    queryKey: ['observation-variables'],
+    queryFn: () => observationVariables.list(),
+  })
+  const variableList = variablesData?.results ?? []
+
   const mutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error('Please select a CSV file to import.')
-      return trials.importFieldBook(trial.id, file, dryRun, allowPartial)
+      return trials.importFieldBook(trial.id, file, dryRun, allowPartial, columnMapping)
     },
     onSuccess: (data) => {
       setResult(data)
@@ -191,6 +198,44 @@ export default function ImportFieldBookModal({
           <span><strong>Import valid rows even if some rows have errors</strong> — otherwise the whole file is rejected together</span>
         </label>
       </div>
+
+      {/* Column Mapping Section if Unmatched Columns exist */}
+      {result?.unmatched_columns && result.unmatched_columns.length > 0 && (
+        <div className="card" style={{ border: '1px solid var(--amber-400)', padding: 'var(--space-3)', background: 'var(--bg-card)' }}>
+          <div className="flex items-center justify-between mb-2">
+            <strong className="text-sm" style={{ color: 'var(--amber-400)' }}>
+              ⚠️ Unmatched Columns ({result.unmatched_columns.length})
+            </strong>
+            <span className="text-xs text-muted">
+              Map CSV headers to database observation variables:
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {result.unmatched_columns.map((colName) => (
+              <div key={colName} className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-mono font-semibold" style={{ minWidth: 140 }}>{colName}</span>
+                <span>➔</span>
+                <select
+                  className="form-input text-xs"
+                  style={{ flex: 1 }}
+                  value={columnMapping[colName] ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setColumnMapping((prev) => ({ ...prev, [colName]: val }))
+                  }}
+                >
+                  <option value="">— Skip Column —</option>
+                  {variableList.map((v) => (
+                    <option key={v.id} value={v.name}>
+                      {v.name} ({v.data_type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Result Display */}
       {result && !hasErrors && (

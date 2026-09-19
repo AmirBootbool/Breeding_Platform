@@ -36,6 +36,8 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
     description: variable?.description ?? '',
     scoring_guide: variable?.scoring_guide ?? '',
     is_required: variable?.is_required ?? false,
+    is_dus_descriptor: variable?.is_dus_descriptor ?? false,
+    categorical_states: variable?.categorical_states ? JSON.stringify(variable.categorical_states, null, 2) : '',
     categorical_options: (variable?.categorical_options ?? []).join(', '),
   })
 
@@ -47,6 +49,17 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
     setError('')
     setIsSubmitting(true)
 
+    let parsedStates = null
+    if (formData.categorical_states.trim()) {
+      try {
+        parsedStates = JSON.parse(formData.categorical_states.trim())
+      } catch {
+        setError('Categorical states must be valid JSON (e.g. {"1": "Erect", "3": "Semi-erect", "5": "Prostrate"}).')
+        setIsSubmitting(false)
+        return
+      }
+    }
+
     const payload: Partial<ObservationVariable> = {
       name: formData.name.trim(),
       variable_code: formData.variable_code.trim(),
@@ -57,6 +70,8 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
       description: formData.description.trim(),
       scoring_guide: formData.scoring_guide.trim(),
       is_required: formData.is_required,
+      is_dus_descriptor: formData.is_dus_descriptor,
+      categorical_states: parsedStates,
       min_value: formData.min_value !== '' ? Number(formData.min_value) : null,
       max_value: formData.max_value !== '' ? Number(formData.max_value) : null,
       categorical_options: formData.data_type === 'categorical'
@@ -214,7 +229,7 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
         />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 cursor-pointer text-sm">
           <input
             type="checkbox"
@@ -223,7 +238,31 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
           />
           <span><strong>Required for Trials</strong> (Prompts breeders during trial setup)</span>
         </label>
+
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input
+            id="trait-is-dus"
+            type="checkbox"
+            checked={formData.is_dus_descriptor}
+            onChange={e => setFormData({ ...formData, is_dus_descriptor: e.target.checked })}
+          />
+          <span><strong>DUS / Variety Registration Descriptor</strong> (UPOV / CPVO distinctness trait)</span>
+        </label>
       </div>
+
+      {(formData.is_dus_descriptor || formData.data_type === 'categorical') && (
+        <div>
+          <label className="form-label">DUS / Categorical States (JSON code-to-state mapping)</label>
+          <textarea
+            id="trait-categorical-states"
+            className="form-input font-mono text-xs"
+            rows={4}
+            value={formData.categorical_states}
+            onChange={e => setFormData({ ...formData, categorical_states: e.target.value })}
+            placeholder={'{\n  "1": "Very Short / Erect",\n  "3": "Short",\n  "5": "Medium",\n  "7": "Long",\n  "9": "Very Long / Prostrate"\n}'}
+          />
+        </div>
+      )}
 
       <div className="modal-footer">
         <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
@@ -353,6 +392,7 @@ export default function Traits() {
   const [activeTab, setActiveTab]               = useState<'traits' | 'panels' | 'formulas'>('traits')
   const [selectedCrop, setSelectedCrop]         = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [filterDusOnly, setFilterDusOnly]       = useState(false)
   const [showModal, setShowModal]               = useState(false)
   const [editVariable, setEditVariable]         = useState<ObservationVariable | null>(null)
   const [deleteVariable, setDeleteVariable]     = useState<ObservationVariable | null>(null)
@@ -365,6 +405,7 @@ export default function Traits() {
   const filterParams = [
     selectedCrop && selectedCrop !== 'all' ? `&crop=${selectedCrop}` : '',
     selectedCategory ? `&category=${selectedCategory}` : '',
+    filterDusOnly ? '&is_dus_descriptor=true' : '',
   ].join('')
 
   const { data, isLoading } = useQuery({
@@ -475,6 +516,16 @@ export default function Traits() {
                 <option value="other">Other</option>
               </select>
             </div>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  checked={filterDusOnly}
+                  onChange={e => setFilterDusOnly(e.target.checked)}
+                />
+                <span>DUS Traits Only</span>
+              </label>
+            </div>
           </div>
 
           <main className="content">
@@ -509,7 +560,12 @@ export default function Traits() {
                             : <span className="text-muted text-xs">—</span>}
                         </td>
                         <td>
-                          <strong>{v.name}</strong>
+                          <div className="flex items-center gap-2">
+                            <strong>{v.name}</strong>
+                            {v.is_dus_descriptor && (
+                              <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>DUS</span>
+                            )}
+                          </div>
                           {v.description && <div className="text-xs text-muted" style={{ marginTop: 2 }}>{v.description}</div>}
                           {v.scoring_guide && (
                             <div className="text-xs" style={{ marginTop: 2, color: 'var(--brand-300)' }}>

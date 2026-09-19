@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from apps.core.mixins import ProgramScopedQuerySetMixin
 from apps.core.permissions import RoleBasedPermission
 
-from .models import Cross, Germplasm, SelectionShortlist
-from .serializers import CrossSerializer, GermplasmSerializer, SelectionShortlistSerializer
+from .models import Cross, Germplasm, SelectionShortlist, VarietyMaintenanceCycle
+from .serializers import CrossSerializer, GermplasmSerializer, SelectionShortlistSerializer, VarietyMaintenanceCycleSerializer
 
 
 class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
@@ -19,7 +19,7 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     serializer_class = GermplasmSerializer
     permission_classes = [RoleBasedPermission]
     write_roles = {"admin", "breeder"}
-    search_fields = ["name", "germplasm_db_id", "pedigree_string"]
+    search_fields = ["name", "germplasm_db_id", "external_accession_id", "pedigree_string"]
     ordering_fields = ["name", "year_developed", "created_at"]
     filterset_fields = ["program", "cross_type", "species", "is_archived", "release_status"]
 
@@ -347,4 +347,16 @@ class SelectionShortlistViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSe
             created_by=request.user,
         )
         return Response({"shortlisted": True}, status=201)
+
+
+class VarietyMaintenanceCycleViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    program_lookup = "variety__program_id"
+    queryset = VarietyMaintenanceCycle.objects.select_related("variety", "season").all()
+    serializer_class = VarietyMaintenanceCycleSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder"}
+    filterset_fields = ["variety", "method"]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 

@@ -334,10 +334,22 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         from django.core.exceptions import ValidationError
         from apps.trials.services import import_fieldbook_csv
 
+        import json
+
         trial = self.get_object()
         file_obj = request.FILES.get("file")
         dry_run = request.data.get("dry_run") in ("true", "True", "1", True)
         allow_partial = request.data.get("allow_partial") in ("true", "True", "1", True)
+        raw_mapping = request.data.get("column_mapping")
+        column_mapping = None
+        if raw_mapping:
+            if isinstance(raw_mapping, str):
+                try:
+                    column_mapping = json.loads(raw_mapping)
+                except Exception:
+                    column_mapping = None
+            elif isinstance(raw_mapping, dict):
+                column_mapping = raw_mapping
 
         if not file_obj:
             return Response(
@@ -353,6 +365,7 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
                 dry_run=dry_run,
                 allow_partial=allow_partial,
                 user=request.user,
+                column_mapping=column_mapping,
             )
             if result.get("errors") and not (result.get("imported_count") or result.get("updated_count")):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
@@ -913,7 +926,7 @@ class ObservationVariableViewSet(viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "variable_code", "description"]
     ordering_fields = ["name", "data_type", "created_at"]
-    filterset_fields = ["crop", "data_type", "is_required", "category"]
+    filterset_fields = ["crop", "data_type", "is_required", "category", "is_dus_descriptor"]
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)

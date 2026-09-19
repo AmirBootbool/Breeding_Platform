@@ -16,6 +16,12 @@ class Germplasm(models.Model):
 
     name = models.CharField(max_length=300, db_index=True)
     germplasm_db_id = models.CharField(max_length=100, unique=True, blank=True)
+    external_accession_id = models.CharField(
+        max_length=200,
+        blank=True,
+        db_index=True,
+        help_text="Original ID from the source institution (CIMMYT, national genebank, another program, etc.), preserved even after internal renumbering.",
+    )
     species = models.CharField(max_length=100, default="Triticum aestivum")
     program = models.ForeignKey(
         Program, on_delete=models.CASCADE, related_name="germplasm"
@@ -213,6 +219,11 @@ class Cross(models.Model):
     is_reciprocal = models.BooleanField(
         default=False,
         help_text="Whether this is a reciprocal of another cross",
+    )
+    seed_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of F1 seeds harvested from this cross.",
     )
     map_position = models.PositiveIntegerField(
         null=True,
@@ -445,4 +456,38 @@ class SelectionShortlist(models.Model):
 
     def __str__(self):
         return f"{self.germplasm.name} shortlisted ({self.source})"
+
+
+class VarietyMaintenanceCycle(models.Model):
+    METHOD_CHOICES = [
+        ("ear_to_row", "Ear-to-Row / Head-Row Selection"),
+        ("nucleus_seed", "Nucleus Seed System"),
+        ("mass_selection", "Mass Selection"),
+        ("other", "Other"),
+    ]
+    variety = models.ForeignKey(
+        Germplasm, on_delete=models.CASCADE, related_name="maintenance_cycles"
+    )
+    method = models.CharField(max_length=32, choices=METHOD_CHOICES)
+    cycle_number = models.PositiveIntegerField(
+        help_text="Sequential cycle number for this variety's maintenance history."
+    )
+    season = models.ForeignKey(
+        "core.Season", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="maintenance_cycles",
+    )
+    off_types_removed = models.PositiveIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["variety", "cycle_number"]
+        unique_together = ("variety", "cycle_number")
+
+    def __str__(self):
+        return f"{self.variety.name} — cycle {self.cycle_number} ({self.method})"
 

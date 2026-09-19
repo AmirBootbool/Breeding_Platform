@@ -1,10 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { crossingBlocks, CrossEntry } from '../api/client'
-import { CheckSquare, Filter, Printer, RefreshCw, Calendar } from 'lucide-react'
+import { CheckSquare, Filter, Printer, RefreshCw, Calendar, AlertTriangle } from 'lucide-react'
+import { useNeedsRetestAlerts } from '../components/common/useNeedsRetestAlerts'
+import { useNavigate } from 'react-router-dom'
 
 export default function TodaysTasks() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { data: retestLots } = useNeedsRetestAlerts()
   const [selectedBlockId, setSelectedBlockId] = useState<number | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -188,6 +192,25 @@ export default function TodaysTasks() {
           <div className="text-2xl font-bold" style={{ color: '#4ade80' }}>{stats.harvested}</div>
         </div>
       </div>
+
+      {/* Viability Retest Banner */}
+      {retestLots && retestLots.length > 0 && (
+        <div className="alert alert-warning mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} />
+            <span>
+              <strong>{retestLots.length} Seed Lot(s) Need Viability Retest:</strong> Germination testing overdue (&gt; 12 months).
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate('/seed-inventory')}
+          >
+            Review Vault Lots →
+          </button>
+        </div>
+      )}
 
       {/* Action banner */}
       {actionMessage && (

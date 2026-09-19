@@ -2121,6 +2121,467 @@ cd backend
 
 ---
 
+## Section G — Whole-pipeline audit (germplasm bank → variety maintenance)
+
+Eight tickets from a much deeper interview covering the full breeding pipeline: germplasm bank intake, greenhouse crossing technique, phytotron/speed-breeding cycles, national trial/DUS requirements, phytopathology screening, breeder seed, and variety maintenance. No dependencies between these tickets except where noted. **G4 is a correction, not a ticket** — read it before assuming something needs building.
+
+### Ticket G1 — Structured original-source-ID field on Germplasm
+
+**Goal:** Parent accessions get renumbered into one internal ID system on intake, which is good discipline, but the original external ID (a CIMMYT/ICARDA/national-genebank accession number) is currently only preserved informally in free-text notes or the pedigree string — not a structured, searchable field. Confirmed as wanted.
+
+**File 1: `backend/apps/germplasm/models.py`, in the `Germplasm` class.** Add, near `germplasm_db_id`:
+```python
+    external_accession_id = models.CharField(
+        max_length=200,
+        blank=True,
+        db_index=True,
+        help_text="Original ID from the source institution (CIMMYT, national genebank, another program, etc.), preserved even after internal renumbering.",
+    )
+```
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations germplasm
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 2: `backend/apps/germplasm/serializers.py`.** In `GermplasmSerializer.Meta.fields`, add `"external_accession_id",` immediately after `"germplasm_db_id",`.
+
+**File 3: `backend/apps/germplasm/viewsets.py`, `GermplasmViewSet`.** Add `"external_accession_id"` to `search_fields` (currently `["name", "germplasm_db_id", "pedigree_string"]`), so it's searchable the same way `germplasm_db_id` already is.
+
+**File 4: `frontend/src/api/client.ts`.** In the `Germplasm` interface, add: `external_accession_id: string`.
+
+**File 5: `frontend/src/pages/GermplasmBrowser.tsx`.** Add an `external_accession_id` input to the create/edit form, in the same style as the existing `germplasm_db_id` field, and display it in `PedigreePanel` alongside the existing `germplasm_db_id` display.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (no regressions). `cd frontend; npx tsc --noEmit` (0 errors). Manually confirm the field can be set and is searchable from the Germplasm Browser search bar.
+
+### Ticket G2 — Seed viability retest alert
+
+**Goal:** `SeedLot` already has `germination_rate` and `germination_date` fields — the data model already supports recording a germination test. What's missing is any alert when a lot hasn't been retested in a long time, which is exactly the kind of gap that caused real problems before (confirmed: failed crosses, poor stand establishment, scrambling for backup seed). Follow the exact `needs_attention`/`useNeedsAttentionTrials` pattern from Ticket C3.
+
+**File 1: `backend/apps/germplasm/seed_viewsets.py`, inside `SeedLotViewSet`.** Add, near the existing `low_stock` action:
+```python
+    @action(detail=False, methods=["get"], url_path="needs_retest")
+    def needs_retest(self, request):
+        """Available seed lots that have never been germination-tested, or
+        whose last test was more than 365 days ago."""
+        from datetime import timedelta
+        from django.db.models import Q
+        from django.utils import timezone
+
+        cutoff = timezone.now().date() - timedelta(days=365)
+        lots = self.get_queryset().filter(status="available").filter(
+            Q(germination_date__isnull=True) | Q(germination_date__lte=cutoff)
+        )
+        serializer = self.get_serializer(lots, many=True)
+        return Response(serializer.data)
+```
+
+**File 2: `frontend/src/api/client.ts`.** In the `seedLots` object, add, after `getLowStock`:
+```ts
+  getNeedsRetest: () => apiFetch<SeedLot[]>('/seed-lots/needs_retest/'),
+```
+
+**File 3: create `frontend/src/components/common/useNeedsRetestAlerts.ts`** (new file, mirrors `useLowStockAlerts.ts` exactly):
+```ts
+import { useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { seedLots, SeedLot } from '../../api/client'
+import { useNotificationStore } from '../../store/notificationStore'
+
+export function useNeedsRetestAlerts() {
+  const pushNotification = useNotificationStore((s) => s.push)
+  const notifiedLotIdsRef = useRef<Set<number>>(new Set())
+
+  const query = useQuery<SeedLot[]>({
+    queryKey: ['seed-lots', 'needs-retest'],
+    queryFn: () => seedLots.getNeedsRetest(),
+    staleTime: 60_000,
+  })
+
+  const staleLots = query.data ?? []
+
+  useEffect(() => {
+    if (staleLots.length > 0) {
+      staleLots.forEach((lot) => {
+        if (!notifiedLotIdsRef.current.has(lot.id)) {
+          notifiedLotIdsRef.current.add(lot.id)
+          pushNotification({
+            title: `Germination retest due: ${lot.lot_code}`,
+            text: `${lot.lot_code} (${lot.germplasm_name}) hasn't been germination-tested in over a year.`,
+            kind: 'qc',
+          })
+        }
+      })
+    }
+  }, [staleLots, pushNotification])
+
+  return query
+}
+```
+
+**File 4: `frontend/src/components/dashboard/PendingObservationsWidget.tsx`** (from Ticket C3) **and `frontend/src/pages/TodaysTasks.tsx`** (from Ticket E5). Wire in the same way as `useNeedsAttentionTrials` was wired into both — import `useNeedsRetestAlerts`, call it, and add a task block: `"${staleLots.length} Seed Lot(s) Need Germination Retest"`, `path: '/seed-inventory'`.
+
+**File 5: `frontend/src/components/common/NotificationCenter.tsx`.** Add `useNeedsRetestAlerts()` alongside the other alert-activation hooks, same as Ticket C3's File 5.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add a test: a lot with `germination_date` 400 days ago appears in `/seed-lots/needs_retest/`, one tested last week does not, one with `germination_date=None` does). `cd frontend; npx tsc --noEmit` (0 errors).
+
+### Ticket G3 — `Cross.seed_count` field
+
+**Goal:** You define a cross's success by a seed-count threshold, but `Cross` has no field to record that number — only the coarse `status` (planned/pollinated/harvested/failed). Add the field and an editable cell in the existing crosses table.
+
+**File 1: `backend/apps/germplasm/models.py`, in the `Cross` class.** Add, near `is_reciprocal`:
+```python
+    seed_count = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Number of F1 seeds harvested from this cross.",
+    )
+```
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations germplasm
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 2: `backend/apps/germplasm/serializers.py`, `CrossSerializer.Meta.fields`.** Add `"seed_count",` immediately after `"is_reciprocal",`.
+
+**File 3: `frontend/src/api/client.ts`.** Add a `CrossEntry` field: locate the existing `CrossEntry` interface and add `seed_count: number | null`. Add a small client object for direct per-cross updates (none exists today — crosses are otherwise only touched via `crossingBlocks.bulkUpdateStatus`):
+```ts
+export const crosses = {
+  update: (id: number, data: { seed_count?: number | null }) =>
+    apiFetch<CrossEntry>(`/crosses/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+}
+```
+This hits `CrossViewSet` at `/api/crosses/`, already registered in `backend/apps/germplasm/urls.py` — no backend URL change needed.
+
+**File 4: `frontend/src/pages/CrossingBlock.tsx`.**
+- Add `crosses` to the existing import from `'../api/client'`.
+- Add a mutation near `bulkStatusMutation`:
+  ```ts
+  const seedCountMutation = useMutation({
+    mutationFn: ({ id, seedCount }: { id: number; seedCount: number | null }) =>
+      crosses.update(id, { seed_count: seedCount }),
+    onSuccess: (updated) => {
+      setPlannedCrosses(prev => prev.map(c => c.id === updated.id ? updated : c))
+    },
+  })
+  ```
+- In the planned-crosses table (the one with the `Status` column, ~line 703–747), add a new header `<th>Seed Count</th>` after `<th>Status</th>`, and a new `<td>` in each row after the status cell:
+  ```tsx
+  <td>
+    <input
+      type="number"
+      className="form-input"
+      style={{ width: 70, padding: '2px 6px' }}
+      defaultValue={cross.seed_count ?? ''}
+      onBlur={e => {
+        const val = e.target.value === '' ? null : Number(e.target.value)
+        if (val !== cross.seed_count) seedCountMutation.mutate({ id: cross.id, seedCount: val })
+      }}
+    />
+  </td>
+  ```
+  Using `onBlur` rather than `onChange` avoids firing a request on every keystroke.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (no regressions). `cd frontend; npx tsc --noEmit` (0 errors). Manually confirm typing a number into the Seed Count cell and clicking away persists it (refresh the page and confirm it's still there).
+
+### Ticket G4 — SSD/bulk/pedigree method decided at F2 (correction: no ticket needed)
+
+**This is not a gap.** The interview surfaced that your advancement method (SSD/Single Spike/Single Plant/Special Bulk/Bulk) is decided at F2 based on how the population actually behaves, not locked in when the cross is planned. On closer check, the existing `AdvancePlotsTab`/`advance_plots` feature (Ticket-set from the earlier season-workflow audit) already supports exactly this: the method is chosen at the moment you advance a batch of selected plots — which happens after the population exists and has been observed — not at cross-planning time. It also already supports splitting one population across methods (select one subset of plots, advance with method A; select the rest, advance with method B, as two separate calls). No code change is needed here. Do not build anything for this item.
+
+### Ticket G5 — Phytotron / rapid-cycling advancement (extends Ticket C1)
+
+**Goal:** Phytotron cycles (dozens of populations, 3+ generations/year) aren't tracked anywhere today, and structurally can't be — `advance_plots` operates on `Plot` records, and `Plot`s only exist inside a `Trial`, which requires a `location` and `season`. **The fix is not a new parallel data model** — a phytotron cycle can be represented as a `Trial` whose `location` is simply a `Location` record for the phytotron facility itself (no lat/long needed) and whose plots have no row/column/spatial layout (both already nullable on `Plot`). The actual gap is that creating a full `Trial` today drags in irrelevant field-layout fields for something that's just pots in a growth chamber — so build a quick, reduced-field creation path instead of a new model.
+
+**Depends on Ticket C1** (`Trial.purpose`) already existing.
+
+**File 1: `backend/apps/trials/models.py`.** In `Trial.PURPOSE_CHOICES` (added in Ticket C1), add a fifth option:
+```python
+        ("phytotron_cycle", "Phytotron / Rapid-Cycling"),
+```
+
+**File 2: `frontend/src/pages/TrialManager.tsx`** (or wherever `TrialFormModal` lives, per Ticket C1's note that this component wasn't fully read). Add `"phytotron_cycle"` as an option everywhere `PURPOSE_CHOICES` values are listed (the filter dropdown from C1, and the create/edit form's purpose select).
+
+**File 3: create `frontend/src/components/trials/QuickCycleModal.tsx`** (new file) — a reduced form for starting a phytotron/rapid-cycling batch without the field-layout fields a real yield trial needs:
+```tsx
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { trials, Location, ApiError } from '../../api/client'
+
+interface QuickCycleModalProps {
+  programId: number
+  locationList: Location[]
+  onClose: () => void
+  onSuccess: (trialId: number) => void
+}
+
+export default function QuickCycleModal({ programId, locationList, onClose, onSuccess }: QuickCycleModalProps) {
+  const qc = useQueryClient()
+  const [name, setName] = useState('')
+  const [location, setLocation] = useState('')
+  const [error, setError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => trials.create({
+      name,
+      program: programId,
+      location: Number(location),
+      purpose: 'phytotron_cycle',
+      design_type: 'unreplicated',
+      num_reps: 1,
+      status: 'active',
+    }),
+    onSuccess: (t) => {
+      qc.invalidateQueries({ queryKey: ['trials'] })
+      onSuccess(t.id)
+    },
+    onError: (err) => setError(err instanceof ApiError ? JSON.stringify(err.detail) : (err as Error).message),
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <p className="text-sm text-muted">
+        Start a new phytotron/rapid-cycling batch. Create one <strong>Location</strong> record for the phytotron facility itself (no coordinates needed) and reuse it every cycle.
+      </p>
+      {error && <div className="alert alert-error"><span>⚠</span><span>{error}</span></div>}
+      <div className="form-group">
+        <label className="form-label">Cycle Name</label>
+        <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Phytotron Cycle 2026-03" />
+      </div>
+      <div className="form-group">
+        <label className="form-label">Facility (Location)</label>
+        <select className="form-input" value={location} onChange={e => setLocation(e.target.value)}>
+          <option value="">— Select —</option>
+          {locationList.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+      </div>
+      <div className="modal-footer">
+        <button className="btn btn-secondary" onClick={onClose} disabled={mutation.isPending}>Cancel</button>
+        <button className="btn btn-primary" disabled={!name || !location || mutation.isPending} onClick={() => mutation.mutate()}>
+          {mutation.isPending ? 'Creating…' : 'Start Cycle'}
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+Once created, this is a normal `Trial` — add plots to it via the existing `create_plots` action (with germplasm entries but no field-layout wizard needed for an unreplicated design), score/observe normally, and use the existing `AdvancePlotsTab` to advance it to the next generation exactly as any other trial. No changes to `advance_plots` itself are needed.
+
+**File 4:** wire a "⚡ Quick Cycle" button into `TrialManager.tsx`'s toolbar (next to "+ New Trial"), opening `QuickCycleModal`. Exact placement wasn't re-verified against the current file state in this ticket — locate the "+ New Trial" button and add a sibling.
+
+**Verification:** `cd frontend; npx tsc --noEmit` (0 errors). Manual check: create one Location named e.g. "Phytotron — Room A" with no coordinates, start a Quick Cycle against it, add plots, advance them via the existing Selections tab, and confirm a new generation of germplasm is created — exactly the existing advancement flow, just reached through a lighter-weight entry point.
+
+### Ticket G6 — DUS characterization support
+
+**Goal:** DUS characterization (required by your national system, done in-house) has no home in the platform today. `ObservationVariable` already has a `category` field with a `"morphological"` choice and can be grouped into a `TraitPanel` — the structural building blocks already exist. What's missing: a way to flag which variables are DUS descriptors specifically (for filtering/export toward a regulatory submission), and a place to store the standard state definitions a categorical DUS trait needs (e.g. grain color: `1=White, 2=Red`), which today `data_type="categorical"` has no room for.
+
+**File 1: `backend/apps/trials/models.py`, in the `ObservationVariable` class.** Add, near `category`:
+```python
+    is_dus_descriptor = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Whether this is a standard UPOV-style DUS characterization trait, for filtering/export toward regulatory submission.",
+    )
+    categorical_states = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="For categorical variables: state code to label, e.g. {\"1\": \"White\", \"2\": \"Red\"}.",
+    )
+```
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations trials
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 2: `backend/apps/trials/serializers.py`, `ObservationVariableSerializer.Meta.fields`.** Add `"is_dus_descriptor",` and `"categorical_states",` next to `"category"`.
+
+**File 3: `backend/apps/trials/viewsets.py`.** Find the viewset handling `ObservationVariable` (not fully re-verified in this ticket — locate it) and add `"is_dus_descriptor"` to its `filterset_fields`, so a DUS-only export/filter is possible.
+
+**File 4: `frontend/src/api/client.ts`.** In the `ObservationVariable` interface, add: `is_dus_descriptor: boolean` and `categorical_states: Record<string, string>`.
+
+**File 5: `frontend/src/pages/Traits.tsx`.** Add a checkbox for `is_dus_descriptor` and, when `data_type === 'categorical'`, a small key-value editor for `categorical_states` (state code → label pairs) to the create/edit form. This file wasn't read in this ticket — match its existing form-field patterns rather than guessing at exact JSX.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (no regressions). `cd frontend; npx tsc --noEmit` (0 errors). Manually confirm a categorical trait can have its state definitions saved and a variable can be flagged/filtered as a DUS descriptor.
+
+### Ticket G7 — Column mapping on Field Book import (helps external collaborator data)
+
+**Goal:** Your pathologist collaborator's disease-screening results reach you as a summary report you manually transcribe — structurally the same problem the original Field Book round-trip had (Section A), because their column naming almost certainly won't match this platform's `ObservationVariable` names/codes, so the existing automatic import would silently ignore their columns. Add a manual column-mapping step so any externally-sourced CSV (not just Field Book's own) can be imported without the source having to match your naming exactly.
+
+**File 1: `backend/apps/trials/services.py`, `import_fieldbook_csv`.** Add a new parameter and use it to override automatic column matching:
+- Change the signature (as modified by Ticket A3) to also accept `column_mapping: dict | None = None`.
+- Where `matched_cols` is built (the loop `for col in fieldnames: ... if cleaned_col in var_map: matched_cols[col] = var_map[cleaned_col] ...`), check `column_mapping` first:
+  ```python
+  matched_cols = {}
+  unmatched_columns = []
+  column_mapping = column_mapping or {}
+  for col in fieldnames:
+      if col == plot_id_col:
+          continue
+      cleaned_col = col.strip()
+      if col in column_mapping and column_mapping[col] in var_map:
+          matched_cols[col] = var_map[column_mapping[col]]
+      elif cleaned_col in var_map:
+          matched_cols[col] = var_map[cleaned_col]
+      elif cleaned_col.lower() in var_map:
+          matched_cols[col] = var_map[cleaned_col.lower()]
+      else:
+          unmatched_columns.append(col)
+  ```
+  Re-read the live file before editing — this replaces the existing `matched_cols` construction loop; keep the `if not matched_cols: raise ValidationError(...)` check immediately after it unchanged.
+- Add `"unmatched_columns": unmatched_columns,` to the function's final returned dict, next to `"matched_variables"`.
+
+**File 2: `backend/apps/trials/viewsets.py`, `import_fieldbook` action.** Accept an optional mapping from the request and pass it through:
+```python
+        import json
+        raw_mapping = request.data.get("column_mapping")
+        column_mapping = json.loads(raw_mapping) if raw_mapping else None
+```
+Add `column_mapping=column_mapping,` to the `import_fieldbook_csv(...)` call.
+
+**File 3: `frontend/src/api/client.ts`.**
+- Add `unmatched_columns: string[]` to the `FieldBookImportResult` interface.
+- Update `importFieldBook` (from Ticket A3) to accept an optional mapping and append it to the form data:
+  ```ts
+  formData.append('column_mapping', JSON.stringify(columnMapping ?? {}))
+  ```
+
+**File 4: `frontend/src/components/trials/ImportFieldBookModal.tsx`.**
+- Add state: `const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})`.
+- After a dry-run result comes back with `result.unmatched_columns.length > 0`, show a small mapping section: for each unmatched column, a `<select>` of the trial's known `ObservationVariable` names (fetch via `observationVariables.list()`, following whatever import pattern this file already uses for its other data) plus an "Ignore this column" option, updating `columnMapping[col] = selectedVariableName`.
+- Pass `columnMapping` through to `trials.importFieldBook(trial.id, file, dryRun, allowPartial, columnMapping)` (extend that call's signature to accept it as a fifth argument).
+- Let the breeder re-run the dry-run with the mapping applied before doing the real (non-dry-run) import, same as the existing dry-run/import cycle.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add a test: a CSV with a column named `"STB_sev"` that doesn't match any variable name, submitted with `column_mapping={"STB_sev": "Septoria Severity"}`, successfully creates observations against the `"Septoria Severity"` variable; without the mapping, the same column appears in `unmatched_columns` and is not imported). `cd frontend; npx tsc --noEmit` (0 errors).
+
+### Ticket G8 — Variety maintenance cycle tracking
+
+**Goal:** You confirmed a released variety's ongoing maintenance lineage (e.g. ear-to-row/head-row maintenance, then a nucleus seed system) needs to be tracked as something distinct from its original breeding pedigree — not just a status flag on the same record. Add a lightweight cycle-log model, surfaced in the germplasm history view built in Ticket D2.
+
+**Depends on Ticket D4** (`Germplasm.release_status`) conceptually (maintenance cycles are most meaningful on a `released` germplasm), though nothing here technically requires D4 to be done first.
+
+**File 1: `backend/apps/germplasm/models.py`.** Add, at the end of the file:
+```python
+class VarietyMaintenanceCycle(models.Model):
+    METHOD_CHOICES = [
+        ("ear_to_row", "Ear-to-Row / Head-Row Selection"),
+        ("nucleus_seed", "Nucleus Seed System"),
+        ("mass_selection", "Mass Selection"),
+        ("other", "Other"),
+    ]
+    variety = models.ForeignKey(
+        Germplasm, on_delete=models.CASCADE, related_name="maintenance_cycles"
+    )
+    method = models.CharField(max_length=32, choices=METHOD_CHOICES)
+    cycle_number = models.PositiveIntegerField(
+        help_text="Sequential cycle number for this variety's maintenance history."
+    )
+    season = models.ForeignKey(
+        "core.Season", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="maintenance_cycles",
+    )
+    off_types_removed = models.PositiveIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["variety", "cycle_number"]
+        unique_together = ("variety", "cycle_number")
+
+    def __str__(self):
+        return f"{self.variety.name} — cycle {self.cycle_number} ({self.method})"
+```
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations germplasm
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 2: `backend/apps/germplasm/serializers.py`.** Add:
+```python
+class VarietyMaintenanceCycleSerializer(serializers.ModelSerializer):
+    variety_name = serializers.CharField(source="variety.name", read_only=True)
+    season_name = serializers.CharField(source="season.name", read_only=True, default=None)
+
+    class Meta:
+        model = VarietyMaintenanceCycle
+        fields = [
+            "id", "variety", "variety_name", "method", "cycle_number",
+            "season", "season_name", "off_types_removed", "notes",
+            "created_by", "created_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at"]
+```
+Add `VarietyMaintenanceCycle` to this file's `from .models import ...` line.
+
+**File 3: `backend/apps/germplasm/viewsets.py`.** Add:
+```python
+class VarietyMaintenanceCycleViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
+    program_lookup = "variety__program_id"
+    queryset = VarietyMaintenanceCycle.objects.select_related("variety", "season").all()
+    serializer_class = VarietyMaintenanceCycleSerializer
+    permission_classes = [RoleBasedPermission]
+    write_roles = {"admin", "breeder"}
+    filterset_fields = ["variety", "method"]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+```
+Add `VarietyMaintenanceCycle` and `VarietyMaintenanceCycleSerializer` to this file's import lines, matching the pattern already used for `SelectionShortlist`/`SelectionShortlistSerializer` in Ticket B2.
+
+**File 4: `backend/apps/germplasm/urls.py`.** Add the import and registration, matching Ticket B2's pattern:
+```python
+router.register(r"maintenance-cycles", VarietyMaintenanceCycleViewSet, basename="maintenance-cycle")
+```
+
+**File 5: `frontend/src/api/client.ts`.** Add:
+```ts
+export interface MaintenanceCycle {
+  id: number
+  variety: number
+  variety_name: string
+  method: 'ear_to_row' | 'nucleus_seed' | 'mass_selection' | 'other'
+  cycle_number: number
+  season: number | null
+  season_name: string | null
+  off_types_removed: number | null
+  notes: string
+  created_by: number | null
+  created_at: string
+}
+
+export const maintenanceCycles = {
+  list: (varietyId: number) =>
+    apiFetch<PaginatedResponse<MaintenanceCycle>>(`/maintenance-cycles/?variety=${varietyId}&page_size=100`),
+  create: (data: Partial<MaintenanceCycle>) =>
+    apiFetch<MaintenanceCycle>('/maintenance-cycles/', { method: 'POST', body: JSON.stringify(data) }),
+}
+```
+
+**File 6: `frontend/src/components/GermplasmHistoryPanel.tsx`** (from Ticket D2). Add a new section fetching and listing maintenance cycles for the germplasm, plus a small inline "Log Cycle" form (method select, cycle number, off-types-removed number input, notes):
+```tsx
+const { data: cycles } = useQuery({
+  queryKey: ['maintenance-cycles', entry.id],
+  queryFn: () => maintenanceCycles.list(entry.id),
+})
+```
+Render `cycles?.results` as a list (`{method}, cycle {cycle_number}, {off_types_removed ?? '—'} off-types removed`) below the existing Trials/Crosses sections, following the same list-rendering style already used there. Add `maintenanceCycles` to the import from `'../api/client'`.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add a test: creating two cycles for the same variety with the same `cycle_number` is rejected by the `unique_together` constraint; a program-B user cannot create a cycle against a program-A variety). `cd frontend; npx tsc --noEmit` (0 errors).
+
+---
+
 ## Final check
 
-After all twenty-six tickets (A1–A3, B1–B5, C1–C4, D1–D4, E1–E6, F2–F4 — F1 is discovery only, not a code ticket): `cd backend; .\.venv\Scripts\python -m pytest -q` and `cd frontend; npx tsc --noEmit` must both be clean. Initiative 2 (genomics ↔ crossing) is intentionally not part of this spec — it's deferred to a later stage.
+After all thirty-three code tickets (A1–A3, B1–B5, C1–C4, D1–D4, E1–E6, F2–F4, G1–G3, G5–G8): `cd backend; .\.venv\Scripts\python -m pytest -q` and `cd frontend; npx tsc --noEmit` must both be clean. F1 and G4 are intentionally not code tickets (F1 needs a real-world format decision first; G4 turned out to already be supported). Initiative 2 (genomics ↔ crossing) is intentionally not part of this spec — it's deferred to a later stage.

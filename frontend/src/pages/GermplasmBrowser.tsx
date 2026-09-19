@@ -40,6 +40,11 @@ function PedigreePanel({ entry, onOpenTree }: { entry: Germplasm; onOpenTree: (e
         <div>
           <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>{entry.name}</h3>
           <p className="text-xs text-muted font-mono">{entry.germplasm_db_id}</p>
+          {entry.external_accession_id && (
+            <p className="text-xs font-mono" style={{ color: 'var(--brand-400)' }}>
+              Ext: {entry.external_accession_id}
+            </p>
+          )}
         </div>
         <div className="flex gap-1" style={{ alignItems: 'center' }}>
           {entry.is_check && <span className="badge badge-amber">CHECK</span>}
@@ -146,6 +151,7 @@ function GermplasmForm({ initial, programList, onClose, onSaved, isEdit, editId 
     pedigree_string: initial?.pedigree_string ?? '',
     is_check: initial?.is_check ?? false,
     release_status: initial?.release_status ?? 'breeding_line',
+    external_accession_id: initial?.external_accession_id ?? '',
     tags: (initial?.tags ?? []).join(', '),
     notes: initial?.notes ?? '',
   })
@@ -170,6 +176,7 @@ function GermplasmForm({ initial, programList, onClose, onSaved, isEdit, editId 
         pedigree_string: form.pedigree_string,
         is_check: form.is_check,
         release_status: form.release_status,
+        external_accession_id: form.external_accession_id.trim() || null,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         notes: form.notes,
       }
@@ -211,6 +218,10 @@ function GermplasmForm({ initial, programList, onClose, onSaved, isEdit, editId 
         <div className="form-group" style={{ gridColumn: '1/-1' }}>
           <label className="form-label">Name <span style={{ color: 'var(--status-danger)' }}>*</span></label>
           <input id="germ-name" className="form-input" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. KAN-WHEAT-04" required />
+        </div>
+        <div className="form-group">
+          <label className="form-label">External Accession ID</label>
+          <input id="germ-ext-id" className="form-input" value={form.external_accession_id} onChange={e => set('external_accession_id', e.target.value)} placeholder="e.g. PI 123456, CGN-1234" />
         </div>
         <div className="form-group">
           <label className="form-label">Species</label>

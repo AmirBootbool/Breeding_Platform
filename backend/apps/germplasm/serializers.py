@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.core.serializers import AuditSerializerMixin
 
-from .models import Cross, Germplasm, SelectionShortlist
+from .models import Cross, Germplasm, SelectionShortlist, VarietyMaintenanceCycle
 
 
 class GermplasmSerializer(AuditSerializerMixin, serializers.ModelSerializer):
@@ -18,6 +18,7 @@ class GermplasmSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "id",
             "name",
             "germplasm_db_id",
+            "external_accession_id",
             "species",
             "program",
             "program_name",
@@ -74,6 +75,7 @@ class CrossSerializer(serializers.ModelSerializer):
             "crossing_block",
             "status",
             "is_reciprocal",
+            "seed_count",
             "progeny",
             "progeny_name",
             "map_position",
@@ -106,5 +108,19 @@ class SelectionShortlistSerializer(serializers.ModelSerializer):
             "source", "note", "created_by", "created_at",
         ]
         read_only_fields = ["id", "program", "created_by", "created_at"]
+
+
+class VarietyMaintenanceCycleSerializer(serializers.ModelSerializer):
+    variety_name = serializers.CharField(source="variety.name", read_only=True)
+    season_name = serializers.CharField(source="season.name", read_only=True, default=None)
+
+    class Meta:
+        model = VarietyMaintenanceCycle
+        fields = [
+            "id", "variety", "variety_name", "method", "cycle_number",
+            "season", "season_name", "off_types_removed", "notes",
+            "created_by", "created_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at"]
 
 

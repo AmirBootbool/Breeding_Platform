@@ -14,7 +14,9 @@ import { DesignBadge } from '../components/trials/types'
 import TrialDetail from '../components/trials/TrialDetail'
 import TrialFormModal from '../components/trials/TrialFormModal'
 import CloneTrialModal from '../components/trials/CloneTrialModal'
+import QuickCycleModal from '../components/trials/QuickCycleModal'
 import { DataTable, Column } from '../components/common/DataTable'
+import { Zap } from 'lucide-react'
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   active:    { label: 'Active',    color: 'var(--status-success)' },
@@ -101,6 +103,7 @@ export default function TrialManager() {
 
   const [selectedTrial, setSelectedTrial] = useState<Trial | null>(null)
   const [showCreate, setShowCreate]       = useState(false)
+  const [showQuickCycle, setShowQuickCycle] = useState(false)
   const [editTrial, setEditTrial]         = useState<Trial | null>(null)
   const [deleteTrial, setDeleteTrial]     = useState<Trial | null>(null)
   const [cloneTrial, setCloneTrial]       = useState<Trial | null>(null)
@@ -181,9 +184,20 @@ export default function TrialManager() {
               </button>
             )}
             {canWrite && (
-              <button id="new-trial-btn" className="btn btn-primary" onClick={() => setShowCreate(true)}>
-                + New Trial
-              </button>
+              <>
+                <button
+                  type="button"
+                  id="quick-cycle-btn"
+                  className="btn btn-secondary flex items-center gap-1"
+                  onClick={() => setShowQuickCycle(true)}
+                  title="Launch phytotron / rapid-cycling generation advance"
+                >
+                  <Zap size={14} /> Quick Cycle
+                </button>
+                <button id="new-trial-btn" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                  + New Trial
+                </button>
+              </>
             )}
           </div>
         }
@@ -239,6 +253,7 @@ export default function TrialManager() {
           <option value="yield_trial">Yield Trial</option>
           <option value="screening_nursery">Screening Nursery</option>
           <option value="advancement_nursery">Advancement Nursery</option>
+          <option value="phytotron_cycle">Phytotron / Rapid-Cycling</option>
           <option value="other">Other</option>
         </select>
 
@@ -395,6 +410,19 @@ export default function TrialManager() {
           <TrialFormModal
             programList={programList} locationList={locationList} seasonList={seasonList}
             onClose={() => setShowCreate(false)}
+          />
+        </Modal>
+      )}
+
+      {/* Quick Cycle Modal */}
+      {showQuickCycle && (
+        <Modal title="Launch Rapid-Cycling Phytotron Trial" onClose={() => setShowQuickCycle(false)} wide>
+          <QuickCycleModal
+            programList={programList}
+            locationList={locationList}
+            seasonList={seasonList}
+            onClose={() => setShowQuickCycle(false)}
+            onCreated={(newTrial) => setSelectedTrial(newTrial)}
           />
         </Modal>
       )}

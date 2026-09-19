@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router-dom'
 import { crossingBlocks } from '../../api/client'
 import { useLowStockAlerts } from '../common/useLowStockAlerts'
 import { useNeedsAttentionTrials } from '../common/useNeedsAttentionTrials'
+import { useNeedsRetestAlerts } from '../common/useNeedsRetestAlerts'
 
 export default function PendingObservationsWidget() {
   const navigate = useNavigate()
   const { data: lowStockLots } = useLowStockAlerts()
   const { data: staleTrials } = useNeedsAttentionTrials()
+  const { data: retestLots } = useNeedsRetestAlerts()
 
   const { data: crossingBlocksData } = useQuery({
     queryKey: ['crossing-blocks-dashboard'],
@@ -24,6 +26,17 @@ export default function PendingObservationsWidget() {
         title: `${lowStockLots.length} Seed Lot(s) Low on Stock (< 50g)`,
         desc: `Vault packets like ${lowStockLots[0].lot_code} (${lowStockLots[0].germplasm_name}) need replenishment or multiplication.`,
         actionText: 'Manage Seed Vault',
+        path: '/seed-inventory',
+        severity: 'warning',
+      })
+    }
+
+    if (retestLots && retestLots.length > 0) {
+      tasks.push({
+        icon: '🧪',
+        title: `${retestLots.length} Seed Lot(s) Need Viability Retest`,
+        desc: `Lots like ${retestLots[0].lot_code} (${retestLots[0].germplasm_name}) have not had germination testing in > 12 months.`,
+        actionText: 'Inspect Seed Lots',
         path: '/seed-inventory',
         severity: 'warning',
       })
@@ -53,7 +66,7 @@ export default function PendingObservationsWidget() {
     }
 
     return tasks
-  }, [lowStockLots, crossingBlocksData, staleTrials])
+  }, [lowStockLots, retestLots, crossingBlocksData, staleTrials])
 
   if (pendingTasks.length === 0) {
     return (

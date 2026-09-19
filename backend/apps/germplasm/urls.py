@@ -2,12 +2,18 @@ from rest_framework.routers import DefaultRouter
 
 from .crossing_viewsets import CrossingBlockViewSet
 from .seed_viewsets import SeedLotViewSet, SeedTransactionViewSet
-from .viewsets import CrossViewSet, GermplasmViewSet, SelectionShortlistViewSet
+from .viewsets import (
+    CrossViewSet,
+    GermplasmViewSet,
+    SelectionShortlistViewSet,
+    VarietyMaintenanceCycleViewSet,
+)
 
 router = DefaultRouter()
 router.register(r"germplasm", GermplasmViewSet, basename="germplasm")
 router.register(r"crosses", CrossViewSet, basename="cross")
 router.register(r"selection-shortlist", SelectionShortlistViewSet, basename="selection-shortlist")
+router.register(r"maintenance-cycles", VarietyMaintenanceCycleViewSet, basename="maintenance-cycle")
 router.register(r"crossing-blocks", CrossingBlockViewSet, basename="crossing-block")
 router.register(r"seed-lots", SeedLotViewSet, basename="seed-lot")
 router.register(r"seed-transactions", SeedTransactionViewSet, basename="seed-transaction")

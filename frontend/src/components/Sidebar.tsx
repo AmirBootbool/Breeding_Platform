@@ -18,6 +18,8 @@ import {
   Moon,
   LogOut,
   X,
+  Compass,
+  CalendarCheck,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useUiStore } from '../store/uiStore'
@@ -42,6 +44,8 @@ const ICONS = {
   download: Download,
   shield: Shield,
   settings: Settings,
+  compass: Compass,
+  'calendar-check': CalendarCheck,
 }
 
 export interface NavItem {
@@ -71,6 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/germplasm', label: 'Germplasm', icon: 'sprout', roles: null },
       { to: '/crosses', label: 'Crossing Block', icon: 'scissors', roles: new Set(['admin', 'breeder']) },
+      { to: '/tasks', label: "Today's Agenda", icon: 'calendar-check', roles: null },
       { to: '/seed-inventory', label: 'Seed Inventory', icon: 'package', roles: null },
     ],
   },
@@ -79,6 +84,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Field Trials',
     items: [
       { to: '/trials', label: 'Trial Manager', icon: 'layout-grid', roles: null },
+      { to: '/nursery-map', label: 'Nursery GIS Map', icon: 'compass', roles: null },
       { to: '/observations', label: 'Observation Entry', icon: 'clipboard-edit', roles: null },
     ],
   },

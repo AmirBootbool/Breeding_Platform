@@ -21,7 +21,7 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     write_roles = {"admin", "breeder"}
     search_fields = ["name", "germplasm_db_id", "pedigree_string"]
     ordering_fields = ["name", "year_developed", "created_at"]
-    filterset_fields = ["program", "cross_type", "species", "is_archived"]
+    filterset_fields = ["program", "cross_type", "species", "is_archived", "release_status"]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -202,6 +202,87 @@ class GermplasmViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             result["male"] = male_id
             results.append(result)
         return Response(results)
+
+    @action(detail=True, methods=["get"], url_path="history")
+    def history(self, request, pk=None):
+        from .models import SelectionShortlist
+
+        germplasm = self.get_object()
+
+        plots = germplasm.plot_set.select_related(
+            "trial", "trial__season", "trial__location"
+        ).order_by("trial__season__year", "trial__planting_date")
+        trial_history = [
+            {
+                "trial_id": p.trial_id,
+                "trial_code": p.trial.trial_code,
+                "trial_name": p.trial.name,
+                "season_name": p.trial.season.name if p.trial.season else None,
+                "location_name": p.trial.location.name if p.trial.location else None,
+                "plot_number": p.plot_number,
+                "status": p.status,
+            }
+            for p in plots
+        ]
+
+        cross_history = [
+            {
+                "cross_code": c.cross_code, "role": "female",
+                "other_parent": c.male_parent.name, "status": c.status,
+                "progeny_name": c.progeny.name if c.progeny else None,
+            }
+            for c in germplasm.crosses_as_female.select_related("male_parent", "progeny")
+        ] + [
+            {
+                "cross_code": c.cross_code, "role": "male",
+                "other_parent": c.female_parent.name, "status": c.status,
+                "progeny_name": c.progeny.name if c.progeny else None,
+            }
+            for c in germplasm.crosses_as_male.select_related("female_parent", "progeny")
+        ]
+
+        shortlist_entry = SelectionShortlist.objects.filter(germplasm=germplasm).first()
+
+        return Response({
+            "germplasm_id": germplasm.id,
+            "name": germplasm.name,
+            "trial_history": trial_history,
+            "cross_history": cross_history,
+            "is_shortlisted": shortlist_entry is not None,
+            "shortlist_source": shortlist_entry.source if shortlist_entry else None,
+        })
+
+    @action(detail=False, methods=["post"], url_path="observation_summary")
+    def observation_summary(self, request):
+        """Body: {"germplasm_ids": [...], "variable_id": <id>}.
+        Returns a simple historical average per germplasm — a raw mean
+        across every recorded observation for that trait, across every
+        season/trial the germplasm has appeared in. This is NOT the
+        environment-adjusted BLUE/BLUP from MultiEnvironmentAnalysis —
+        it's a cheap approximation suitable for a picker list, not a
+        substitute for the real ranking analysis."""
+        from apps.trials.models import Observation
+
+        germplasm_ids = request.data.get("germplasm_ids", [])
+        variable_id = request.data.get("variable_id")
+        if not variable_id or not germplasm_ids:
+            return Response({"detail": "germplasm_ids and variable_id are required."}, status=400)
+
+        results = []
+        for gid in germplasm_ids:
+            obs = Observation.objects.filter(
+                plot__germplasm_id=gid, variable_id=variable_id, value_numeric__isnull=False
+            ).select_related("plot__trial__season")
+            values = [o.value_numeric for o in obs]
+            seasons = {o.plot.trial.season_id for o in obs if o.plot.trial.season_id}
+            results.append({
+                "germplasm": gid,
+                "avg_value": round(sum(values) / len(values), 3) if values else None,
+                "observation_count": len(values),
+                "season_count": len(seasons),
+            })
+        return Response(results)
+
 
 
 class CrossViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):

@@ -34,6 +34,7 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
     min_value: variable?.min_value?.toString() ?? '',
     max_value: variable?.max_value?.toString() ?? '',
     description: variable?.description ?? '',
+    scoring_guide: variable?.scoring_guide ?? '',
     is_required: variable?.is_required ?? false,
     categorical_options: (variable?.categorical_options ?? []).join(', '),
   })
@@ -54,6 +55,7 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
       category: formData.category,
       unit: formData.unit.trim(),
       description: formData.description.trim(),
+      scoring_guide: formData.scoring_guide.trim(),
       is_required: formData.is_required,
       min_value: formData.min_value !== '' ? Number(formData.min_value) : null,
       max_value: formData.max_value !== '' ? Number(formData.max_value) : null,
@@ -197,6 +199,18 @@ function TraitModal({ variable, onClose, onSuccess }: TraitModalProps) {
           value={formData.description}
           onChange={e => setFormData({ ...formData, description: e.target.value })}
           placeholder="Measurement protocol, scale definitions, or timing notes…"
+        />
+      </div>
+
+      <div>
+        <label className="form-label">Scoring Consistency Guide / Calibration Standard</label>
+        <textarea
+          id="trait-scoring-guide"
+          className="form-input"
+          rows={2}
+          value={formData.scoring_guide}
+          onChange={e => setFormData({ ...formData, scoring_guide: e.target.value })}
+          placeholder="Reference text, scale definitions (e.g., 1=clean, 9=severe), or photo standard URL for keeping scoring consistent across technicians…"
         />
       </div>
 
@@ -497,6 +511,11 @@ export default function Traits() {
                         <td>
                           <strong>{v.name}</strong>
                           {v.description && <div className="text-xs text-muted" style={{ marginTop: 2 }}>{v.description}</div>}
+                          {v.scoring_guide && (
+                            <div className="text-xs" style={{ marginTop: 2, color: 'var(--brand-300)' }}>
+                              📖 Guide: {v.scoring_guide}
+                            </div>
+                          )}
                         </td>
                         <td><span className="badge badge-gray" style={{ fontSize: '0.72rem' }}>{v.category || 'other'}</span></td>
                         <td><span className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>{DATA_TYPES[v.data_type as keyof typeof DATA_TYPES] || v.data_type}</span></td>

@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   plots, observationVariables, observations, traitPanels,
-  Trial, ObservationVariable, ApiError
+  Trial, ObservationVariable, Plot, Observation, ApiError
 } from '../api/client'
 import { offlineStorage } from '../services/offlineStorage'
 import Modal from './Modal'
+import { Camera, Image as ImageIcon } from 'lucide-react'
 
 interface ObservationGridProps {
   trial: Trial
@@ -25,6 +26,11 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
   const [batchVariableId, setBatchVariableId] = useState<number | null>(null)
   const [batchValue, setBatchValue] = useState<string>('')
   const [batchScope, setBatchScope] = useState<'empty' | 'all'>('empty')
+
+  // Scoring Guide & Photos
+  const [activeScoringGuideVariable, setActiveScoringGuideVariable] = useState<ObservationVariable | null>(null)
+  const [photoTarget, setPhotoTarget] = useState<{ plot: Plot; variable: ObservationVariable; obs?: Observation } | null>(null)
+  const [photoUploading, setPhotoUploading] = useState(false)
 
   // Fetch plots for this trial
   const { data: plotData, isLoading: plotsLoading } = useQuery({
@@ -334,6 +340,44 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
     setBatchValue('')
   }
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!photoTarget || !e.target.files || e.target.files.length === 0) return
+    const file = e.target.files[0]
+    setPhotoUploading(true)
+    try {
+      let obsId = photoTarget.obs?.id
+      if (!obsId) {
+        // Create observation record first
+        const cellKey = `${photoTarget.plot.id}-${photoTarget.variable.id}`
+        const val = currentValues[cellKey]
+        const res = await observations.bulkCreate({
+          observations: [
+            {
+              plot: photoTarget.plot.id,
+              variable: photoTarget.variable.id,
+              value_numeric: (photoTarget.variable.data_type === 'numeric' || photoTarget.variable.data_type === 'integer') && val ? Number(val) : null,
+              value_text: (photoTarget.variable.data_type !== 'numeric' && photoTarget.variable.data_type !== 'integer') && val ? val : '',
+            }
+          ]
+        })
+        if (res.created.length > 0) {
+          obsId = res.created[0].id
+        }
+      }
+      if (obsId) {
+        await observations.uploadPhoto(obsId, file)
+        await queryClient.invalidateQueries({ queryKey: ['observations-for-trial', trial.id] })
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 3000)
+        setPhotoTarget(null)
+      }
+    } catch (err: any) {
+      alert(`Photo upload failed: ${err.message || 'Unknown error'}`)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
   if (plotsLoading || variablesLoading || obsLoading) {
     return <div className="loading-spinner"><div className="spinner" /> Loading grid data…</div>
   }
@@ -434,7 +478,20 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
               {variableList.map(v => (
                 <th key={v.id} title={v.description} style={{ minWidth: 120 }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: 600 }}>{v.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                      <span style={{ fontWeight: 600 }}>{v.name}</span>
+                      {v.scoring_guide && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '0 4px', fontSize: '0.75rem', height: 'auto', minHeight: 0 }}
+                          onClick={() => setActiveScoringGuideVariable(v)}
+                          title="View scoring guide"
+                        >
+                          📖
+                        </button>
+                      )}
+                    </div>
                     <div className="text-xs text-muted" style={{ fontWeight: 400 }}>
                       {v.unit ? `(${v.unit})` : v.data_type}
                     </div>
@@ -447,7 +504,10 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
             {plotList.map((p, pIdx) => (
               <tr key={p.id}>
                 <td style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-card)', fontWeight: 600 }}>
-                  {p.plot_number} {p.is_check && <span style={{ fontSize: '9px', background: 'var(--amber-500)', color: '#000', padding: '0 3px', borderRadius: '2px' }}>C</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>{p.plot_number}</span>
+                    {p.is_check && <span style={{ fontSize: '9px', background: 'var(--amber-500)', color: '#000', padding: '0 3px', borderRadius: '2px' }}>C</span>}
+                  </div>
                 </td>
                 <td style={{ position: 'sticky', left: '70px', zIndex: 2, background: 'var(--bg-card)', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.germplasm_name}
@@ -459,49 +519,65 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
                   const initial = initialValues[cellKey] ?? ''
                   const hasError = !!errors[cellKey]
                   const cellDirty = value !== initial
+                  const cellObs = existingObsList.find(o => o.plot === p.id && o.variable === v.id)
+                  const hasPhotos = (cellObs?.photos?.length ?? 0) > 0
 
                   return (
-                    <td key={v.id} style={{ padding: '3px' }}>
-                      {v.data_type === 'categorical' && v.categorical_options && v.categorical_options.length > 0 ? (
-                        <select
-                          id={`grid-cell-${pIdx}-${vIdx}`}
-                          value={value}
-                          onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
-                          onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
-                          className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''}`}
-                          style={{
-                            margin: 0,
-                            padding: '4px 6px',
-                            minWidth: '100px',
-                            border: cellDirty ? '1px solid var(--brand-300)' : undefined,
-                          }}
+                    <td key={v.id} style={{ padding: '3px', position: 'relative' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {v.data_type === 'categorical' && v.categorical_options && v.categorical_options.length > 0 ? (
+                          <select
+                            id={`grid-cell-${pIdx}-${vIdx}`}
+                            value={value}
+                            onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
+                            onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
+                            className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''}`}
+                            style={{
+                              margin: 0,
+                              padding: '4px 6px',
+                              minWidth: '90px',
+                              flex: 1,
+                              border: cellDirty ? '1px solid var(--brand-300)' : undefined,
+                            }}
+                          >
+                            <option value="">—</option>
+                            {v.categorical_options.map(opt => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            id={`grid-cell-${pIdx}-${vIdx}`}
+                            type={getCellInputType(v)}
+                            value={value}
+                            onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
+                            onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
+                            className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''} ${hasError ? 'error' : ''}`}
+                            min={v.min_value ?? undefined}
+                            max={v.max_value ?? undefined}
+                            step={v.data_type === 'numeric' ? 'any' : undefined}
+                            title={errors[cellKey] || undefined}
+                            style={{
+                              margin: 0,
+                              padding: '4px 6px',
+                              minWidth: '90px',
+                              flex: 1,
+                              border: cellDirty ? '1px solid var(--brand-300)' : undefined,
+                              backgroundColor: hasError ? 'rgba(var(--status-danger-rgb), 0.1)' : undefined
+                            }}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          className={`btn btn-ghost btn-sm ${hasPhotos ? 'text-brand-400' : 'text-muted'}`}
+                          style={{ padding: '2px 4px', fontSize: '0.75rem', height: 'auto', minHeight: 0 }}
+                          onClick={() => setPhotoTarget({ plot: p, variable: v, obs: cellObs })}
+                          title={hasPhotos ? `${cellObs?.photos?.length} photos attached. Click to view/upload` : 'Attach photo'}
                         >
-                          <option value="">—</option>
-                          {v.categorical_options.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          id={`grid-cell-${pIdx}-${vIdx}`}
-                          type={getCellInputType(v)}
-                          value={value}
-                          onChange={e => setCurrentValues(prev => ({ ...prev, [cellKey]: e.target.value }))}
-                          onKeyDown={e => handleKeyDown(e, pIdx, vIdx)}
-                          className={`form-input grid-input ${cellDirty ? 'grid-dirty' : ''} ${hasError ? 'error' : ''}`}
-                          min={v.min_value ?? undefined}
-                          max={v.max_value ?? undefined}
-                          step={v.data_type === 'numeric' ? 'any' : undefined}
-                          title={errors[cellKey] || undefined}
-                          style={{
-                            margin: 0,
-                            padding: '4px 6px',
-                            minWidth: '100px',
-                            border: cellDirty ? '1px solid var(--brand-300)' : undefined,
-                            backgroundColor: hasError ? 'rgba(var(--status-danger-rgb), 0.1)' : undefined
-                          }}
-                        />
-                      )}
+                          <Camera size={13} />
+                          {hasPhotos && <span style={{ fontSize: '9px', fontWeight: 'bold' }}>{cellObs?.photos?.length}</span>}
+                        </button>
+                      </div>
                     </td>
                   )
                 })}
@@ -593,6 +669,105 @@ export default function ObservationGrid({ trial }: ObservationGridProps) {
               <button className="btn btn-secondary" onClick={() => setShowBatchFill(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={applyBatchFill} disabled={!batchValue}>
                 Apply to Grid
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Scoring Guide Modal */}
+      {activeScoringGuideVariable && (
+        <Modal
+          title={`Scoring Guide: ${activeScoringGuideVariable.name}`}
+          onClose={() => setActiveScoringGuideVariable(null)}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div className="flex justify-between items-center text-xs text-muted">
+              <span>Category: <strong>{activeScoringGuideVariable.category}</strong></span>
+              <span>Data Type: <strong>{activeScoringGuideVariable.data_type}</strong></span>
+              {activeScoringGuideVariable.unit && <span>Unit: <strong>{activeScoringGuideVariable.unit}</strong></span>}
+            </div>
+
+            {activeScoringGuideVariable.description && (
+              <p className="text-sm text-muted">{activeScoringGuideVariable.description}</p>
+            )}
+
+            <div style={{ background: 'var(--bg-subtle)', padding: 'var(--space-3)', borderRadius: 'var(--r-md)', whiteSpace: 'pre-wrap', fontFamily: 'var(--font-sans)', fontSize: '0.875rem' }}>
+              <h4 className="font-semibold text-xs text-brand-300 uppercase mb-2">Protocol & Rubric Scale:</h4>
+              {activeScoringGuideVariable.scoring_guide}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setActiveScoringGuideVariable(null)}>
+                Got it
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Photo Attachment & Viewer Modal */}
+      {photoTarget && (
+        <Modal
+          title={`Observation Photos — Plot ${photoTarget.plot.plot_number}`}
+          onClose={() => setPhotoTarget(null)}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <div className="text-xs text-muted">
+              Germplasm: <strong>{photoTarget.plot.germplasm_name}</strong> • Trait: <strong>{photoTarget.variable.name}</strong>
+            </div>
+
+            {/* Existing photos gallery */}
+            {photoTarget.obs?.photos && photoTarget.obs.photos.length > 0 ? (
+              <div>
+                <h4 className="text-xs font-semibold uppercase text-muted mb-2">Attached Photos:</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 'var(--space-2)' }}>
+                  {photoTarget.obs.photos.map(p => (
+                    <div key={p.id} className="card" style={{ padding: 4, overflow: 'hidden' }}>
+                      <a href={p.image} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={p.image}
+                          alt="Observation"
+                          style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 'var(--r-sm)' }}
+                        />
+                      </a>
+                      <div className="text-xs text-muted font-mono mt-1" style={{ fontSize: '10px' }}>
+                        {p.uploaded_at ? new Date(p.uploaded_at).toLocaleDateString() : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state p-4 text-center">
+                <ImageIcon size={32} className="text-muted mx-auto mb-2" />
+                <p className="text-xs text-muted">No photos attached yet for this observation.</p>
+              </div>
+            )}
+
+            {/* Upload form */}
+            <div className="form-group">
+              <label className="form-label font-semibold text-xs">
+                Upload New Observation Photo:
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="form-input"
+                disabled={photoUploading}
+                onChange={handlePhotoUpload}
+              />
+              {photoUploading && (
+                <div className="text-xs text-brand-400 mt-1 flex items-center gap-1">
+                  <div className="spinner" style={{ width: 12, height: 12 }} /> Uploading photo…
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setPhotoTarget(null)}>
+                Close
               </button>
             </div>
           </div>

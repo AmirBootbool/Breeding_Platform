@@ -31,6 +31,7 @@ class GermplasmSerializer(AuditSerializerMixin, serializers.ModelSerializer):
             "year_developed",
             "tags",
             "is_check",
+            "release_status",
             "notes",
             "is_archived",
             "created_at",

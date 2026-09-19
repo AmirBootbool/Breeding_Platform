@@ -23,6 +23,10 @@ import AuditTrail from './pages/AuditTrail'
 import Genomics from './pages/Genomics'
 import Preferences from './pages/Preferences'
 import Compare from './pages/Compare'
+import SeasonReport from './pages/SeasonReport'
+import PublicSharedReport from './pages/PublicSharedReport'
+import TodaysTasks from './pages/TodaysTasks'
+import NurseryMap from './pages/NurseryMap'
 
 function ProtectedLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -67,9 +71,12 @@ function ProtectedLayout() {
           <Route path="/germplasm" element={<GermplasmBrowser />} />
           <Route path="/germplasm/compare" element={<Compare />} />
           <Route path="/crosses" element={<CrossingBlock />} />
+          <Route path="/tasks" element={<TodaysTasks />} />
           <Route path="/seed-inventory" element={<SeedInventory />} />
           <Route path="/trials" element={<TrialManager />} />
+          <Route path="/nursery-map" element={<NurseryMap />} />
           <Route path="/observations" element={<ObservationEntry />} />
+          <Route path="/seasons/:seasonId/report" element={<SeasonReport />} />
           <Route path="/export" element={<DataExport />} />
           <Route path="/setup" element={<Setup />} />
           <Route path="/analysis" element={<MultiEnvironmentAnalysis />} />
@@ -91,6 +98,7 @@ export default function App() {
       <ToastProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/shared/:token" element={<PublicSharedReport />} />
           <Route path="/*" element={<ProtectedLayout />} />
         </Routes>
       </ToastProvider>

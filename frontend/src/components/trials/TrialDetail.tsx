@@ -16,6 +16,8 @@ import PlotGrid from './PlotGrid'
 import SummaryChart from './SummaryChart'
 import GermplasmListTab from './GermplasmListTab'
 import AdvancePlotsTab from './AdvancePlotsTab'
+import QcReviewTab from './QcReviewTab'
+import WeatherTab from './WeatherTab'
 import MapCreationWizard from './MapCreationWizard'
 import ImportFieldBookModal from './ImportFieldBookModal'
 import PedigreeTreeModal from '../pedigree/PedigreeTreeModal'
@@ -258,6 +260,24 @@ export default function TrialDetail({ trial }: TrialDetailProps) {
             content: (
               <div className="card">
                 <ObservationGrid trial={trial} />
+              </div>
+            ),
+          },
+          {
+            id: 'qc',
+            label: '🔍 QC Review',
+            content: (
+              <div className="card">
+                <QcReviewTab trial={trial} />
+              </div>
+            ),
+          },
+          {
+            id: 'weather',
+            label: '🌤 Weather',
+            content: (
+              <div className="card">
+                <WeatherTab trial={trial} />
               </div>
             ),
           },

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  crossingBlocks, germplasm, programs, locations, seasons, selectionShortlist,
+  crossingBlocks, germplasm, programs, locations, seasons, selectionShortlist, observationVariables,
   CrossingBlock as CB, CrossEntry, CrossingMapEntry,
   Germplasm, Program, Location, Season, ApiError,
 } from '../api/client'
@@ -24,13 +24,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ---- Germplasm picker panel -------------------------------------------------
 function GermplasmPanel({
-  title, icon, selected, onToggle, searchTerm, onSearchChange, programFilter, entries, loading, shortlistedIds,
+  title, icon, selected, onToggle, searchTerm, onSearchChange, programFilter, entries, loading, shortlistedIds, perfMap,
 }: {
   title: string; icon: string; selected: Set<number>; onToggle: (id: number) => void
   searchTerm: string; onSearchChange: (v: string) => void
   programFilter: string
   entries: Germplasm[]; loading: boolean
   shortlistedIds: Set<number>
+  perfMap?: Map<number, { avg_value: number | null; observation_count: number; season_count: number }>
 }) {
   const [shortlistedOnly, setShortlistedOnly] = useState(false)
 
@@ -70,28 +71,40 @@ function GermplasmPanel({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {filtered.map(entry => (
-              <label
-                key={entry.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  padding: '6px var(--space-3)', borderRadius: 'var(--r-sm)',
-                  cursor: 'pointer', transition: 'background 0.15s',
-                  background: selected.has(entry.id) ? 'rgba(74, 222, 128, 0.08)' : 'transparent',
-                }}
-                className="hover-row"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(entry.id)}
-                  onChange={() => onToggle(entry.id)}
-                  style={{ accentColor: 'var(--brand-400)' }}
-                />
-                <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{entry.name}</span>
-                {shortlistedIds.has(entry.id) && <span title="Shortlisted">★</span>}
-                <span className="text-xs text-muted font-mono" style={{ marginLeft: 'auto' }}>{entry.germplasm_db_id}</span>
-              </label>
-            ))}
+            {filtered.map(entry => {
+              const perf = perfMap?.get(entry.id)
+              return (
+                <label
+                  key={entry.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                    padding: '6px var(--space-3)', borderRadius: 'var(--r-sm)',
+                    cursor: 'pointer', transition: 'background 0.15s',
+                    background: selected.has(entry.id) ? 'rgba(74, 222, 128, 0.08)' : 'transparent',
+                  }}
+                  className="hover-row"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(entry.id)}
+                    onChange={() => onToggle(entry.id)}
+                    style={{ accentColor: 'var(--brand-400)' }}
+                  />
+                  <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{entry.name}</span>
+                  {shortlistedIds.has(entry.id) && <span title="Shortlisted">★</span>}
+                  {perf && perf.avg_value !== null && (
+                    <span
+                      className="badge badge-gray text-xs"
+                      title={`Cross-season mean: ${perf.avg_value} across ${perf.season_count} season(s) (${perf.observation_count} obs)`}
+                      style={{ fontSize: '0.75rem', padding: '1px 5px', marginLeft: '4px' }}
+                    >
+                      μ: {perf.avg_value.toFixed(1)} <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>({perf.observation_count})</span>
+                    </span>
+                  )}
+                  <span className="text-xs text-muted font-mono" style={{ marginLeft: 'auto' }}>{entry.germplasm_db_id}</span>
+                </label>
+              )
+            })}
           </div>
         )}
       </div>
@@ -239,6 +252,7 @@ export default function CrossingBlock() {
   const [mapEntries, setMapEntries] = useState<CrossingMapEntry[]>([])
   const [executionResult, setExecutionResult] = useState<{ executed_count: number } | null>(null)
   const [mapExportFormat, setMapExportFormat] = useState<'csv' | 'xlsx'>('csv')
+  const [perfVariableId, setPerfVariableId] = useState<number | ''>('')
 
   const qc = useQueryClient()
 
@@ -249,6 +263,7 @@ export default function CrossingBlock() {
   const { data: programsData } = useQuery({ queryKey: ['programs'], queryFn: () => programs.list() })
   const { data: locationsData } = useQuery({ queryKey: ['locations'], queryFn: () => locations.list() })
   const { data: seasonsData } = useQuery({ queryKey: ['seasons'], queryFn: () => seasons.list() })
+  const { data: variablesData } = useQuery({ queryKey: ['observation-variables'], queryFn: () => observationVariables.list() })
   const { data: allGermplasmData, isLoading: germplasmLoading } = useQuery({
     queryKey: ['germplasm-all', activeBlock?.id, activeBlock?.program],
     queryFn: () => germplasm.listAll(activeBlock?.program ? `program=${activeBlock.program}` : ''),
@@ -264,7 +279,18 @@ export default function CrossingBlock() {
   const programList = programsData?.results ?? []
   const locationList = locationsData?.results ?? []
   const seasonList = seasonsData?.results ?? []
+  const variableList = variablesData?.results ?? []
   const allGermplasm = allGermplasmData?.results ?? []
+
+  const { data: obsSummaryData } = useQuery({
+    queryKey: ['germplasm-obs-summary', perfVariableId, allGermplasm.length],
+    queryFn: () => germplasm.getObservationSummary(allGermplasm.map(g => g.id), Number(perfVariableId)),
+    enabled: !!perfVariableId && allGermplasm.length > 0,
+  })
+  const perfMap = useMemo(() => {
+    if (!obsSummaryData) return undefined
+    return new Map(obsSummaryData.map(s => [s.germplasm, s]))
+  }, [obsSummaryData])
 
   function toggleFemale(id: number) {
     setFemaleSelected(prev => {
@@ -521,6 +547,24 @@ export default function CrossingBlock() {
           {/* Dual panel parent selectors if planning */}
           {plannedCrosses.length === 0 && (
             <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+                <span className="text-xs text-muted">Select female and male parents to generate crosses:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <label className="text-xs font-semibold text-muted">Historical Trait Mean Overlay:</label>
+                  <select
+                    className="form-input"
+                    style={{ width: 200, padding: '3px 8px', fontSize: '0.8rem' }}
+                    value={perfVariableId}
+                    onChange={e => setPerfVariableId(e.target.value ? Number(e.target.value) : '')}
+                  >
+                    <option value="">No Trait Overlay</option>
+                    {variableList.map(v => (
+                      <option key={v.id} value={v.id}>{v.name} ({v.data_type})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'stretch' }}>
                 <GermplasmPanel
                   title="Female Parents (♀)" icon="♀" selected={femaleSelected} onToggle={toggleFemale}
@@ -528,6 +572,7 @@ export default function CrossingBlock() {
                   programFilter={femaleProgramFilter}
                   entries={allGermplasm} loading={germplasmLoading}
                   shortlistedIds={shortlistedIds}
+                  perfMap={perfMap}
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-2)' }}>
                   <button className="btn btn-secondary btn-sm" onClick={swapSelections} title="Swap ♀ ↔ ♂"
@@ -541,6 +586,7 @@ export default function CrossingBlock() {
                   programFilter={maleProgramFilter}
                   entries={allGermplasm} loading={germplasmLoading}
                   shortlistedIds={shortlistedIds}
+                  perfMap={perfMap}
                 />
               </div>
 

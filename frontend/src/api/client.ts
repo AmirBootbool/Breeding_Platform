@@ -61,6 +61,7 @@ export interface Germplasm {
   pedigree_string: string
   tags: string[]
   is_check: boolean
+  release_status: 'breeding_line' | 'release_candidate' | 'released' | 'discontinued'
   notes: string
   is_archived?: boolean
   created_at: string
@@ -129,6 +130,13 @@ export interface SeedLot {
   created_by_username?: string | null
 }
 
+export interface SeedAvailabilityResult {
+  germplasm: number
+  grams_needed: number
+  available_grams: number
+  shortfall_grams: number
+}
+
 export interface Trial {
   id: number
   name: string
@@ -194,6 +202,7 @@ export interface ObservationVariable {
   max_value: number | null
   is_required: boolean
   description: string
+  scoring_guide?: string
   created_at?: string
   updated_at?: string
   created_by_username?: string | null
@@ -227,6 +236,15 @@ export const CROP_CHOICES = [
 
 export type Trait = ObservationVariable
 
+export interface ObservationPhoto {
+  id: number
+  observation: number
+  image: string
+  uploaded_at: string
+  uploaded_by: number | null
+  uploaded_by_username: string | null
+}
+
 export interface Observation {
   id: number
   plot: number
@@ -237,6 +255,7 @@ export interface Observation {
   value_date: string | null
   observation_time: string | null
   notes: string
+  photos?: ObservationPhoto[]
 }
 
 export interface TrialSummaryRow {
@@ -378,6 +397,29 @@ export const locations = {
 
 // ---- Seasons ---------------------------------------------------------------
 
+export interface SeasonSummary {
+  season_id: number
+  season_name: string
+  year: number
+  trial_count: number
+  trials: { trial_code: string; name: string; location_name: string | null; design_type: string; status: string; plot_count: number }[]
+  cross_count: number
+  cross_counts_by_status: Record<string, number>
+}
+
+export interface ShareLinkResponse {
+  token: string
+  expires_at: string
+}
+
+export interface PublicSeasonSummary {
+  season_name: string
+  year: number
+  trial_count: number
+  trials: { trial_code: string; name: string; status: string; plot_count: number }[]
+  cross_count: number
+}
+
 export const seasons = {
   list: (params = '') =>
     apiFetch<PaginatedResponse<Season>>(`/seasons/?page_size=200${params}`),
@@ -387,6 +429,21 @@ export const seasons = {
     apiFetch<Season>(`/seasons/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   destroy: (id: number) =>
     apiFetch<void>(`/seasons/${id}/`, { method: 'DELETE' }),
+  getSummary: (id: number) => apiFetch<SeasonSummary>(`/seasons/${id}/summary/`),
+  createShareLink: (id: number, daysValid: number = 30) =>
+    apiFetch<ShareLinkResponse>(`/seasons/${id}/create_share_link/`, {
+      method: 'POST',
+      body: JSON.stringify({ days_valid: daysValid }),
+    }),
+}
+
+export const publicShared = {
+  getSeasonSummary: (token: string) =>
+    fetch(`${BASE}/public/shared/${token}/`).then(async res => {
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new ApiError(res.status, data.detail || 'Failed to load report')
+      return data as PublicSeasonSummary
+    }),
 }
 
 export interface GermplasmBulkImportResult {
@@ -457,6 +514,28 @@ export const germplasm = {
       method: 'POST',
       body: JSON.stringify({ pairs }),
     }),
+  getHistory: (id: number) => apiFetch<GermplasmHistory>(`/germplasm/${id}/history/`),
+  getObservationSummary: (germplasmIds: number[], variableId: number) =>
+    apiFetch<ObservationSummary[]>('/germplasm/observation_summary/', {
+      method: 'POST',
+      body: JSON.stringify({ germplasm_ids: germplasmIds, variable_id: variableId }),
+    }),
+}
+
+export interface GermplasmHistory {
+  germplasm_id: number
+  name: string
+  trial_history: { trial_id: number; trial_code: string; trial_name: string; season_name: string | null; location_name: string | null; plot_number: number; status: string }[]
+  cross_history: { cross_code: string; role: 'female' | 'male'; other_parent: string; status: string; progeny_name: string | null }[]
+  is_shortlisted: boolean
+  shortlist_source: string | null
+}
+
+export interface ObservationSummary {
+  germplasm: number
+  avg_value: number | null
+  observation_count: number
+  season_count: number
 }
 
 export interface RelatednessResult {
@@ -548,7 +627,18 @@ export const trials = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  getQcFlags: (id: number) => apiFetch<QcFlag[]>(`/trials/${id}/qc_flags/`),
 }
+
+export interface QcFlag {
+  plot_number: number
+  variable_name: string
+  value: number
+  trial_mean: number
+  trial_stdev: number
+  z_score: number
+}
+
 
 // ---- Plots -----------------------------------------------------------------
 
@@ -610,6 +700,22 @@ export const observations = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  uploadPhoto: (observationId: number, file: File) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const token = getToken()
+    return fetch(`${BASE}/observations/${observationId}/upload_photo/`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Token ${token}` } : {},
+      body: formData,
+    }).then(async res => {
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new ApiError(res.status, errBody?.detail ?? 'Photo upload failed.')
+      }
+      return res.json() as Promise<ObservationPhoto>
+    })
+  },
 }
 
 // ---- Audit Log --------------------------------------------------------------
@@ -850,6 +956,11 @@ export const seedLots = {
     ),
   getLowStock: (threshold: number = 50.0) =>
     apiFetch<SeedLot[]>(`/seed-lots/low_stock/?threshold=${threshold}`),
+  checkAvailability: (requirements: { germplasm: number; grams_needed: number }[]) =>
+    apiFetch<SeedAvailabilityResult[]>('/seed-lots/check_availability/', {
+      method: 'POST',
+      body: JSON.stringify({ requirements }),
+    }),
 }
 
 export const seedTransactions = {
@@ -1203,6 +1314,48 @@ export const preferences = {
       body: JSON.stringify({ data }),
     }),
 }
+
+// ---- Weather Observations (Ticket F4) --------------------------------------
+
+export interface WeatherObservation {
+  id: number
+  location: number
+  location_name: string
+  date: string
+  temp_min_c: number | null
+  temp_max_c: number | null
+  precipitation_mm: number | null
+  source: string
+}
+
+export interface WeatherImportResult {
+  created_count: number
+  updated_count: number
+  errors: { row: number; detail: string }[]
+}
+
+export const weather = {
+  list: (params = '') =>
+    apiFetch<PaginatedResponse<WeatherObservation>>(`/weather/?page_size=500${params}`),
+  create: (data: Partial<WeatherObservation>) =>
+    apiFetch<WeatherObservation>('/weather/', { method: 'POST', body: JSON.stringify(data) }),
+  importCsv: async (file: File): Promise<WeatherImportResult> => {
+    const token = getToken()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Token ${token}`
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`${BASE}/weather/import_csv/`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) throw new ApiError(res.status, body?.detail ?? body)
+    return body as WeatherImportResult
+  },
+}
+
 
 
 

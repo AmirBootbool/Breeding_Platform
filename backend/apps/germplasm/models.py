@@ -59,6 +59,18 @@ class Germplasm(models.Model):
         db_index=True,
         help_text="True for permanent check/reference lines used across trials.",
     )
+    RELEASE_STATUS_CHOICES = [
+        ("breeding_line", "Breeding Line"),
+        ("release_candidate", "Release Candidate"),
+        ("released", "Released Variety"),
+        ("discontinued", "Discontinued"),
+    ]
+    release_status = models.CharField(
+        max_length=20,
+        choices=RELEASE_STATUS_CHOICES,
+        default="breeding_line",
+        db_index=True,
+    )
     notes = models.TextField(blank=True)
     is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -3,7 +3,7 @@ import io
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from django.db import transaction
@@ -833,6 +833,53 @@ class TrialViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=["get"], url_path="qc_flags")
+    def qc_flags(self, request, pk=None):
+        """Numeric observations more than 3 standard deviations from their
+        trait's mean within this trial. Computed in Python (not a DB
+        aggregate) because SQLite has no STDDEV function and this project
+        runs on SQLite in local dev."""
+        import statistics
+        from .models import Observation, ObservationVariable
+
+        trial = self.get_object()
+        variable_ids = (
+            Observation.objects.filter(plot__trial=trial, value_numeric__isnull=False)
+            .values_list("variable_id", flat=True)
+            .distinct()
+        )
+        flags = []
+        for variable in ObservationVariable.objects.filter(id__in=variable_ids):
+            observations = list(
+                Observation.objects.filter(
+                    plot__trial=trial, variable=variable, value_numeric__isnull=False
+                ).select_related("plot")
+            )
+            if len(observations) < 3:
+                continue
+            values = [o.value_numeric for o in observations]
+            mean = statistics.mean(values)
+            try:
+                stdev = statistics.stdev(values)
+            except statistics.StatisticsError:
+                continue
+            if stdev == 0:
+                continue
+            for obs in observations:
+                z = (obs.value_numeric - mean) / stdev
+                if abs(z) > 3:
+                    flags.append({
+                        "observation_id": obs.id,
+                        "plot_number": obs.plot.plot_number,
+                        "variable_name": variable.name,
+                        "value": obs.value_numeric,
+                        "trial_mean": round(mean, 3),
+                        "trial_stdev": round(stdev, 3),
+                        "z_score": round(z, 2),
+                    })
+        return Response(flags)
+
+
 
 class PlotViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
     program_lookup = "trial__program_id"
@@ -960,6 +1007,26 @@ class ObservationViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
             {"created": created if not errors else [], "errors": errors},
             status=status_code,
         )
+
+    @action(
+        detail=True, methods=["post"],
+        parser_classes=[MultiPartParser, FormParser], url_path="upload_photo",
+    )
+    def upload_photo(self, request, pk=None):
+        from .models import ObservationPhoto
+        from .serializers import ObservationPhotoSerializer
+
+        observation = self.get_object()
+        image_file = request.FILES.get("image") or request.FILES.get("file")
+        if not image_file:
+            return Response({"detail": "image file is required (form key 'image' or 'file')."}, status=400)
+
+        uploaded_user = request.user if getattr(request, "user", None) and request.user.is_authenticated else None
+        photo = ObservationPhoto.objects.create(
+            observation=observation, image=image_file, uploaded_by=uploaded_user,
+        )
+        return Response(ObservationPhotoSerializer(photo).data, status=201)
+
 
 
 class AnalysisSetViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):

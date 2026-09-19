@@ -217,6 +217,10 @@ class ObservationVariable(models.Model):
     name = models.CharField(max_length=255, db_index=True)
     variable_code = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
+    scoring_guide = models.TextField(
+        blank=True,
+        help_text="Reference text, scale definitions, or a URL to a photo standard, for keeping scoring consistent across technicians.",
+    )
     unit = models.CharField(max_length=64, blank=True)
     data_type = models.CharField(
         max_length=16, choices=DATA_TYPE_CHOICES, default="numeric"
@@ -467,3 +471,19 @@ class TraitPanel(models.Model):
 
     class Meta:
         ordering = ["name"]
+
+
+class ObservationPhoto(models.Model):
+    observation = models.ForeignKey(
+        Observation, on_delete=models.CASCADE, related_name="photos"
+    )
+    image = models.ImageField(upload_to="observation_photos/%Y/%m/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+
+    def __str__(self):
+        return f"Photo for {self.observation}"
+

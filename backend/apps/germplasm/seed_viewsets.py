@@ -196,6 +196,30 @@ class SeedLotViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(lots, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["post"], url_path="check_availability")
+    def check_availability(self, request):
+        """Body: {"requirements": [{"germplasm": <id>, "grams_needed": <float>}, ...]}.
+        Returns available/shortfall grams per germplasm, summed across that
+        germplasm's available (non-quarantine, non-depleted) seed lots in the
+        requester's own program. Uses quantity_grams - reserved_grams as the
+        truly-free amount, which is a stricter definition than the existing
+        is_low_stock check (that one only looks at raw quantity_grams) —
+        this is intentional, do not "fix" it to match is_low_stock."""
+        requirements = request.data.get("requirements", [])
+        results = []
+        for req in requirements:
+            germplasm_id = req.get("germplasm")
+            grams_needed = req.get("grams_needed") or 0
+            lots = self.get_queryset().filter(germplasm_id=germplasm_id, status="available")
+            available = sum((lot.quantity_grams - lot.reserved_grams) for lot in lots)
+            results.append({
+                "germplasm": germplasm_id,
+                "grams_needed": grams_needed,
+                "available_grams": available,
+                "shortfall_grams": max(0, grams_needed - available),
+            })
+        return Response(results)
+
 
 class SeedTransactionViewSet(ProgramScopedQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     program_lookup = "seed_lot__program_id"

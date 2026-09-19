@@ -7,7 +7,7 @@ from rest_framework import serializers
 from apps.core.models import Location, Season
 from apps.core.serializers import AuditSerializerMixin
 
-from .models import AnalysisSet, Observation, ObservationVariable, Plot, TraitPanel, Trial
+from .models import AnalysisSet, Observation, ObservationPhoto, ObservationVariable, Plot, TraitPanel, Trial
 
 
 class TrialSerializer(AuditSerializerMixin, serializers.ModelSerializer):
@@ -208,6 +208,7 @@ class ObservationVariableSerializer(AuditSerializerMixin, serializers.ModelSeria
             "name",
             "variable_code",
             "description",
+            "scoring_guide",
             "unit",
             "data_type",
             "min_value",
@@ -288,10 +289,20 @@ class TraitPanelSerializer(serializers.ModelSerializer):
         return obj.variables.count()
 
 
+class ObservationPhotoSerializer(serializers.ModelSerializer):
+    uploaded_by_username = serializers.CharField(source="uploaded_by.username", read_only=True, default=None)
+
+    class Meta:
+        model = ObservationPhoto
+        fields = ["id", "observation", "image", "uploaded_at", "uploaded_by", "uploaded_by_username"]
+        read_only_fields = ["id", "uploaded_at", "uploaded_by"]
+
+
 class ObservationSerializer(serializers.ModelSerializer):
     trial_code = serializers.CharField(source="plot.trial.trial_code", read_only=True)
     germplasm_name = serializers.CharField(source="plot.germplasm.name", read_only=True)
     variable_name = serializers.CharField(source="variable.name", read_only=True)
+    photos = ObservationPhotoSerializer(many=True, read_only=True)
 
     class Meta:
         model = Observation
@@ -307,6 +318,7 @@ class ObservationSerializer(serializers.ModelSerializer):
             "value_numeric",
             "value_date",
             "notes",
+            "photos",
             "created_at",
         ]
         read_only_fields = [
@@ -314,8 +326,10 @@ class ObservationSerializer(serializers.ModelSerializer):
             "trial_code",
             "germplasm_name",
             "variable_name",
+            "photos",
             "created_at",
         ]
+
 
 
 class AnalysisSetSerializer(serializers.ModelSerializer):

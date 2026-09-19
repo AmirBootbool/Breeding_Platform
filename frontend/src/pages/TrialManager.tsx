@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   trials, programs, locations, seasons,
@@ -83,7 +84,8 @@ function TrialCard({ trial, canWrite, onClick, onEdit, onDelete, onClone }: {
 }
 
 export default function TrialManager() {
-  const role = useAuthStore(s => s.role)
+  const navigate = useNavigate()
+  const { role } = useAuthStore()
   const activeProgramId = useUiStore(s => s.activeProgramId)
   const canWrite = role === 'admin' || role === 'breeder'
 
@@ -166,11 +168,25 @@ export default function TrialManager() {
       <TopBar
         title="Trial Manager"
         subtitle={`${data?.count ?? '…'} trials`}
-        actions={canWrite ? (
-          <button id="new-trial-btn" className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            + New Trial
-          </button>
-        ) : undefined}
+        actions={
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            {seasonList.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => navigate(`/seasons/${filterSeason || seasonList[0]?.id}/report`)}
+                title="View season summary report"
+              >
+                📊 Season Report
+              </button>
+            )}
+            {canWrite && (
+              <button id="new-trial-btn" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                + New Trial
+              </button>
+            )}
+          </div>
+        }
       />
 
       {/* Toolbar */}

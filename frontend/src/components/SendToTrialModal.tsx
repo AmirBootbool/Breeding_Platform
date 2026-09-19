@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { programs, locations, seasons, trials, Program, Location, Season, ApiError } from '../api/client'
+import { programs, locations, seasons, trials, seedLots, Program, Location, Season, ApiError } from '../api/client'
 import Modal from './Modal'
 import { useToast } from './common/ToastProvider'
 
@@ -22,6 +22,17 @@ const DESIGN_OPTIONS = [
   { value: 'other', label: 'Custom / Other', requiresReps: true },
 ]
 
+function recommendDesignType(entryCount: number): { recommended: string; rationale: string } | null {
+  if (entryCount <= 0) return null
+  if (entryCount <= 20) {
+    return { recommended: 'RCBD', rationale: `With ${entryCount} entries, full replication (RCBD) is usually manageable and simple to analyze.` }
+  }
+  if (entryCount <= 100) {
+    return { recommended: 'alpha_lattice', rationale: `With ${entryCount} entries, alpha-lattice incomplete blocks typically control field variation better than plain RCBD at this scale.` }
+  }
+  return { recommended: 'prep', rationale: `With ${entryCount} entries, a partially-replicated (p-rep) design is often more seed- and space-efficient than full replication.` }
+}
+
 export default function SendToTrialModal({ germplasmIds, programId, onClose, onSuccess }: SendToTrialModalProps) {
   const qc = useQueryClient()
   const { showToast } = useToast()
@@ -37,6 +48,7 @@ export default function SendToTrialModal({ germplasmIds, programId, onClose, onS
     block_size: '4',
     prep_fraction: '0.25',
     randomization_seed: '42',
+    grams_per_plot: '5',
   })
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -88,6 +100,16 @@ export default function SendToTrialModal({ germplasmIds, programId, onClose, onS
     const reps = parseInt(form.num_reps, 10) || 1
     return n * reps
   }, [germplasmIds.length, isUnrep, isLatinSquare, isPRep, form.prep_fraction, form.num_reps])
+
+  const plotsPerEntry = germplasmIds.length > 0 ? estimatedPlots / germplasmIds.length : 0
+  const { data: availabilityResults } = useQuery({
+    queryKey: ['seed-availability', germplasmIds.join(','), form.grams_per_plot, plotsPerEntry],
+    queryFn: () => seedLots.checkAvailability(
+      germplasmIds.map(id => ({ germplasm: id, grams_needed: plotsPerEntry * (parseFloat(form.grams_per_plot) || 0) }))
+    ),
+    enabled: germplasmIds.length > 0 && plotsPerEntry > 0,
+  })
+  const shortfalls = (availabilityResults ?? []).filter(r => r.shortfall_grams > 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,8 +173,7 @@ export default function SendToTrialModal({ germplasmIds, programId, onClose, onS
       } else {
         setError((err as Error).message)
       }
-    }
- finally {
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -237,6 +258,22 @@ export default function SendToTrialModal({ germplasmIds, programId, onClose, onS
             </select>
           </div>
 
+          {(() => {
+            const rec = recommendDesignType(germplasmIds.length)
+            if (!rec || rec.recommended === form.design_type) return null
+            return (
+              <div className="alert alert-info mb-2" style={{ gridColumn: '1/-1' }}>
+                <span>💡</span>
+                <span>
+                  {rec.rationale}{' '}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('design_type', rec.recommended)}>
+                    Use {rec.recommended}
+                  </button>
+                </span>
+              </div>
+            )
+          })()}
+
           <div className="form-group" style={{ gridColumn: '1/-1' }}>
             <label className="form-label">Experimental Design Type</label>
             <select
@@ -267,6 +304,18 @@ export default function SendToTrialModal({ germplasmIds, programId, onClose, onS
               />
             </div>
           )}
+
+          <div className="form-group">
+            <label className="form-label">Grams of Seed per Plot</label>
+            <input
+              id="send-trial-grams-per-plot"
+              className="form-input"
+              type="number"
+              step="0.1"
+              value={form.grams_per_plot}
+              onChange={e => set('grams_per_plot', e.target.value)}
+            />
+          </div>
 
           {isAlpha && (
             <div className="form-group">
@@ -312,6 +361,13 @@ export default function SendToTrialModal({ germplasmIds, programId, onClose, onS
             />
           </div>
         </div>
+
+        {shortfalls.length > 0 && (
+          <div className="alert alert-warning mb-4" style={{ marginTop: 'var(--space-3)' }}>
+            <span>⚠</span>
+            <span>{shortfalls.length} of {germplasmIds.length} entries may not have enough seed (short by up to {Math.max(...shortfalls.map(s => s.shortfall_grams)).toFixed(1)}g). You can still proceed — this is a heads-up, not a block.</span>
+          </div>
+        )}
 
         <div className="modal-footer" style={{ marginTop: 'var(--space-5)' }}>
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>

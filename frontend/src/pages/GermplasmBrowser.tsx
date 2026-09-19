@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import SendToTrialModal from '../components/SendToTrialModal'
 import PedigreeTreeModal from '../components/pedigree/PedigreeTreeModal'
 import ImportGermplasmModal from '../components/germplasm/ImportGermplasmModal'
+import GermplasmHistoryPanel from '../components/GermplasmHistoryPanel'
 import { DataTable, Column } from '../components/common/DataTable'
 import { useToast } from '../components/common/ToastProvider'
 
@@ -40,7 +41,11 @@ function PedigreePanel({ entry, onOpenTree }: { entry: Germplasm; onOpenTree: (e
           <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>{entry.name}</h3>
           <p className="text-xs text-muted font-mono">{entry.germplasm_db_id}</p>
         </div>
-        {entry.is_check && <span className="badge badge-amber">CHECK</span>}
+        <div className="flex gap-1" style={{ alignItems: 'center' }}>
+          {entry.is_check && <span className="badge badge-amber">CHECK</span>}
+          {entry.release_status === 'released' && <span className="badge badge-green">RELEASED</span>}
+          {entry.release_status === 'release_candidate' && <span className="badge badge-blue">CANDIDATE FOR RELEASE</span>}
+        </div>
       </div>
       
       <button 
@@ -140,6 +145,7 @@ function GermplasmForm({ initial, programList, onClose, onSaved, isEdit, editId 
     parent_male: initial?.parent_male?.toString() ?? '',
     pedigree_string: initial?.pedigree_string ?? '',
     is_check: initial?.is_check ?? false,
+    release_status: initial?.release_status ?? 'breeding_line',
     tags: (initial?.tags ?? []).join(', '),
     notes: initial?.notes ?? '',
   })
@@ -163,6 +169,7 @@ function GermplasmForm({ initial, programList, onClose, onSaved, isEdit, editId 
         generation: Number(form.generation),
         pedigree_string: form.pedigree_string,
         is_check: form.is_check,
+        release_status: form.release_status,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         notes: form.notes,
       }
@@ -227,6 +234,15 @@ function GermplasmForm({ initial, programList, onClose, onSaved, isEdit, editId 
             {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(g => (
               <option key={g} value={g}>{GEN_LABELS[g] ?? `F${g}`}</option>
             ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Release Status</label>
+          <select id="germ-release-status" className="form-input" value={form.release_status} onChange={e => set('release_status', e.target.value)}>
+            <option value="breeding_line">Breeding Line</option>
+            <option value="release_candidate">Release Candidate</option>
+            <option value="released">Released Variety</option>
+            <option value="discontinued">Discontinued</option>
           </select>
         </div>
         <div className="form-group">
@@ -308,6 +324,16 @@ function ComparisonModal({ entries, onClose }: { entries: Germplasm[]; onClose: 
               <td><strong>Check Line?</strong></td>
               {entries.map(e => (
                 <td key={e.id}>{e.is_check ? <span className="badge badge-amber">CHECK</span> : <span className="badge badge-gray">Candidate</span>}</td>
+              ))}
+            </tr>
+            <tr>
+              <td><strong>Release Status</strong></td>
+              {entries.map(e => (
+                <td key={e.id}>
+                  {e.release_status === 'released' ? <span className="badge badge-green">RELEASED</span> :
+                   e.release_status === 'release_candidate' ? <span className="badge badge-blue">CANDIDATE FOR RELEASE</span> :
+                   <span className="badge badge-gray">{e.release_status || 'breeding_line'}</span>}
+                </td>
               ))}
             </tr>
             <tr>
@@ -672,6 +698,16 @@ export default function GermplasmBrowser() {
                             CHECK
                           </span>
                         )}
+                        {entry.release_status === 'released' && (
+                          <span className="badge badge-green" style={{ fontSize: '0.65rem', padding: '1px 4px' }}>
+                            RELEASED
+                          </span>
+                        )}
+                        {entry.release_status === 'release_candidate' && (
+                          <span className="badge badge-blue" style={{ fontSize: '0.65rem', padding: '1px 4px' }}>
+                            CANDIDATE
+                          </span>
+                        )}
                       </div>
                     )
                   },
@@ -789,7 +825,11 @@ export default function GermplasmBrowser() {
                       />
                       <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{entry.name}</div>
                     </div>
-                    {entry.is_check && <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>CHECK</span>}
+                    <div className="flex gap-1" style={{ alignItems: 'center' }}>
+                      {entry.is_check && <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>CHECK</span>}
+                      {entry.release_status === 'released' && <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>RELEASED</span>}
+                      {entry.release_status === 'release_candidate' && <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>CANDIDATE</span>}
+                    </div>
                   </div>
                   <div className="font-mono text-xs text-muted">{entry.germplasm_db_id}</div>
                   <div className="flex gap-2 text-xs">
@@ -849,10 +889,13 @@ export default function GermplasmBrowser() {
         </div>
 
         {selected && (
-          <PedigreePanel 
-            entry={selected} 
-            onOpenTree={(entry) => setTreeTarget(entry)} 
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', width: 340, flexShrink: 0 }}>
+            <PedigreePanel 
+              entry={selected} 
+              onOpenTree={(entry) => setTreeTarget(entry)} 
+            />
+            <GermplasmHistoryPanel entry={selected} />
+          </div>
         )}
       </div>
 

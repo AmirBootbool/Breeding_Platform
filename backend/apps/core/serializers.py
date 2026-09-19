@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
 
-from .models import Location, Program, Season, UserPreference, UserProfile
+from .models import Location, Program, Season, UserPreference, UserProfile, WeatherObservation
 
 
 class AuditSerializerMixin(serializers.Serializer):
@@ -119,4 +119,23 @@ class UserPreferenceSerializer(serializers.ModelSerializer):
         model = UserPreference
         fields = ["data", "updated_at"]
         read_only_fields = ["updated_at"]
+
+
+class WeatherObservationSerializer(serializers.ModelSerializer):
+    location_name = serializers.CharField(source="location.name", read_only=True)
+
+    class Meta:
+        model = WeatherObservation
+        fields = [
+            "id",
+            "location",
+            "location_name",
+            "date",
+            "temp_min_c",
+            "temp_max_c",
+            "precipitation_mm",
+            "source",
+        ]
+        read_only_fields = ["id", "location_name"]
+
 

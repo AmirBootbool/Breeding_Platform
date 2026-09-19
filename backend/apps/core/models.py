@@ -159,3 +159,36 @@ class UserPreference(models.Model):
     def __str__(self):
         return f"Preferences({self.user.username})"
 
+
+class ShareLink(models.Model):
+    TARGET_TYPE_CHOICES = [
+        ("season_summary", "Season Summary"),
+    ]
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    target_type = models.CharField(max_length=32, choices=TARGET_TYPE_CHOICES)
+    target_id = models.PositiveIntegerField()
+    expires_at = models.DateTimeField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        from django.utils import timezone
+        return timezone.now() < self.expires_at
+
+
+class WeatherObservation(models.Model):
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="weather_observations")
+    date = models.DateField()
+    temp_min_c = models.FloatField(null=True, blank=True)
+    temp_max_c = models.FloatField(null=True, blank=True)
+    precipitation_mm = models.FloatField(null=True, blank=True)
+    source = models.CharField(max_length=100, blank=True, default="manual import")
+
+    class Meta:
+        unique_together = ("location", "date")
+        ordering = ["-date"]
+
+

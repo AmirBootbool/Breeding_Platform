@@ -1388,6 +1388,739 @@ Add this next to each existing `is_check` badge occurrence in the file (there ar
 
 ---
 
+## Section E — Tier 3 (do after A, B, C, D)
+
+Six tickets. No dependencies between them except where noted.
+
+### Ticket E1 — Guided trial-design wizard (lightweight version)
+
+**Goal:** Deliberately NOT a full wizard — a simple rule-of-thumb recommendation shown where the entry count is already known (`frontend/src/components/SendToTrialModal.tsx`), so a breeder picking a design type gets a plain-language starting point instead of choosing blind. This is a heuristic, not a statistically rigorous recommendation engine — phrase it as a suggestion the breeder can ignore, never auto-apply it.
+
+**File: `frontend/src/components/SendToTrialModal.tsx`.**
+- Add a pure helper function near the top of the file, after the `DESIGN_OPTIONS` array:
+  ```ts
+  function recommendDesignType(entryCount: number): { recommended: string; rationale: string } | null {
+    if (entryCount <= 0) return null
+    if (entryCount <= 20) {
+      return { recommended: 'RCBD', rationale: `With ${entryCount} entries, full replication (RCBD) is usually manageable and simple to analyze.` }
+    }
+    if (entryCount <= 100) {
+      return { recommended: 'alpha_lattice', rationale: `With ${entryCount} entries, alpha-lattice incomplete blocks typically control field variation better than plain RCBD at this scale.` }
+    }
+    return { recommended: 'prep', rationale: `With ${entryCount} entries, a partially-replicated (p-rep) design is often more seed- and space-efficient than full replication.` }
+  }
+  ```
+- Near the "Experimental Design Type" field (the `<select>` bound to `form.design_type`), add, above it:
+  ```tsx
+  {(() => {
+    const rec = recommendDesignType(germplasmIds.length)
+    if (!rec || rec.recommended === form.design_type) return null
+    return (
+      <div className="alert alert-info mb-2" style={{ gridColumn: '1/-1' }}>
+        <span>💡</span>
+        <span>
+          {rec.rationale}{' '}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('design_type', rec.recommended)}>
+            Use {rec.recommended}
+          </button>
+        </span>
+      </div>
+    )
+  })()}
+  ```
+  This is advisory only — it never changes `form.design_type` unless the breeder clicks the button.
+
+**Verification:** `cd frontend; npx tsc --noEmit` (0 errors). Manual check: with 5 germplasm selected, RCBD is suggested; with 150 selected, p-rep is suggested; picking a different design type manually makes the banner disappear (since `rec.recommended === form.design_type` short-circuits).
+
+### Ticket E2 — QC/outlier-review step post-import
+
+**Goal:** No step today reviews imported data for likely errors before it feeds into ranking/analysis. Add a per-trial outlier check: for each numeric trait, flag observations more than 3 standard deviations from that trait's mean within the trial.
+
+**Important:** compute mean/standard deviation in Python, not with a database aggregate. This project runs on SQLite in local dev (`USE_SQLITE=True` per the README) and SQLite has no built-in `STDDEV` function — Django's `StdDev`/`Variance` ORM aggregates would raise `OperationalError` there. Pulling the values into Python and using the standard library `statistics` module avoids this entirely and needs no new dependency.
+
+**File 1: `backend/apps/trials/viewsets.py`, inside `TrialViewSet`.** Add:
+```python
+    @action(detail=True, methods=["get"], url_path="qc_flags")
+    def qc_flags(self, request, pk=None):
+        """Numeric observations more than 3 standard deviations from their
+        trait's mean within this trial. Computed in Python (not a DB
+        aggregate) because SQLite has no STDDEV function and this project
+        runs on SQLite in local dev."""
+        import statistics
+        from .models import Observation, ObservationVariable
+
+        trial = self.get_object()
+        variable_ids = (
+            Observation.objects.filter(plot__trial=trial, value_numeric__isnull=False)
+            .values_list("variable_id", flat=True)
+            .distinct()
+        )
+        flags = []
+        for variable in ObservationVariable.objects.filter(id__in=variable_ids):
+            observations = list(
+                Observation.objects.filter(
+                    plot__trial=trial, variable=variable, value_numeric__isnull=False
+                ).select_related("plot")
+            )
+            if len(observations) < 3:
+                continue
+            values = [o.value_numeric for o in observations]
+            mean = statistics.mean(values)
+            try:
+                stdev = statistics.stdev(values)
+            except statistics.StatisticsError:
+                continue
+            if stdev == 0:
+                continue
+            for obs in observations:
+                z = (obs.value_numeric - mean) / stdev
+                if abs(z) > 3:
+                    flags.append({
+                        "plot_number": obs.plot.plot_number,
+                        "variable_name": variable.name,
+                        "value": obs.value_numeric,
+                        "trial_mean": round(mean, 3),
+                        "trial_stdev": round(stdev, 3),
+                        "z_score": round(z, 2),
+                    })
+        return Response(flags)
+```
+
+**File 2: `frontend/src/api/client.ts`.** Add an interface and a client method on the existing `trials` object:
+```ts
+export interface QcFlag {
+  plot_number: number
+  variable_name: string
+  value: number
+  trial_mean: number
+  trial_stdev: number
+  z_score: number
+}
+```
+```ts
+  getQcFlags: (id: number) => apiFetch<QcFlag[]>(`/trials/${id}/qc_flags/`),
+```
+
+**File 3: create `frontend/src/components/trials/QcReviewTab.tsx`** (new file, sibling to `AdvancePlotsTab.tsx`):
+```tsx
+import { useQuery } from '@tanstack/react-query'
+import { trials, Trial } from '../../api/client'
+
+export default function QcReviewTab({ trial }: { trial: Trial }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['qc-flags', trial.id],
+    queryFn: () => trials.getQcFlags(trial.id),
+  })
+
+  if (isLoading) return <div className="loading-spinner"><div className="spinner" /> Checking for outliers…</div>
+  if (!data || data.length === 0) {
+    return (
+      <div className="empty-state">
+        <div className="empty-icon">✓</div>
+        <p>No statistical outliers found (values within 3 standard deviations of each trait's mean).</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-muted mb-3">{data.length} observation(s) are more than 3 standard deviations from their trait's mean in this trial. This is a statistical flag, not proof of an error — review before trusting them in analysis.</p>
+      <table className="data-table">
+        <thead>
+          <tr><th>Plot</th><th>Trait</th><th>Value</th><th>Trial Mean</th><th>Trial Std Dev</th><th>Z-score</th></tr>
+        </thead>
+        <tbody>
+          {data.map((f, i) => (
+            <tr key={i}>
+              <td>{f.plot_number}</td><td>{f.variable_name}</td>
+              <td className="font-bold">{f.value}</td>
+              <td className="text-muted">{f.trial_mean}</td>
+              <td className="text-muted">{f.trial_stdev}</td>
+              <td><span className="badge badge-amber">{f.z_score}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+```
+
+**File 4: `frontend/src/components/trials/TrialDetail.tsx`.** Add the import: `import QcReviewTab from './QcReviewTab'`. In the `tabs={[...]}` array passed to `<Tabs>` (starts around the `germplasm`/`field-map`/`observations`/`selections` tab objects), add a new tab object, e.g. after the `observations` tab:
+```tsx
+          {
+            id: 'qc',
+            label: '🔍 QC Review',
+            content: (
+              <div className="card">
+                <QcReviewTab trial={trial} />
+              </div>
+            ),
+          },
+```
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add a test: a trial with 10 observations of value ~10 and one observation of value 1000 for the same trait flags exactly that one observation). `cd frontend; npx tsc --noEmit` (0 errors).
+
+### Ticket E3 — Scoring-consistency / calibration guide for technicians
+
+**Goal:** No formal method exists today to keep subjective trait scoring (disease severity, visual ratings) consistent across technicians. Add an optional reference-guide field to each trait definition, so at minimum the guide lives in the platform next to the trait it describes.
+
+**Scope note:** this does not modify the external Field Book app itself (out of scope — that's a separate open-source project) — it only makes the guide visible in this platform's own trait management and trial views.
+
+**File 1: `backend/apps/trials/models.py`, in the `ObservationVariable` class.** Add, near the existing `description` field:
+```python
+    scoring_guide = models.TextField(
+        blank=True,
+        help_text="Reference text, scale definitions, or a URL to a photo standard, for keeping scoring consistent across technicians.",
+    )
+```
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations trials
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 2: `backend/apps/trials/serializers.py`.** Find `ObservationVariableSerializer` and add `"scoring_guide",` to its `Meta.fields` list, in the same style as the existing `description` field.
+
+**File 3: `frontend/src/api/client.ts`.** Find the `ObservationVariable` interface and add: `scoring_guide: string`.
+
+**File 4: `frontend/src/pages/Traits.tsx`.** This file manages `ObservationVariable` records but was not read during this audit. Locate its create/edit form (it will already have a `description` field, following this model's existing pattern) and add a `scoring_guide` textarea alongside it, plus display it in whatever read-only detail/list view already shows `description`.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (no regressions). `cd frontend; npx tsc --noEmit` (0 errors). Manually confirm a scoring guide can be saved on a trait and is visible when reviewing that trait.
+
+### Ticket E4 — Photo attachment on observations
+
+**Goal:** `Observation` has no image field at all today (only `value_text`/`value_numeric`/`value_date`/`notes`) — a field photo can't be attached to a plot's record. This is a bigger, genuinely new piece of infrastructure (file storage), not a small field addition — treat it with more care than the other tickets in this section.
+
+**New dependency:** Django's `ImageField` requires Pillow, which is not currently in this project's dependencies.
+
+**File 1: `backend/requirements/base.txt`.** Add a new line:
+```
+Pillow>=10.0,<11.0
+```
+Then run `pip install -r requirements/base.txt` (or reinstall however this project's venv is normally updated) before running migrations.
+
+**File 2: `backend/config/settings.py`.** Confirm whether `MEDIA_ROOT` and `MEDIA_URL` are already defined (they were not found anywhere in this codebase during this audit). If absent, add:
+```python
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+```
+Match whatever `BASE_DIR` convention this settings file already uses (it's a standard Django setting that should already exist near the top of the file).
+
+**File 3: `backend/config/urls.py`.** In `DEBUG` mode, Django doesn't serve uploaded media files by default. Add, near the bottom of the file (this project already imports `settings` — confirm the exact existing import before adding a duplicate):
+```python
+if settings.DEBUG:
+    from django.conf.urls.static import static
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+```
+Production (behind Nginx, per `docker-compose.prod.yml`) will need its own media-serving configuration — that reverse-proxy config was not read during this audit, so do not assume this line alone is sufficient in production; flag that as a separate, explicit follow-up rather than silently declaring this ticket "done" for production use.
+
+**File 4: `backend/apps/trials/models.py`.** Add a new model at the end of the file:
+```python
+class ObservationPhoto(models.Model):
+    observation = models.ForeignKey(
+        Observation, on_delete=models.CASCADE, related_name="photos"
+    )
+    image = models.ImageField(upload_to="observation_photos/%Y/%m/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+
+    def __str__(self):
+        return f"Photo for {self.observation}"
+```
+Confirm `settings` is already imported at the top of this file (it is, per the existing `created_by`/`updated_by` fields elsewhere in this module).
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations trials
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 5: `backend/apps/trials/serializers.py`.** Add:
+```python
+class ObservationPhotoSerializer(serializers.ModelSerializer):
+    uploaded_by_username = serializers.CharField(source="uploaded_by.username", read_only=True, default=None)
+
+    class Meta:
+        model = ObservationPhoto
+        fields = ["id", "observation", "image", "uploaded_at", "uploaded_by", "uploaded_by_username"]
+        read_only_fields = ["id", "uploaded_at", "uploaded_by"]
+```
+Add `ObservationPhoto` to this file's `from .models import ...` line.
+
+**File 6: `backend/apps/trials/viewsets.py`, inside `ObservationViewSet`.** Add an upload action:
+```python
+    @action(
+        detail=True, methods=["post"],
+        parser_classes=[MultiPartParser], url_path="upload_photo",
+    )
+    def upload_photo(self, request, pk=None):
+        from .models import ObservationPhoto
+        from .serializers import ObservationPhotoSerializer
+
+        observation = self.get_object()
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response({"detail": "image file is required (form key 'image')."}, status=400)
+
+        photo = ObservationPhoto.objects.create(
+            observation=observation, image=image_file, uploaded_by=request.user,
+        )
+        return Response(ObservationPhotoSerializer(photo).data, status=201)
+```
+Confirm `MultiPartParser` is already imported in this file (it is, used by `bulk_import`/`import_fieldbook`).
+
+**File 7: `frontend/src/api/client.ts`.** Add an interface and a method — locate the section handling `Observation`-related calls and add nearby:
+```ts
+export interface ObservationPhoto {
+  id: number
+  observation: number
+  image: string
+  uploaded_at: string
+  uploaded_by: number | null
+  uploaded_by_username: string | null
+}
+```
+```ts
+  uploadObservationPhoto: (observationId: number, file: File) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const token = getToken()
+    return fetch(`${BASE}/observations/${observationId}/upload_photo/`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Token ${token}` } : {},
+      body: formData,
+    }).then(res => {
+      if (!res.ok) throw new Error('Photo upload failed.')
+      return res.json() as Promise<ObservationPhoto>
+    })
+  },
+```
+Match this to wherever `Observation`-related client functions already live in this file, and confirm `getToken`/`BASE` are accessible in that scope the same way `importFieldBook` already uses them.
+
+**File 8: frontend UI.** This project's per-plot observation entry UI (`ObservationGrid`, referenced from `TrialDetail.tsx`, and/or `frontend/src/pages/ObservationEntry.tsx`) was not read during this audit. Locate wherever a single observation's value is entered/edited and add a small "📷 Attach Photo" button that opens a file picker and calls `observations.uploadObservationPhoto(observationId, file)` (add this method to whichever domain object in `client.ts` already wraps `/observations/` calls), then displays any existing `photos` thumbnails for that observation. Do not guess at this component's exact structure — read it first.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add a test uploading a small in-memory test image via `upload_photo` and asserting a 201 and that `ObservationPhoto` row exists). `cd frontend; npx tsc --noEmit` (0 errors). Manual check: upload a photo to an observation and confirm it's retrievable via its `image` URL.
+
+### Ticket E5 — Daily cross-nursery task agenda
+
+**Goal:** `PendingObservationsWidget` (fixed in Ticket C3) is a small dashboard card — useful, but limited to a couple of lines. Build a full page that assembles the same underlying signals (low stock, trials needing attention, crossing blocks ready for action) with more detail, for a breeder who wants one place to check every morning across every active nursery.
+
+**Depends on Ticket C3** (`useNeedsAttentionTrials`) already existing.
+
+**File 1: create `frontend/src/pages/TodaysTasks.tsx`** (new file):
+```tsx
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { crossingBlocks } from '../api/client'
+import { useLowStockAlerts } from '../components/common/useLowStockAlerts'
+import { useNeedsAttentionTrials } from '../components/common/useNeedsAttentionTrials'
+import TopBar from '../components/TopBar'
+
+export default function TodaysTasks() {
+  const navigate = useNavigate()
+  const { data: lowStockLots } = useLowStockAlerts()
+  const { data: staleTrials } = useNeedsAttentionTrials()
+  const { data: crossingBlocksData } = useQuery({
+    queryKey: ['crossing-blocks-dashboard'],
+    queryFn: () => crossingBlocks.list(),
+  })
+  const activeBlocksWithCrosses = (crossingBlocksData?.results ?? []).filter(b => b.cross_count > 0)
+
+  const totalTasks = (lowStockLots?.length ?? 0) + (staleTrials?.length ?? 0) + activeBlocksWithCrosses.length
+
+  return (
+    <div className="page-shell">
+      <TopBar title="Today's Tasks" subtitle={`${totalTasks} item(s) across all active nurseries`} />
+
+      {totalTasks === 0 ? (
+        <div className="empty-state"><div className="empty-icon">✓</div><p>Nothing needs attention right now.</p></div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {staleTrials && staleTrials.length > 0 && (
+            <div className="card">
+              <div className="card-title">📋 Trials With No Observations Yet ({staleTrials.length})</div>
+              <ul>
+                {staleTrials.map(t => (
+                  <li key={t.id}>
+                    <a onClick={() => navigate('/trials')} style={{ cursor: 'pointer' }}>{t.trial_code} — {t.name}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {lowStockLots && lowStockLots.length > 0 && (
+            <div className="card">
+              <div className="card-title">⚠️ Low Seed Stock ({lowStockLots.length})</div>
+              <ul>
+                {lowStockLots.map(lot => (
+                  <li key={lot.id}>
+                    <a onClick={() => navigate('/seed-inventory')} style={{ cursor: 'pointer' }}>{lot.lot_code} — {lot.germplasm_name} ({lot.quantity_grams}g)</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {activeBlocksWithCrosses.length > 0 && (
+            <div className="card">
+              <div className="card-title">✂️ Crossing Blocks Ready ({activeBlocksWithCrosses.length})</div>
+              <ul>
+                {activeBlocksWithCrosses.map(b => (
+                  <li key={b.id}>
+                    <a onClick={() => navigate('/crosses')} style={{ cursor: 'pointer' }}>{b.name}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+**File 2: `frontend/src/App.tsx`.** Add the import and a new route alongside the others (e.g. after `/trials`):
+```tsx
+<Route path="/tasks" element={<TodaysTasks />} />
+```
+
+**File 3:** add a link to this new page somewhere in the app's main navigation (the sidebar/nav component wasn't read during this audit — locate it and add a `/tasks` entry following the same pattern as the existing nav links).
+
+**Verification:** `cd frontend; npx tsc --noEmit` (0 errors). Manual check: the page loads and shows the same underlying items as the Dashboard's `PendingObservationsWidget`, just with more detail and one item per line.
+
+### Ticket E6 — Multi-year historical performance in the crossing picker
+
+**Goal:** `CrossingBlock.tsx`'s parent pickers show no performance data at all today. Add a lightweight historical average — explicitly a simple raw average across whatever observations exist for a trait, across all seasons a line has been in, not a re-run of the MEA mixed-model (that computation is too expensive to trigger for every germplasm shown in a picker list).
+
+**File 1: `backend/apps/germplasm/viewsets.py`, inside `GermplasmViewSet`.** Add:
+```python
+    @action(detail=False, methods=["post"], url_path="observation_summary")
+    def observation_summary(self, request):
+        """Body: {"germplasm_ids": [...], "variable_id": <id>}.
+        Returns a simple historical average per germplasm — a raw mean
+        across every recorded observation for that trait, across every
+        season/trial the germplasm has appeared in. This is NOT the
+        environment-adjusted BLUE/BLUP from MultiEnvironmentAnalysis —
+        it's a cheap approximation suitable for a picker list, not a
+        substitute for the real ranking analysis."""
+        from apps.trials.models import Observation
+
+        germplasm_ids = request.data.get("germplasm_ids", [])
+        variable_id = request.data.get("variable_id")
+        if not variable_id or not germplasm_ids:
+            return Response({"detail": "germplasm_ids and variable_id are required."}, status=400)
+
+        results = []
+        for gid in germplasm_ids:
+            obs = Observation.objects.filter(
+                plot__germplasm_id=gid, variable_id=variable_id, value_numeric__isnull=False
+            ).select_related("plot__trial__season")
+            values = [o.value_numeric for o in obs]
+            seasons = {o.plot.trial.season_id for o in obs if o.plot.trial.season_id}
+            results.append({
+                "germplasm": gid,
+                "avg_value": round(sum(values) / len(values), 3) if values else None,
+                "observation_count": len(values),
+                "season_count": len(seasons),
+            })
+        return Response(results)
+```
+
+**File 2: `frontend/src/api/client.ts`.** Add an interface and a method on the existing `germplasm` object:
+```ts
+export interface ObservationSummary {
+  germplasm: number
+  avg_value: number | null
+  observation_count: number
+  season_count: number
+}
+```
+```ts
+  getObservationSummary: (germplasmIds: number[], variableId: number) =>
+    apiFetch<ObservationSummary[]>('/germplasm/observation_summary/', {
+      method: 'POST',
+      body: JSON.stringify({ germplasm_ids: germplasmIds, variable_id: variableId }),
+    }),
+```
+
+**File 3: `frontend/src/pages/CrossingBlock.tsx`.**
+- Add state for the selected trait, and fetch the observation-variable list, near the other top-level state in the main `CrossingBlock` component: `const [perfVariableId, setPerfVariableId] = useState<number | ''>('')`. Fetch the variable list the same way this app fetches it elsewhere (via `observationVariables.list()` — confirm the exact import path/client object name against `frontend/src/api/client.ts` before using it, it wasn't re-verified in this ticket).
+- Fetch the summary for whichever germplasm entries are currently visible in the picker(s):
+  ```ts
+  const { data: perfResults } = useQuery({
+    queryKey: ['observation-summary', allGermplasm.map(g => g.id).join(','), perfVariableId],
+    queryFn: () => germplasm.getObservationSummary(allGermplasm.map(g => g.id), Number(perfVariableId)),
+    enabled: !!perfVariableId && allGermplasm.length > 0,
+  })
+  const perfByGermplasmId = new Map((perfResults ?? []).map(r => [r.germplasm, r]))
+  ```
+- Add a trait-selector `<select>` above the two `<GermplasmPanel>` components, and pass `perfByGermplasmId` down as a new prop to `GermplasmPanel`.
+- In `GermplasmPanel`'s row rendering (the `filtered.map(entry => (...))` block), add, next to the existing `germplasm_db_id` span:
+  ```tsx
+  {perfByGermplasmId?.get(entry.id) && (
+    <span className="text-xs text-muted" title={`${perfByGermplasmId.get(entry.id)!.observation_count} observations across ${perfByGermplasmId.get(entry.id)!.season_count} season(s)`}>
+      avg {perfByGermplasmId.get(entry.id)!.avg_value ?? '—'}
+    </span>
+  )}
+  ```
+  Add `perfByGermplasmId?: Map<number, { avg_value: number | null; observation_count: number; season_count: number }>` to `GermplasmPanel`'s props type.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add a test: a germplasm with observations of a trait across 2 different seasons returns the correct average and `season_count: 2`). `cd frontend; npx tsc --noEmit` (0 errors).
+
+---
+
+## Section F — Tier 4
+
+Four items. F1 is a discovery task, not a code ticket — do not write speculative code against an unknown external format. F2–F4 have real specs where this audit found enough to ground them, with explicit callouts where a decision or further reading is still needed.
+
+### Ticket F1 — External reporting to funders/certification bodies (discovery, not implementation)
+
+**Do not write code for this yet.** The concrete requirement is unknown — which specific certification body or funder, what format they require (a specific CSV column layout? A PDF form? A BrAPI submission?), and how often. Writing an export against a guessed format would very likely be wrong and wasted effort.
+
+**Before this becomes a ticket:** get the actual answer to: (1) name the specific certifying body/funder and their submission format, (2) get a sample of the exact file/form they expect, (3) confirm whether this is a one-time need or recurring every season. Once that exists, check whether the platform's existing generic exports (`frontend/src/pages/DataExport.tsx`, and BrAPI v2 endpoints already implemented per `apps.brapi`) already satisfy it before building anything new — a lot of "external reporting" needs are just a specific column selection on data that's already exportable.
+
+### Ticket F2 — Shareable read-only report link
+
+**Goal:** Let a breeder share a specific Season Report (Ticket D3) with an external stakeholder (funder, certification reviewer) via a link, without giving them a full account. This is genuinely security-sensitive — read the caveats below before building it.
+
+**Security note (do not skip):** the shared link must use a long, cryptographically random token (not a guessable sequential ID), must be scoped to exactly one resource (a season summary, nothing else reachable from the same token), and should expire. This exposes program data outside authentication entirely for anyone holding the link — that's an explicit product decision, not just an implementation detail; flag it to the user again before this ships if it wasn't already discussed at the point of building it.
+
+**File 1: `backend/apps/core/models.py`.** Add a new model:
+```python
+class ShareLink(models.Model):
+    TARGET_TYPE_CHOICES = [
+        ("season_summary", "Season Summary"),
+    ]
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    target_type = models.CharField(max_length=32, choices=TARGET_TYPE_CHOICES)
+    target_id = models.PositiveIntegerField()
+    expires_at = models.DateTimeField()
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        from django.utils import timezone
+        return timezone.now() < self.expires_at
+```
+`target_type` only supports `"season_summary"` for now, deliberately — do not generalize this to "share anything" without deciding the access-control implications for each new target type first.
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations core
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 2: `backend/apps/core/viewsets.py`, inside `SeasonViewSet`.** Add an action to create a share link for a season's summary:
+```python
+    @action(detail=True, methods=["post"], url_path="create_share_link")
+    def create_share_link(self, request, pk=None):
+        import secrets
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import ShareLink
+
+        season = self.get_object()
+        days_valid = int(request.data.get("days_valid", 30))
+        link = ShareLink.objects.create(
+            token=secrets.token_urlsafe(32),
+            target_type="season_summary",
+            target_id=season.id,
+            expires_at=timezone.now() + timedelta(days=days_valid),
+            created_by=request.user,
+        )
+        return Response({"token": link.token, "expires_at": link.expires_at})
+```
+
+**File 3: `backend/apps/core/urls.py` (or wherever this app's non-router URL patterns live — check the existing pattern before adding).** Add a public, unauthenticated endpoint:
+```python
+from django.urls import path
+from .public_views import public_season_summary
+
+urlpatterns += [
+    path("public/shared/<str:token>/", public_season_summary, name="public-season-summary"),
+]
+```
+
+**File 4: create `backend/apps/core/public_views.py`** (new file):
+```python
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+from .models import ShareLink
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def public_season_summary(request, token):
+    try:
+        link = ShareLink.objects.get(token=token)
+    except ShareLink.DoesNotExist:
+        return Response({"detail": "Link not found."}, status=404)
+    if not link.is_valid():
+        return Response({"detail": "This link has expired."}, status=410)
+    if link.target_type != "season_summary":
+        return Response({"detail": "Unsupported link type."}, status=400)
+
+    from apps.trials.models import Trial
+    from apps.germplasm.models import Cross
+    from .models import Season
+
+    try:
+        season = Season.objects.get(pk=link.target_id)
+    except Season.DoesNotExist:
+        return Response({"detail": "Season no longer exists."}, status=404)
+
+    trials_qs = Trial.objects.filter(season=season).select_related("location")
+    trial_summary = [
+        {"trial_code": t.trial_code, "name": t.name, "status": t.status, "plot_count": t.plot_set.count()}
+        for t in trials_qs
+    ]
+    crosses_qs = Cross.objects.filter(crossing_block__season=season)
+
+    return Response({
+        "season_name": season.name,
+        "year": season.year,
+        "trial_count": trials_qs.count(),
+        "trials": trial_summary,
+        "cross_count": crosses_qs.count(),
+    })
+```
+Note this deliberately returns a smaller, coarser payload than the authenticated `/seasons/{id}/summary/` from Ticket D3 (no location names, no per-status cross breakdown) — an external viewer should see less detail than an authenticated program member, not the same amount. Do not just proxy the D3 endpoint here.
+
+**File 5: `frontend/src/pages/SeasonReport.tsx`.** Add a "Share" button next to the existing Print button, calling a new `seasons.createShareLink(seasonId)` client method (add it to the `seasons` object in `client.ts`, following the same POST pattern as other actions in this spec), then show the resulting public URL (`${window.location.origin}/shared/{token}`) in a copyable text box.
+
+**File 6: create a new public page** at a route like `/shared/:token` (add to `App.tsx`, **outside** the authenticated `ProtectedLayout` route tree — check how `/login` is registered outside that tree and mirror it) that fetches `GET /api/public/shared/{token}/` directly (no auth token attached) and renders a read-only version of the season summary.
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add tests: a valid token returns data; an expired token returns 410; a nonexistent token returns 404; confirm the public endpoint requires no `Authorization` header). `cd frontend; npx tsc --noEmit` (0 errors).
+
+### Ticket F3 — Map/GIS view of active nurseries
+
+**Goal:** `Location` already has `latitude`/`longitude` fields (confirmed in this audit — no schema change needed there). Add a map view plotting every location that has at least one active trial.
+
+**New frontend dependency:** this project has no map library today. Add `leaflet` and `react-leaflet`, using free OpenStreetMap tiles — no API key required, no external account to set up.
+
+**File 1: `frontend/package.json`.** Add dependencies (check current React version compatibility before picking exact versions — `react-leaflet` v4 requires React 18+):
+```
+npm install leaflet react-leaflet
+npm install --save-dev @types/leaflet
+```
+
+**File 2: create `frontend/src/pages/NurseryMap.tsx`** (new file):
+```tsx
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import { trials, locations } from '../api/client'
+import TopBar from '../components/TopBar'
+
+export default function NurseryMap() {
+  const navigate = useNavigate()
+  const { data: locationsData } = useQuery({ queryKey: ['locations-all'], queryFn: () => locations.list() })
+  const { data: trialsData } = useQuery({ queryKey: ['trials-all-active'], queryFn: () => trials.list('&status=active&page_size=500') })
+
+  const locationList = (locationsData?.results ?? []).filter(l => l.latitude != null && l.longitude != null)
+  const activeTrialsByLocation = new Map<number, number>()
+  ;(trialsData?.results ?? []).forEach(t => {
+    activeTrialsByLocation.set(t.location, (activeTrialsByLocation.get(t.location) ?? 0) + 1)
+  })
+
+  const plottedLocations = locationList.filter(l => activeTrialsByLocation.has(l.id))
+  const center: [number, number] = plottedLocations.length > 0
+    ? [plottedLocations[0].latitude!, plottedLocations[0].longitude!]
+    : [0, 0]
+
+  return (
+    <div className="page-shell">
+      <TopBar title="Nursery Map" subtitle={`${plottedLocations.length} active location(s)`} />
+      {plottedLocations.length === 0 ? (
+        <div className="empty-state"><div className="empty-icon">🗺️</div><p>No active locations have coordinates set yet. Add latitude/longitude on a Location to see it here.</p></div>
+      ) : (
+        <div className="card" style={{ height: 500, padding: 0, overflow: 'hidden' }}>
+          <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            {plottedLocations.map(l => (
+              <Marker key={l.id} position={[l.latitude!, l.longitude!]}>
+                <Popup>
+                  <strong>{l.name}</strong><br />
+                  {activeTrialsByLocation.get(l.id)} active trial(s)
+                  <br />
+                  <a onClick={() => navigate(`/trials?location=${l.id}`)} style={{ cursor: 'pointer' }}>View trials →</a>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+Confirm `locations.list()` and the `Location`/`Trial` TypeScript interfaces already expose `latitude`/`longitude`/`location` the way this snippet assumes — cross-check against `client.ts` before relying on it.
+
+**File 3: `frontend/src/App.tsx`.** Add the import and a new route alongside the others:
+```tsx
+<Route path="/nursery-map" element={<NurseryMap />} />
+```
+
+**File 4:** add a nav link to `/nursery-map`, same caveat as Ticket E5 — the nav component wasn't read in this audit, locate it and match its existing pattern.
+
+**Verification:** `cd frontend; npx tsc --noEmit` (0 errors). Manual check: set lat/long on at least one Location with an active trial, confirm a marker appears at roughly the right place on the map, and the popup's "View trials" link works.
+
+### Ticket F4 — Weather data linked to trial locations (CSV import v1; live API fetch deferred)
+
+**Goal:** scoped deliberately narrow for a first version: store weather data per location/date and let the breeder see it against a trial's timeline, via **manual CSV import** — not a live weather-API integration. A live API integration needs a provider choice (NOAA, a commercial weather API, a local ag-met network) and credentials that only the user can decide on; don't invent one. CSV import needs no such decision and reuses this project's existing import infrastructure.
+
+**File 1: `backend/apps/core/models.py`.** Add:
+```python
+class WeatherObservation(models.Model):
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="weather_observations")
+    date = models.DateField()
+    temp_min_c = models.FloatField(null=True, blank=True)
+    temp_max_c = models.FloatField(null=True, blank=True)
+    precipitation_mm = models.FloatField(null=True, blank=True)
+    source = models.CharField(max_length=100, blank=True, default="manual import")
+
+    class Meta:
+        unique_together = ("location", "date")
+        ordering = ["-date"]
+```
+
+**Migration:**
+```
+cd backend
+.\.venv\Scripts\python manage.py makemigrations core
+.\.venv\Scripts\python manage.py migrate
+```
+
+**File 2: `backend/apps/core/models.py` / `serializers.py` / `viewsets.py` / `urls.py`.** Add a standard `WeatherObservationSerializer` + `WeatherObservationViewSet(ProgramScopedQuerySetMixin, viewsets.ModelViewSet)` — **note:** `WeatherObservation` has no direct `program` field, only `location`; set `program_lookup = "location__program_id"` on the viewset if `Location` has a `program` FK, or check how `Location` is scoped elsewhere in this codebase first (it wasn't confirmed program-scoped in this audit) before assuming that lookup path is correct. Register it in `apps/core/urls.py`'s router as `router.register(r"weather", WeatherObservationViewSet, basename="weather")`, following the exact pattern already used for `seasons`/other core routes in that file.
+
+**File 3:** CSV import. Reuse `apps.core.spreadsheet` (the shared CSV/Excel reader already used for Field Book import, per this project's own engineering convention: "Spreadsheet import/export goes through `apps.core.spreadsheet`... rather than ad hoc `csv`/`openpyxl` calls"). Add an import endpoint or management command accepting columns `location, date, temp_min_c, temp_max_c, precipitation_mm` — mirror `import_fieldbook_csv`'s structure (column matching, per-row validation errors, dry-run) rather than writing a new ad hoc parser. This file wasn't fully re-read for this specific ticket — follow the exact per-row error-collection pattern established in `import_fieldbook_csv` (`backend/apps/trials/services.py`) when implementing this.
+
+**File 4: frontend.** A simple read-only table (not a chart, for v1) added as a new tab in `TrialDetail.tsx`'s `Tabs` array (same pattern as Ticket E2's QC tab), showing `WeatherObservation` rows for the trial's `location` between `planting_date` and `harvest_date` (or today, if not yet harvested).
+
+**Explicitly deferred, do not build without a follow-up decision from the user:** live weather-API auto-fetching. That needs: which provider, an API key/credential storage decision, and a fetch-scheduling mechanism (cron/Celery — check whether this project has any background-job infrastructure at all before assuming one is available).
+
+**Verification:** `cd backend; .\.venv\Scripts\python -m pytest -q` (add a test for the CSV import path: valid rows create `WeatherObservation` records, an invalid date is reported as a row error). `cd frontend; npx tsc --noEmit` (0 errors).
+
+---
+
 ## Final check
 
-After all sixteen tickets (A1–A3, B1–B5, C1–C4, D1–D4): `cd backend; .\.venv\Scripts\python -m pytest -q` and `cd frontend; npx tsc --noEmit` must both be clean. Initiative 2 (genomics ↔ crossing) is intentionally not part of this spec — it's deferred to a later stage.
+After all twenty-six tickets (A1–A3, B1–B5, C1–C4, D1–D4, E1–E6, F2–F4 — F1 is discovery only, not a code ticket): `cd backend; .\.venv\Scripts\python -m pytest -q` and `cd frontend; npx tsc --noEmit` must both be clean. Initiative 2 (genomics ↔ crossing) is intentionally not part of this spec — it's deferred to a later stage.

@@ -69,3 +69,8 @@ urlpatterns = [
     path("api/", include("apps.genomics.urls")),
     path("brapi/v2/", include("apps.brapi.urls")),
 ]
+
+if settings.DEBUG:
+    from django.conf.urls.static import static
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
